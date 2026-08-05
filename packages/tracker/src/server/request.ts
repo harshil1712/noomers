@@ -20,7 +20,7 @@ export async function makeRequest(
                 "Content-Type": usePost
                     ? "application/x-www-form-urlencoded"
                     : "text/plain",
-                "User-Agent": userAgent || "Counterscale-Tracker-Server/3.4.1",
+                "User-Agent": userAgent || "noomers-tracker-server/3.4.1",
             },
             ...(usePost ? { body: query.slice(1) } : {}),
             signal: controller.signal,

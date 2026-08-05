@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import * as Counterscale from "../../index";
+import * as noomers from "../../index";
 
 describe("Server Integration Tests", () => {
     const mockFetch = vi.fn();
@@ -13,12 +13,12 @@ describe("Server Integration Tests", () => {
             status: 200,
         });
 
-        Counterscale.cleanup();
+        noomers.cleanup();
     });
 
     describe("Express.js Middleware Pattern", () => {
         beforeEach(() => {
-            Counterscale.init({
+            noomers.init({
                 siteId: "express-middleware-test",
                 reporterUrl: collectUrl,
             });
@@ -51,7 +51,7 @@ describe("Server Integration Tests", () => {
 
             // Track each request as Express middleware would
             for (const req of mockRequests) {
-                await Counterscale.trackPageview({
+                await noomers.trackPageview({
                     url: req.originalUrl,
                     hostname: req.host,
                     referrer: req.referer,
@@ -94,7 +94,7 @@ describe("Server Integration Tests", () => {
 
             // Fire all requests concurrently
             const trackingPromises = concurrentRequests.map((req) =>
-                Counterscale.trackPageview(req),
+                noomers.trackPageview(req),
             );
 
             await Promise.all(trackingPromises);
@@ -115,7 +115,7 @@ describe("Server Integration Tests", () => {
 
     describe("E-commerce Tracking Scenarios", () => {
         beforeEach(() => {
-            Counterscale.init({
+            noomers.init({
                 siteId: "ecommerce-test",
                 reporterUrl: collectUrl,
             });
@@ -142,7 +142,7 @@ describe("Server Integration Tests", () => {
             ];
 
             for (const view of productViews) {
-                await Counterscale.trackPageview(view);
+                await noomers.trackPageview(view);
             }
 
             expect(mockFetch).toHaveBeenCalledTimes(3);
@@ -181,7 +181,7 @@ describe("Server Integration Tests", () => {
                         ? `https://shop.example.com${checkoutFunnel[i - 1]}`
                         : "https://google.com/products/search"; // External referrer
 
-                await Counterscale.trackPageview({
+                await noomers.trackPageview({
                     url: checkoutFunnel[i],
                     hostname: "shop.example.com",
                     referrer: previousPage,
@@ -213,27 +213,27 @@ describe("Server Integration Tests", () => {
     describe("Multi-site Tracking", () => {
         it("should handle multiple site IDs with different configurations", async () => {
             // Track for main site
-            Counterscale.init({
+            noomers.init({
                 siteId: "main-site",
                 reporterUrl: collectUrl,
                 reportOnLocalhost: false,
             });
 
-            await Counterscale.trackPageview({
+            await noomers.trackPageview({
                 url: "https://main.example.com/home",
                 referrer: "https://google.com",
             });
 
             // Reinitialize for blog subdomain (different config)
-            Counterscale.cleanup();
-            Counterscale.init({
+            noomers.cleanup();
+            noomers.init({
                 siteId: "blog-site",
                 reporterUrl: collectUrl,
                 reportOnLocalhost: true, // Different setting
                 timeout: 5000,
             });
 
-            await Counterscale.trackPageview({
+            await noomers.trackPageview({
                 url: "https://blog.example.com/post/hello-world",
                 referrer: "https://twitter.com",
             });
@@ -258,7 +258,7 @@ describe("Server Integration Tests", () => {
 
     describe("Error Resilience", () => {
         beforeEach(() => {
-            Counterscale.init({
+            noomers.init({
                 siteId: "error-test",
                 reporterUrl: collectUrl,
                 timeout: 1000,
@@ -271,7 +271,7 @@ describe("Server Integration Tests", () => {
 
             // Should not throw - tracking is fire-and-forget
             await expect(
-                Counterscale.trackPageview({
+                noomers.trackPageview({
                     url: "https://example.com/test",
                 }),
             ).resolves.toBeUndefined();
@@ -284,7 +284,7 @@ describe("Server Integration Tests", () => {
             mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
             try {
-                await Counterscale.trackPageview({
+                await noomers.trackPageview({
                     url: "https://example.com/fail",
                 });
             } catch {
@@ -294,7 +294,7 @@ describe("Server Integration Tests", () => {
             // Second request should work
             mockFetch.mockResolvedValue({ ok: true, status: 200 });
 
-            await Counterscale.trackPageview({
+            await noomers.trackPageview({
                 url: "https://example.com/success",
             });
 
@@ -307,7 +307,7 @@ describe("Server Integration Tests", () => {
 
     describe("Performance with High Volume", () => {
         beforeEach(() => {
-            Counterscale.init({
+            noomers.init({
                 siteId: "performance-test",
                 reporterUrl: collectUrl,
             });
@@ -325,7 +325,7 @@ describe("Server Integration Tests", () => {
 
             // Fire all requests concurrently
             const promises = requests.map(
-                (req) => Counterscale.trackPageview(req).catch(() => {}), // Ignore individual failures
+                (req) => noomers.trackPageview(req).catch(() => {}), // Ignore individual failures
             );
 
             await Promise.all(promises);

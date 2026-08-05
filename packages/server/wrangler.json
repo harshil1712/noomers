@@ -1,6 +1,6 @@
 {
     "main": "./workers/app.ts",
-    "name": "counterscale",
+    "name": "noomers",
     "compatibility_flags": ["nodejs_compat_v2"],
     "compatibility_date": "2024-12-13",
     "assets": {
@@ -15,15 +15,15 @@
     ],
     "r2_buckets": [
         {
-            "bucket_name": "counterscale-daily-rollups",
-            "preview_bucket_name": "counterscale-daily-rollups-dev",
+            "bucket_name": "noomers-daily-rollups",
+            "preview_bucket_name": "noomers-daily-rollups-dev",
             "binding": "DAILY_ROLLUPS"
         }
     ],
     "d1_databases": [
         {
             "binding": "GOALS_DB",
-            "database_name": "counterscale-goals",
+            "database_name": "noomers-goals",
             "database_id": "00000000-0000-0000-0000-000000000000",
             "migrations_dir": "./migrations"
         }

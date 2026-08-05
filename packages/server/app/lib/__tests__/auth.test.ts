@@ -26,10 +26,10 @@ const mockEnvAuthDisabled = {
 describe("auth", () => {
     beforeEach(() => {
         vi.mocked(createJWTCookie).mockReturnValue(
-            "__counterscale_token=test-jwt; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax",
+            "__noomers_token=test-jwt; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax",
         );
         vi.mocked(clearJWTCookie).mockReturnValue(
-            "__counterscale_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax",
+            "__noomers_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax",
         );
         vi.mocked(bcrypt.compare).mockResolvedValue(true as any);
     });
@@ -99,14 +99,14 @@ describe("auth", () => {
             ) as jwt.JwtPayload;
             expect(decoded.authenticated).toBe(true);
             expect(decoded.iat).toBeTypeOf("number");
-            expect(decoded.iss).toBe("counterscale");
+            expect(decoded.iss).toBe("noomers");
 
             expect(result).toEqual({
                 url: "/dashboard",
                 options: {
                     headers: {
                         "Set-Cookie":
-                            "__counterscale_token=test-jwt; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax",
+                            "__noomers_token=test-jwt; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax",
                     },
                 },
             });
@@ -145,7 +145,7 @@ describe("auth", () => {
     describe("logout", () => {
         test("should logout successfully", async () => {
             const request = new Request("http://localhost", {
-                headers: { Cookie: "__counterscale_token=some-jwt" },
+                headers: { Cookie: "__noomers_token=some-jwt" },
             });
 
             const result = await logout(request, mockEnv);
@@ -156,7 +156,7 @@ describe("auth", () => {
                 options: {
                     headers: {
                         "Set-Cookie":
-                            "__counterscale_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax",
+                            "__noomers_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax",
                     },
                 },
             });
@@ -173,7 +173,7 @@ describe("auth", () => {
                 options: {
                     headers: {
                         "Set-Cookie":
-                            "__counterscale_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax",
+                            "__noomers_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax",
                     },
                 },
             });
@@ -186,11 +186,11 @@ describe("auth", () => {
             const validToken = jwt.sign(
                 { authenticated: true, iat: Math.floor(Date.now() / 1000) },
                 mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "counterscale" },
+                { expiresIn: "30d", issuer: "noomers" },
             );
 
             const request = new Request("http://localhost", {
-                headers: { Cookie: `__counterscale_token=${validToken}` },
+                headers: { Cookie: `__noomers_token=${validToken}` },
             });
 
             const result = await requireAuth(request, mockEnv);
@@ -209,7 +209,7 @@ describe("auth", () => {
 
         test("should redirect when JWT is invalid", async () => {
             const request = new Request("http://localhost", {
-                headers: { Cookie: "__counterscale_token=invalid-jwt" },
+                headers: { Cookie: "__noomers_token=invalid-jwt" },
             });
 
             await expect(requireAuth(request, mockEnv)).rejects.toEqual({
@@ -223,11 +223,11 @@ describe("auth", () => {
             const expiredToken = jwt.sign(
                 { authenticated: true, iat: Math.floor(Date.now() / 1000) },
                 mockEnv.CF_JWT_SECRET,
-                { expiresIn: "-1s", issuer: "counterscale" },
+                { expiresIn: "-1s", issuer: "noomers" },
             );
 
             const request = new Request("http://localhost", {
-                headers: { Cookie: `__counterscale_token=${expiredToken}` },
+                headers: { Cookie: `__noomers_token=${expiredToken}` },
             });
 
             await expect(requireAuth(request, mockEnv)).rejects.toEqual({
@@ -251,11 +251,11 @@ describe("auth", () => {
             const validToken = jwt.sign(
                 { authenticated: true, iat: Math.floor(Date.now() / 1000) },
                 mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "counterscale" },
+                { expiresIn: "30d", issuer: "noomers" },
             );
 
             const request = new Request("http://localhost", {
-                headers: { Cookie: `__counterscale_token=${validToken}` },
+                headers: { Cookie: `__noomers_token=${validToken}` },
             });
 
             const result = await getUser(request, mockEnv);
@@ -283,7 +283,7 @@ describe("auth", () => {
 
         test("should return { authenticated: false } when JWT is invalid", async () => {
             const request = new Request("http://localhost", {
-                headers: { Cookie: "__counterscale_token=invalid-jwt" },
+                headers: { Cookie: "__noomers_token=invalid-jwt" },
             });
 
             const result = await getUser(request, mockEnv);
@@ -296,11 +296,11 @@ describe("auth", () => {
             const expiredToken = jwt.sign(
                 { authenticated: true, iat: Math.floor(Date.now() / 1000) },
                 mockEnv.CF_JWT_SECRET,
-                { expiresIn: "-1s", issuer: "counterscale" },
+                { expiresIn: "-1s", issuer: "noomers" },
             );
 
             const request = new Request("http://localhost", {
-                headers: { Cookie: `__counterscale_token=${expiredToken}` },
+                headers: { Cookie: `__noomers_token=${expiredToken}` },
             });
 
             const result = await getUser(request, mockEnv);
@@ -313,12 +313,12 @@ describe("auth", () => {
             const unauthenticatedToken = jwt.sign(
                 { authenticated: false, iat: Math.floor(Date.now() / 1000) },
                 mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "counterscale" },
+                { expiresIn: "30d", issuer: "noomers" },
             );
 
             const request = new Request("http://localhost", {
                 headers: {
-                    Cookie: `__counterscale_token=${unauthenticatedToken}`,
+                    Cookie: `__noomers_token=${unauthenticatedToken}`,
                 },
             });
 
@@ -336,7 +336,7 @@ describe("auth", () => {
             );
 
             const request = new Request("http://localhost", {
-                headers: { Cookie: `__counterscale_token=${wrongIssuerToken}` },
+                headers: { Cookie: `__noomers_token=${wrongIssuerToken}` },
             });
 
             const result = await getUser(request, mockEnv);
@@ -350,11 +350,11 @@ describe("auth", () => {
             const wrongSecretToken = jwt.sign(
                 { authenticated: true, iat: Math.floor(Date.now() / 1000) },
                 "wrong-secret",
-                { expiresIn: "30d", issuer: "counterscale" },
+                { expiresIn: "30d", issuer: "noomers" },
             );
 
             const request = new Request("http://localhost", {
-                headers: { Cookie: `__counterscale_token=${wrongSecretToken}` },
+                headers: { Cookie: `__noomers_token=${wrongSecretToken}` },
             });
 
             const result = await getUser(request, mockEnv);

@@ -7,7 +7,7 @@ describe("session", () => {
       const token = "test-jwt-token";
       const result = createJWTCookie(token);
 
-      expect(result).toBe("__counterscale_token=test-jwt-token; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax");
+      expect(result).toBe("__noomers_token=test-jwt-token; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax");
     });
 
     test("should include Secure flag in production", () => {
@@ -17,7 +17,7 @@ describe("session", () => {
       const result = createJWTCookie(token);
 
       // In development, it should not include Secure
-      expect(result).toBe("__counterscale_token=test-jwt-token; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax");
+      expect(result).toBe("__noomers_token=test-jwt-token; HttpOnly; Max-Age=2592000; Path=/; SameSite=Lax");
     });
   });
 
@@ -25,7 +25,7 @@ describe("session", () => {
     test("should create cookie clearing string", () => {
       const result = clearJWTCookie();
 
-      expect(result).toBe("__counterscale_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax");
+      expect(result).toBe("__noomers_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax");
     });
 
     test("should include Secure flag in production", () => {
@@ -34,7 +34,7 @@ describe("session", () => {
       const result = clearJWTCookie();
 
       // In development, it should not include Secure
-      expect(result).toBe("__counterscale_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax");
+      expect(result).toBe("__noomers_token=; HttpOnly; Max-Age=0; Path=/; SameSite=Lax");
     });
   });
 });

@@ -199,7 +199,7 @@ describe("Auth Commands", () => {
 
             await expect(updatePassword()).rejects.toThrow("process.exit called");
             expect(mockConsoleError).toHaveBeenCalledWith(
-                "❌ Authentication is not enabled. Run 'counterscale auth enable' first."
+                "❌ Authentication is not enabled. Run 'noomers auth enable' first."
             );
             expect(mockProcessExit).toHaveBeenCalledWith(1);
         });

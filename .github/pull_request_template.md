@@ -4,15 +4,15 @@
 
 ## Changes by Package
 
-### @counterscale/cli
+### @noomers/cli
 
 <!-- Describe any changes made to the CLI package -->
 
-### @counterscale/server
+### @noomers/server
 
 <!-- Describe any changes made to the server package -->
 
-### @counterscale/tracker
+### @noomers/tracker
 
 <!-- Describe any changes made to the tracker package -->
 

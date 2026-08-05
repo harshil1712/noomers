@@ -62,7 +62,7 @@ describe("makeRequest", () => {
             method: "POST",
             headers: {
                 "Content-Type": "application/x-www-form-urlencoded",
-                "User-Agent": "Counterscale-Tracker-Server/3.4.1",
+                "User-Agent": "noomers-tracker-server/3.4.1",
             },
             body: "p=%2Ftest&h=example.com&ip=203.0.113.10",
             signal: mockAbortController.signal,

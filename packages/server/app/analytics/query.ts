@@ -114,7 +114,7 @@ function generateEmptyRowsOverInterval(
         if (intervalType === "DAY") {
             // WARNING: Daylight savings hack. Cloudflare Workers uses a different Date
             //          implementation than Node 20.x, which doesn't seem to respect DST
-            //          boundaries the same way(see: https://github.com/benvinegar/counterscale/issues/108).
+            //          boundaries the same way(see: https://github.com/harshil1712/noomers/issues/108).
             //
             //          To work around this, we add 25 hours to the start date/time, then get the
             //          start of the day, then convert it back to a Date object. This works in both

@@ -36,7 +36,7 @@ describe("CloudflareClient", () => {
         it("should use default config path when not provided", () => {
             const defaultClient = new CloudflareClient();
             expect(defaultClient["configPath"]).toBe(
-                path.join(homedir(), ".counterscale", "wrangler.json"),
+                path.join(homedir(), ".noomers", "wrangler.json"),
             );
         });
 
@@ -189,23 +189,23 @@ describe("CloudflareClient", () => {
         it("reuses an existing daily bucket from JSON output", async () => {
             vi.mocked($).mockReturnValueOnce({
                 stdout: JSON.stringify([
-                    { name: "counterscale-daily-rollups" },
+                    { name: "noomers-daily-rollups" },
                 ]),
             } as any);
 
             await expect(
-                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+                client.getOrCreateR2Bucket("noomers-daily-rollups"),
             ).resolves.toBe("existing");
             expect($).toHaveBeenCalledTimes(1);
         });
 
         it("reuses an existing daily bucket from table output", async () => {
             vi.mocked($).mockReturnValueOnce({
-                stdout: "│ counterscale-daily-rollups │ 2026-01-01 │",
+                stdout: "│ noomers-daily-rollups │ 2026-01-01 │",
             } as any);
 
             await expect(
-                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+                client.getOrCreateR2Bucket("noomers-daily-rollups"),
             ).resolves.toBe("existing");
             expect($).toHaveBeenCalledTimes(1);
         });
@@ -216,7 +216,7 @@ describe("CloudflareClient", () => {
                 .mockReturnValueOnce({ stdout: "Created" } as any);
 
             await expect(
-                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+                client.getOrCreateR2Bucket("noomers-daily-rollups"),
             ).resolves.toBe("created");
             expect($).toHaveBeenCalledTimes(2);
         });
@@ -225,7 +225,7 @@ describe("CloudflareClient", () => {
             vi.mocked($).mockRejectedValueOnce(new Error("Not authenticated"));
 
             await expect(
-                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+                client.getOrCreateR2Bucket("noomers-daily-rollups"),
             ).rejects.toThrow("Not authenticated");
             expect($).toHaveBeenCalledTimes(1);
         });
@@ -236,12 +236,12 @@ describe("CloudflareClient", () => {
                 .mockRejectedValueOnce(new Error("Bucket already exists"))
                 .mockReturnValueOnce({
                     stdout: JSON.stringify([
-                        { name: "counterscale-daily-rollups" },
+                        { name: "noomers-daily-rollups" },
                     ]),
                 } as any);
 
             await expect(
-                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+                client.getOrCreateR2Bucket("noomers-daily-rollups"),
             ).resolves.toBe("existing");
             expect($).toHaveBeenCalledTimes(3);
         });

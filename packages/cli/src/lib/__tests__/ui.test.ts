@@ -50,7 +50,7 @@ describe("UI module", () => {
     describe("getTitle", () => {
         it("should generate title with version and homepage", () => {
             const version = "1.0.0";
-            const homepage = "https://counterscale.dev";
+            const homepage = "https://noomers.dev";
             const title = getTitle(version, homepage);
 
             expect(title).toContain(version);
@@ -60,11 +60,11 @@ describe("UI module", () => {
 
     describe("getScriptSnippet", () => {
         it("should generate valid script snippet with deploy URL", () => {
-            const deployUrl = "https://example.counterscale.dev";
+            const deployUrl = "https://example.noomers.dev";
             const snippet = stripAnsiEscapeCodes(getScriptSnippet(deployUrl));
 
             expect(snippet).toContain("script");
-            expect(snippet).toContain('id="counterscale-script"');
+            expect(snippet).toContain('id="noomers-script"');
             expect(snippet).toContain(
                 'data-site-id="YOUR_UNIQUE_SITE_ID__CHANGE_THIS"',
             );
@@ -74,14 +74,14 @@ describe("UI module", () => {
 
     describe("getPackageSnippet", () => {
         it("should generate valid package snippet with deploy URL and version", () => {
-            const deployUrl = "https://example.counterscale.dev";
+            const deployUrl = "https://example.noomers.dev";
             const version = "1.0.0";
             const snippet = stripAnsiEscapeCodes(
                 getPackageSnippet(deployUrl, version),
             );
 
-            expect(snippet).toContain(`@counterscale/tracker@${version}`);
-            expect(snippet).toContain("Counterscale.init");
+            expect(snippet).toContain(`@noomers/tracker@${version}`);
+            expect(snippet).toContain("noomers.init");
             expect(snippet).toContain(
                 'siteId: "YOUR_UNIQUE_SITE_ID__CHANGE_THIS"',
             );

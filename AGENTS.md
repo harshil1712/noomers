@@ -4,7 +4,7 @@ Guidance for coding agents working in this repository.
 
 ## Repository overview
 
-Counterscale is a pnpm/Turborepo monorepo for self-hosted web analytics on Cloudflare.
+noomers is a pnpm/Turborepo monorepo for self-hosted web analytics on Cloudflare.
 
 | Package                  | Purpose                                                                                                               |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
@@ -48,23 +48,23 @@ pnpm turbo build lint typecheck test-ci --concurrency=1
 Tracker integration tests require Playwright browsers:
 
 ```bash
-pnpm --filter @counterscale/tracker exec playwright install --with-deps
+pnpm --filter @noomers/tracker exec playwright install --with-deps
 ```
 
 Prefer focused checks while iterating:
 
 ```bash
-pnpm --filter @counterscale/server test -- app/routes/__tests__/api.v2.query.test.ts
-pnpm --filter @counterscale/server typecheck
-pnpm --filter @counterscale/cli test
-pnpm --filter @counterscale/tracker exec vitest run
+pnpm --filter @noomers/server test -- app/routes/__tests__/api.v2.query.test.ts
+pnpm --filter @noomers/server typecheck
+pnpm --filter @noomers/cli test
+pnpm --filter @noomers/tracker exec vitest run
 ```
 
 For local server development, create the ignored development-variable file from the example, use non-production values, and start only the server package:
 
 ```bash
 cp packages/server/.dev.vars.example packages/server/.dev.vars
-pnpm --filter @counterscale/server dev
+pnpm --filter @noomers/server dev
 ```
 
 Preview a production build with `pnpm turbo preview`. Never put production credentials in `.dev.vars`.
@@ -160,7 +160,7 @@ Before finishing a cross-package change, run the relevant package tests and type
 
 - Do not deploy, create resources, apply remote migrations, rotate secrets, or modify a live Cloudflare account unless the user explicitly asks.
 - Do not push to `main` or `v3` without explicit production-deployment authorization. The `cd` workflow deploys after a completed CI workflow on those branches and currently does not check whether CI succeeded.
-- Never commit `.dev.vars`, API tokens, passwords, salts, R2 SQL credentials, or files under `~/.counterscale/`.
+- Never commit `.dev.vars`, API tokens, passwords, salts, R2 SQL credentials, or files under `~/.noomers/`.
 - Load Cloudflare and Wrangler guidance before changing Worker bindings or running Wrangler commands.
 - Pipeline/Data Catalog setup is currently interactive and credential-dependent. Keep manual and automated provisioning paths clearly distinguished.
 - Use `EVENT_STREAM` consistently as the runtime Pipeline binding.

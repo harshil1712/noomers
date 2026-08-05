@@ -1,7 +1,7 @@
 // Use a simpler approach with a comment to explain the type
 declare global {
     interface Window {
-        counterscale: {
+        noomers: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             q?: any[]; // Command queue for legacy API
             init: (opts: any) => void;

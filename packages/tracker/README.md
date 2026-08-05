@@ -1,29 +1,29 @@
-# @counterscale/tracker
+# @noomers/tracker
 
-Client-side page view tracking library for [Counterscale](https://counterscale.dev).
+Client-side page view tracking library for [noomers](https://noomers.dev).
 
-_For instructions on downloading and deploying the [Counterscale server](https://github.com/benvinegar/counterscale), consult the [project README](https://github.com/benvinegar/counterscale/blob/master/packages/server/README.md)._
+_For instructions on downloading and deploying the [noomers server](https://github.com/harshil1712/noomers), consult the [project README](https://github.com/harshil1712/noomers/blob/master/packages/server/README.md)._
 
 ## Usage
 
 In your browser-based web project:
 
 ```bash
-npm install @counterscale/tracker
+npm install @noomers/tracker
 ```
 
-Initialize Counterscale with your site ID and deployment URL:
+Initialize noomers with your site ID and deployment URL:
 
 ```typescript
-import * as Counterscale from "@counterscale/tracker";
+import * as noomers from "@noomers/tracker";
 
-Counterscale.init({
+noomers.init({
     siteId: "your-unique-site-id",
     deploymentUrl: "https://{subdomain-emitted-during-deploy}.pages.dev/",
 });
 ```
 
-That's it! Your page views will automatically be tracked and reported to Counterscale.
+That's it! Your page views will automatically be tracked and reported to noomers.
 
 ## Advanced
 
@@ -31,17 +31,17 @@ That's it! Your page views will automatically be tracked and reported to Counter
 
 Alternatively you can track page view events manually.
 
-To do so, during initialization set `autoTrackPageviews` to `false`. Then, you manually call `Counterscale.trackPageview()` when you want to record a pageview.
+To do so, during initialization set `autoTrackPageviews` to `false`. Then, you manually call `noomers.trackPageview()` when you want to record a pageview.
 
 ```typescript
-import * as Counterscale from "@counterscale/tracker";
+import * as noomers from "@noomers/tracker";
 
-Counterscale.init({
+noomers.init({
     siteId: "your-unique-site-id",
     deploymentUrl: "https://{subdomain-emitted-during-deploy}.pages.dev/",
     autoTrackPageviews: false, // <- don't forget this
 });
 
 // ... when a pageview happens
-Counterscale.trackPageview();
+noomers.trackPageview();
 ```

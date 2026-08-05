@@ -5,7 +5,7 @@ import { generateJWTSecret, generatePasswordHash } from "../dist/lib/auth.js";
 import { promptForPassword } from "../dist/lib/ui.js";
 
 async function main() {
-  intro('🔐 Counterscale Development Secret Generator');
+  intro('🔐 noomers Development Secret Generator');
   
   const jwtSecret = generateJWTSecret();
   

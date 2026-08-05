@@ -8,13 +8,13 @@ import { homedir } from "node:os";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
-export const COUNTERSCALE_DIR = path.join(homedir(), ".counterscale");
+export const NOOMERS_DIR = path.join(homedir(), ".noomers");
 export const DEPLOYMENT_CONFIG_PATH = path.join(
-    COUNTERSCALE_DIR,
+    NOOMERS_DIR,
     "wrangler.json",
 );
 export const DEPLOYMENT_METADATA_PATH = path.join(
-    COUNTERSCALE_DIR,
+    NOOMERS_DIR,
     "deployment.json",
 );
 
@@ -35,7 +35,7 @@ export interface DeploymentMetadata {
 export function getDeploymentConfigPath(): string {
     if (!existsSync(DEPLOYMENT_CONFIG_PATH)) {
         throw new Error(
-            `No installed deployment found at ${DEPLOYMENT_CONFIG_PATH}. Run counterscale install first.`,
+            `No installed deployment found at ${DEPLOYMENT_CONFIG_PATH}. Run noomers install first.`,
         );
     }
     return DEPLOYMENT_CONFIG_PATH;
@@ -45,7 +45,7 @@ export function persistDeployment(
     stagedConfigPath: string,
     metadata: DeploymentMetadata,
 ): void {
-    mkdirSync(COUNTERSCALE_DIR, { recursive: true, mode: 0o700 });
+    mkdirSync(NOOMERS_DIR, { recursive: true, mode: 0o700 });
     writeFileSync(
         DEPLOYMENT_CONFIG_PATH,
         readFileSync(stagedConfigPath, "utf8"),
@@ -61,8 +61,8 @@ export function persistDeployment(
 const __filename = fileURLToPath(import.meta.url);
 
 /**
- * Finds the directory of the @counterscale/server package.
- * @returns The path to the @counterscale/server package directory.
+ * Finds the directory of the @noomers/server package.
+ * @returns The path to the @noomers/server package directory.
  */
 export function getServerPkgDir(): string {
     const __dirname = dirname(__filename);
@@ -89,7 +89,7 @@ export function getServerPkgDir(): string {
         "..",
         "..",
         "..",
-        "@counterscale",
+        "@noomers",
         "server",
     );
     if (existsSync(nodeModulesDir)) {
@@ -97,7 +97,7 @@ export function getServerPkgDir(): string {
     }
 
     throw new Error(
-        "Could not find @counterscale/server package. Is it installed?",
+        "Could not find @noomers/server package. Is it installed?",
     );
 }
 
@@ -160,7 +160,7 @@ export function getWorkerAndDatasetName(config: ReturnType<typeof JSON.parse>) {
 }
 
 /**
- * Reads the initial server config from the @counterscale/server package
+ * Reads the initial server config from the @noomers/server package
  */
 export function readInitialServerConfig() {
     const serverPkgDir = getServerPkgDir();
@@ -172,7 +172,7 @@ export function readInitialServerConfig() {
 }
 
 /**
- * Writes a local copy of wrangler.json (in ~/.counterscale) where all the paths are
+ * Writes a local copy of wrangler.json (in ~/.noomers) where all the paths are
  * converted to be absolute. This makes it so that the `wrangler deploy` command can be
  * run from any directory.
  */

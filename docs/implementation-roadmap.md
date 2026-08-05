@@ -33,7 +33,7 @@ Last reviewed: 2026-08-04.
 | 1. Durable correctness       | Analytics Engine and R2 SQL are validated, scalable, observable, and usable as trusted query foundations.             |
 | 2. Complete deletion         | Site deletion is processed across D1, Analytics Engine expiry, Iceberg, and daily rollups.                            |
 | 3. Core Stats parity         | Visit dimensions, goals, properties, revenue, filters, ordering, and pagination behave correctly.                     |
-| 4. Migration and history     | Existing Counterscale, Plausible, GA4, and CSV history can be imported and queried.                                   |
+| 4. Migration and history     | Existing noomers, Plausible, GA4, and CSV history can be imported and queried.                                   |
 | 5. Dashboard parity          | The UI exposes the exact query model, realtime views, comparisons, reports, and exports.                              |
 | 6. Tracker parity            | The served tracker implements Plausible's automatic event extensions.                                                 |
 | 7. Product workflows         | Segments, funnels, journeys, reports, alerts, integrations, and sharing are added.                                    |
@@ -191,7 +191,7 @@ Live completion of this phase is gated by both `DUR-001` and `DUR-010`, even whe
 
 ## Phase 8: Optional multi-user and organization scope
 
-These items remain deferred until Counterscale intentionally moves beyond a single-organization, shared-password deployment.
+These items remain deferred until noomers intentionally moves beyond a single-organization, shared-password deployment.
 
 | ID      | Feature                      | Status   | Dependencies                                  | Acceptance criteria                                                                            |
 | ------- | ---------------------------- | -------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------- |

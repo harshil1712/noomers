@@ -12,7 +12,7 @@ import { envCommand, SECRETS_BY_ALIAS } from "./commands/env.js";
 import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 
-const COUNTERSCALE_HOMEPAGE = "https://counterscale.dev";
+const NOOMERS_HOMEPAGE = "https://noomers.dev";
 const SERVER_PKG_DIR = getServerPkgDir();
 
 let SERVER_PKG: ReturnType<typeof JSON.parse>;
@@ -25,7 +25,7 @@ try {
     process.exit(1);
 }
 
-console.log(getTitle(SERVER_PKG.version, COUNTERSCALE_HOMEPAGE) + "\n");
+console.log(getTitle(SERVER_PKG.version, NOOMERS_HOMEPAGE) + "\n");
 
 const parser = yargs(hideBin(process.argv))
     .command(
@@ -48,13 +48,13 @@ const parser = yargs(hideBin(process.argv))
             const authYargs = yargs
                 .command(
                     "enable",
-                    "Enable authentication for your Counterscale deployment",
+                    "Enable authentication for your noomers deployment",
                     {},
                     enableAuth
                 )
                 .command(
                     "disable",
-                    "Disable authentication for your Counterscale deployment",
+                    "Disable authentication for your noomers deployment",
                     {},
                     disableAuth
                 )
@@ -73,13 +73,13 @@ const parser = yargs(hideBin(process.argv))
                 const authYargs = yargs(hideBin(process.argv))
                     .command(
                         "enable",
-                        "Enable authentication for your Counterscale deployment",
+                        "Enable authentication for your noomers deployment",
                         {},
                         enableAuth
                     )
                     .command(
                         "disable",
-                        "Disable authentication for your Counterscale deployment",
+                        "Disable authentication for your noomers deployment",
                         {},
                         disableAuth
                     )
@@ -101,13 +101,13 @@ const parser = yargs(hideBin(process.argv))
             const storageYargs = yargs
                 .command(
                     "enable",
-                    "Enable long term data storage for your Counterscale data",
+                    "Enable long term data storage for your noomers data",
                     {},
                     enableStorage,
                 )
                 .command(
                     "disable",
-                    "Disable long term data storage for your Counterscale data",
+                    "Disable long term data storage for your noomers data",
                     {},
                     disableStorage,
                 )
@@ -120,13 +120,13 @@ const parser = yargs(hideBin(process.argv))
                 const storageYargs = yargs(hideBin(process.argv))
                     .command(
                         "enable",
-                        "Enable storage for your Counterscale deployment",
+                        "Enable storage for your noomers deployment",
                         {},
                         enableStorage,
                     )
                     .command(
                         "disable",
-                        "Disable storage for your Counterscale deployment",
+                        "Disable storage for your noomers deployment",
                         {},
                         disableStorage,
                     )

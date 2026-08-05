@@ -29,7 +29,7 @@ export function getInitializedClient(): (typeof GLOBALS)["client"] {
 export function trackPageview(opts?: TrackPageviewOpts) {
     if (!GLOBALS.client) {
         throw new Error(
-            "You must call Counterscale.initialize() before calling Counterscale.trackPageview().",
+            "You must call noomers.initialize() before calling noomers.trackPageview().",
         );
     }
     _trackPageview(GLOBALS.client, opts);
@@ -38,7 +38,7 @@ export function trackPageview(opts?: TrackPageviewOpts) {
 export function trackEvent(name: string, opts?: TrackEventOpts) {
     if (!GLOBALS.client) {
         throw new Error(
-            "You must call Counterscale.initialize() before calling Counterscale.trackEvent().",
+            "You must call noomers.initialize() before calling noomers.trackEvent().",
         );
     }
     return _trackEvent(GLOBALS.client, name, opts);

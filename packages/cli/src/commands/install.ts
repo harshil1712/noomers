@@ -53,10 +53,10 @@ export async function promptPasswordProtection(): Promise<boolean> {
 }
 
 export async function promptDeploy(
-    counterscaleVersion: string,
+    noomersVersion: string,
 ): Promise<boolean> {
     const deploy = await confirm({
-        message: `Do you want to deploy version ${counterscaleVersion} now?`,
+        message: `Do you want to deploy version ${noomersVersion} now?`,
         initialValue: false,
     });
 
@@ -128,7 +128,7 @@ async function tick(fn: () => void): Promise<void> {
 
 /**
  * Main CLI install script, takes various user input (e.g. target worker name, Cloudflare API key, etc.)
- * and installs the CounterScale worker on Cloudflare.
+ * and installs the noomers worker on Cloudflare.
  *
  * @param argv yargs-processed arguments
  * @param serverPkgDir Directory containing the server package
@@ -146,7 +146,7 @@ export async function install(
 
     // Create a temporary directory for our config
     const tmpStagingDir = fs.mkdtempSync(
-        path.join(os.tmpdir(), "counterscale-"),
+        path.join(os.tmpdir(), "noomers-"),
     );
     const tmpStagingConfigPath = path.join(tmpStagingDir, "wrangler.json");
 
@@ -289,12 +289,12 @@ Your token needs these permissions:
             const enableAuth = await promptPasswordProtection();
 
             const s = spinner();
-            s.start(`Setting CounterScale Authentication Settings ...`);
+            s.start(`Setting noomers Authentication Settings ...`);
 
             if (enableAuth) {
                 // If auth is enabled, prompt for password and set all required secrets
                 const appPassword = await promptForPassword(
-                    "Enter the password you will use to access the Counterscale Dashboard",
+                    "Enter the password you will use to access the noomers Dashboard",
                 );
                 if (appPassword) {
                     const jwtSecret = generateJWTSecret();
@@ -309,15 +309,15 @@ Your token needs these permissions:
                         })
                     ) {
                         s.stop(
-                            "Setting CounterScale Authentication Settings ... Done!",
+                            "Setting noomers Authentication Settings ... Done!",
                         );
                     } else {
                         s.stop(
-                            "Error setting CounterScale Authentication Settings",
+                            "Error setting noomers Authentication Settings",
                             1,
                         );
                         throw new Error(
-                            "Error setting CounterScale Authentication Settings",
+                            "Error setting noomers Authentication Settings",
                         );
                     }
                 }
@@ -329,15 +329,15 @@ Your token needs these permissions:
                     })
                 ) {
                     s.stop(
-                        "Setting CounterScale Authentication Settings ... Done!",
+                        "Setting noomers Authentication Settings ... Done!",
                     );
                 } else {
                     s.stop(
-                        "Error setting CounterScale Authentication Settings",
+                        "Error setting noomers Authentication Settings",
                         1,
                     );
                     throw new Error(
-                        "Error setting CounterScale Authentication Settings",
+                        "Error setting noomers Authentication Settings",
                     );
                 }
             }
@@ -366,7 +366,7 @@ Your token needs these permissions:
         let deployUrl;
 
         const s = spinner();
-        s.start(`Deploying Counterscale ...`);
+        s.start(`Deploying noomers ...`);
 
         try {
             const dailyRollupsBucket = initialDeployConfig.r2_buckets?.find(
@@ -395,7 +395,7 @@ Your token needs these permissions:
             await cloudflare.applyD1Migrations(databaseName);
 
             if (opts.verbose) {
-                s.stop(`Deploying Counterscale ...`);
+                s.stop(`Deploying noomers ...`);
             }
 
             deployUrl = await cloudflare.deploy(
@@ -422,10 +422,10 @@ Your token needs these permissions:
             });
 
             if (!opts.verbose) {
-                s.stop("Deploying Counterscale ... Done.");
+                s.stop("Deploying noomers ... Done.");
             }
         } catch (err) {
-            s.stop("Deploying Counterscale ... Failed!", 1);
+            s.stop("Deploying noomers ... Failed!", 1);
             throw err;
         }
 

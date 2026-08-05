@@ -1,26 +1,26 @@
-# Counterscale
+# noomers
 
-![](/packages/server/public/counterscale-logo-300x300.webp)
+![](/packages/server/public/noomers-logo-300x300.webp)
 
-![ci status](https://github.com/benvinegar/counterscale/actions/workflows/ci.yaml/badge.svg)
-[![License](https://img.shields.io/github/license/benvinegar/counterscale)](https://github.com/benvinegar/counterscale/blob/master/LICENSE)
-[![codecov](https://codecov.io/gh/benvinegar/counterscale/graph/badge.svg?token=NUHURNB682)](https://codecov.io/gh/benvinegar/counterscale)
+![ci status](https://github.com/harshil1712/noomers/actions/workflows/ci.yaml/badge.svg)
+[![License](https://img.shields.io/github/license/harshil1712/noomers)](https://github.com/harshil1712/noomers/blob/master/LICENSE)
+[![codecov](https://codecov.io/gh/harshil1712/noomers/graph/badge.svg?token=NUHURNB682)](https://codecov.io/gh/harshil1712/noomers)
 
-Counterscale is a simple web analytics tracker and dashboard that you self-host on Cloudflare.
+noomers is a simple web analytics tracker and dashboard that you self-host on Cloudflare.
 
 It's designed to be easy to deploy and maintain, and should cost you near-zero to operate – even at high levels of traffic (Cloudflare's [free tier](https://developers.cloudflare.com/workers/platform/pricing/#workers) could hypothetically support up to 100k hits/day).
 
-_Counterscale is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.dev)._
+_noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.dev)._
 
 ## License
 
-Counterscale is free, open source software made available under the MIT license. See: [LICENSE](LICENSE).
+noomers is free, open source software made available under the MIT license. See: [LICENSE](LICENSE).
 
 ## Limitations
 
-Counterscale is powered primarily by Cloudflare Workers and [Workers Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/). As of February 2025, Workers Analytics Engine has _maximum 90 days retention_, which means Counterscale can only show the last 90 days of recorded data. We do, however, provide long term storage of your data in an R2 bucket using Apache Arrow files. This long term storage is enabled by default and can be disabled using the CLI.
+noomers is powered primarily by Cloudflare Workers and [Workers Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/). As of February 2025, Workers Analytics Engine has _maximum 90 days retention_, which means noomers can only show the last 90 days of recorded data. We do, however, provide long term storage of your data in an R2 bucket using Apache Arrow files. This long term storage is enabled by default and can be disabled using the CLI.
 
-Counterscale implements a subset of Plausible's APIs and product features. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline, remaining work, deferred features, and infrastructure-dependent gaps. See the [feature implementation roadmap](docs/implementation-roadmap.md) for sequencing, dependencies, and completion criteria.
+noomers implements a subset of Plausible's APIs and product features. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline, remaining work, deferred features, and infrastructure-dependent gaps. See the [feature implementation roadmap](docs/implementation-roadmap.md) for sequencing, dependencies, and completion criteria.
 
 ## Installation
 
@@ -40,7 +40,7 @@ If you don't have one already, [create a Cloudflare account here](https://dash.c
 1. Create a [Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/). This token needs `Account.Account Analytics` permissions at a minimum ([screenshot](./docs/api-token.png)).
     - _WARNING: Keep this window open or copy your API token somewhere safe (e.g. a password manager), because if you close this window you will not be able to access this API token again and have to start over._
 
-### Deploy Counterscale
+### Deploy noomers
 
 First, sign into Cloudflare and authorize the Cloudflare CLI (Wrangler) using:
 
@@ -48,10 +48,10 @@ First, sign into Cloudflare and authorize the Cloudflare CLI (Wrangler) using:
 npx wrangler login
 ```
 
-Afterwards, run the Counterscale installer:
+Afterwards, run the noomers installer:
 
 ```bash
-npx @counterscale/cli@latest install
+npx @noomers/cli@latest install
 ```
 
 Follow the prompts. You will be asked for the Cloudflare API token you created earlier. You'll also be asked if you want to protect your dashboard with a password:
@@ -63,7 +63,7 @@ Once the script has finished, the server application should be deployed. Visit `
 
 The installer also creates a D1 database for goal definitions, applies its migrations, and configures a rotating, salted visitor identifier used for unique conversion rates. Raw IP addresses are never stored.
 
-NOTE: _If this is your first time deploying Counterscale, it may take take a few minutes before the Worker subdomain becomes live._
+NOTE: _If this is your first time deploying noomers, it may take take a few minutes before the Worker subdomain becomes live._
 
 ### Start Recording Web Traffic from Your Website(s)
 
@@ -71,7 +71,7 @@ You can load the tracking code using one of two methods:
 
 #### 1. Script Loader (CDN)
 
-When Counterscale is deployed, it makes `tracker.js` available at the URL you deployed to:
+When noomers is deployed, it makes `tracker.js` available at the URL you deployed to:
 
 ```
 https://{subdomain-emitted-during-deploy}.workers.dev/tracker.js
@@ -81,7 +81,7 @@ To start reporting website traffic from your web property, copy/paste the follow
 
 ```html
 <script
-    id="counterscale-script"
+    id="noomers-script"
     data-site-id="your-unique-site-id"
     src="https://{subdomain-emitted-during-deploy}.workers.dev/tracker.js"
     defer
@@ -90,24 +90,24 @@ To start reporting website traffic from your web property, copy/paste the follow
 
 #### 2. Package/Module
 
-The Counterscale tracker is published as an npm module:
+The noomers tracker is published as an npm module:
 
 ```bash
-npm install @counterscale/tracker
+npm install @noomers/tracker
 ```
 
-Initialize Counterscale with your site ID and the URL of your deployed reporting endpoint:
+Initialize noomers with your site ID and the URL of your deployed reporting endpoint:
 
 ```typescript
-import * as Counterscale from "@counterscale/tracker";
+import * as noomers from "@noomers/tracker";
 
-Counterscale.init({
+noomers.init({
     siteId: "your-unique-site-id",
     reporterUrl:
         "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
 });
 
-Counterscale.trackEvent("Signup", {
+noomers.trackEvent("Signup", {
     props: { plan: "pro", trial: true },
 });
 ```
@@ -115,8 +115,8 @@ Counterscale.trackEvent("Signup", {
 **Available Methods**
 | Method | Parameters | Return Type | Description |
 |--------|------------|-------------|-------------|
-| `init(opts)` | `ClientOpts` | `void` | Initializes the Counterscale client with site configuration. Creates a global client instance if one doesn't exist. |
-| `isInitialized()` | None | `boolean` | Checks if the Counterscale client has been initialized. Returns true if client exists, false otherwise. |
+| `init(opts)` | `ClientOpts` | `void` | Initializes the noomers client with site configuration. Creates a global client instance if one doesn't exist. |
+| `isInitialized()` | None | `boolean` | Checks if the noomers client has been initialized. Returns true if client exists, false otherwise. |
 | `getInitializedClient()` | None | `Client \| undefined` | Returns the initialized client instance or undefined if not initialized. |
 | `trackPageview(opts?)` | `TrackPageviewOpts?` | `void` | Tracks a pageview event. Requires client to be initialized first. Automatically detects URL and referrer if not provided. |
 | `trackEvent(name, opts?)` | `string, TrackEventOpts?` | `void` | Tracks a named custom event with optional string, number, or boolean properties. |
@@ -127,14 +127,14 @@ Counterscale.trackEvent("Signup", {
 If you'd prefer to track analytics on the server, instead of running the tracker in the browser, use the `/server` module:
 
 ```bash
-npm install @counterscale/tracker
+npm install @noomers/tracker
 ```
 
 ```typescript
-import * as Counterscale from "@counterscale/tracker/server";
+import * as noomers from "@noomers/tracker/server";
 
 // Initialize the tracker
-Counterscale.init({
+noomers.init({
     siteId: "your-unique-site-id",
     reporterUrl:
         "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
@@ -143,7 +143,7 @@ Counterscale.init({
 });
 
 // Track a pageview
-await Counterscale.trackPageview({
+await noomers.trackPageview({
     url: "https://example.com/page", // or relative: '/page'
     hostname: "example.com", // required for relative URLs
     referrer: "https://google.com",
@@ -151,7 +151,7 @@ await Counterscale.trackPageview({
     utmMedium: "twitter",
 });
 
-await Counterscale.trackEvent("Signup", {
+await noomers.trackEvent("Signup", {
     url: "https://example.com/signup",
     ip: requestIp,
     props: { plan: "pro" },
@@ -181,7 +181,7 @@ Use the **Goals** card in the dashboard to create either an event goal (for exam
 
 ### Durable event history
 
-Counterscale can optionally send a canonical copy of each event to a Cloudflare Pipeline for storage as an R2 Iceberg table. Analytics Engine remains the realtime data source. The durable record contains parsed browser and device fields plus a rotating visitor hash; it does not contain raw IP addresses or user-agent strings.
+noomers can optionally send a canonical copy of each event to a Cloudflare Pipeline for storage as an R2 Iceberg table. Analytics Engine remains the realtime data source. The durable record contains parsed browser and device fields plus a rotating visitor hash; it does not contain raw IP addresses or user-agent strings.
 
 Create a Pipeline using `npx wrangler@latest pipelines setup`, load the schema from `packages/server/pipelines/events.schema.json`, and choose simple ingestion into an R2 Data Catalog sink. Then add the Pipeline name to the Worker configuration used for deployment:
 
@@ -212,7 +212,7 @@ Visitor identifiers follow Plausible's privacy model: they rotate each UTC day. 
 
 ### Plausible tracker compatibility
 
-Existing Plausible clients can send pageviews, custom events, revenue, properties, and engagement events to CounterScale using the standard Events API endpoint:
+Existing Plausible clients can send pageviews, custom events, revenue, properties, and engagement events to noomers using the standard Events API endpoint:
 
 ```text
 https://{subdomain-emitted-during-deploy}.workers.dev/api/event
@@ -231,30 +231,30 @@ Deleting an Iceberg table's underlying R2 objects with an R2 lifecycle rule is u
 For most releases, upgrading is as simple as re-running the CLI installer:
 
 ```bash
-npx @counterscale/cli@latest install
+npx @noomers/cli@latest install
 
 # OR
-# npx @counterscale/cli@VERSION install
+# npx @noomers/cli@VERSION install
 ```
 
 You won't have to enter a new API key, and your data will carry forrward.
 
-Counterscale uses [semantic versioning](https://semver.org/). If upgrading to a major version (e.g. 2.x, 3.x, 4.x), there may be extra steps. Please consult the [release notes](https://github.com/benvinegar/counterscale/releases).
+noomers uses [semantic versioning](https://semver.org/). If upgrading to a major version (e.g. 2.x, 3.x, 4.x), there may be extra steps. Please consult the [release notes](https://github.com/harshil1712/noomers/releases).
 
 ## Troubleshooting
 
-If the website is not immediately available (e.g. "Secure Connection Failed"), it could be because Cloudflare has not yet activated your subdomain (yoursubdomain.workers.dev). This process can take a minute; you can check in on the progress by visiting the newly created worker in your Cloudflare dashboard (Workers & Pages → counterscale).
+If the website is not immediately available (e.g. "Secure Connection Failed"), it could be because Cloudflare has not yet activated your subdomain (yoursubdomain.workers.dev). This process can take a minute; you can check in on the progress by visiting the newly created worker in your Cloudflare dashboard (Workers & Pages → noomers).
 
 ## Advanced
 
 ### Manually Track Pageviews
 
-When you initialize the Counterscale tracker, set `autoTrackPageviews` to `false`. Then, you can manually call `Counterscale.trackPageview()` when you want to record a pageview.
+When you initialize the noomers tracker, set `autoTrackPageviews` to `false`. Then, you can manually call `noomers.trackPageview()` when you want to record a pageview.
 
 ```typescript
-import * as Counterscale from "@counterscale/tracker";
+import * as noomers from "@noomers/tracker";
 
-Counterscale.init({
+noomers.init({
     siteId: "your-unique-site-id",
     reporterUrl:
         "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
@@ -262,7 +262,7 @@ Counterscale.init({
 });
 
 // ... when a pageview happens
-Counterscale.trackPageview();
+noomers.trackPageview();
 ```
 
 ### Custom Domains
@@ -271,16 +271,16 @@ The deployment URL can always be changed to go behind a custom domain you own. [
 
 ## CLI Commands
 
-Counterscale provides a command-line interface (CLI) to help you install, configure, and manage your deployment.
+noomers provides a command-line interface (CLI) to help you install, configure, and manage your deployment.
 
 ### Available Commands
 
 #### `install`
 
-The main command for installing and deploying Counterscale to Cloudflare.
+The main command for installing and deploying noomers to Cloudflare.
 
 ```bash
-npx @counterscale/cli@latest install
+npx @noomers/cli@latest install
 ```
 
 Options:
@@ -290,16 +290,16 @@ Options:
 
 #### `auth`
 
-Manage authentication settings for your Counterscale deployment.
+Manage authentication settings for your noomers deployment.
 
 ```bash
-npx @counterscale/cli@latest auth [subcommand]
+npx @noomers/cli@latest auth [subcommand]
 ```
 
 Available subcommands:
 
-- `enable` - Enable authentication for your Counterscale deployment
-- `disable` - Disable authentication for your Counterscale deployment
+- `enable` - Enable authentication for your noomers deployment
+- `disable` - Disable authentication for your noomers deployment
 - `roll` - Update/roll the authentication password
 
 ##### Examples:
@@ -307,46 +307,46 @@ Available subcommands:
 Enable authentication:
 
 ```bash
-npx @counterscale/cli@latest auth enable
+npx @noomers/cli@latest auth enable
 ```
 
 Disable authentication:
 
 ```bash
-npx @counterscale/cli@latest auth disable
+npx @noomers/cli@latest auth disable
 ```
 
 Update/roll the password:
 
 ```bash
-npx @counterscale/cli@latest auth roll
+npx @noomers/cli@latest auth roll
 ```
 
 #### `storage`
 
-Manage long term storage settings for your Counterscale deployment.
+Manage long term storage settings for your noomers deployment.
 
 ```bash
-npx @counterscale/cli@latest storage [subcommand]
+npx @noomers/cli@latest storage [subcommand]
 ```
 
 Available subcommands:
 
-- `enable` - Enable storage for your Counterscale deployment
-- `disable` - Disable storage for your Counterscale deployment
+- `enable` - Enable storage for your noomers deployment
+- `disable` - Disable storage for your noomers deployment
 
 ##### Examples:
 
 Enable storage:
 
 ```bash
-npx @counterscale/cli@latest storage enable
+npx @noomers/cli@latest storage enable
 ```
 
 Disable storage:
 
 ```bash
-npx @counterscale/cli@latest storage disable
+npx @noomers/cli@latest storage disable
 ```
 
 ## Development
@@ -367,3 +367,7 @@ Right now there is no local "test" database. This means in local development:
 ### Sampling
 
 Cloudflare Analytics Engine uses sampling to make high volume data ingestion/querying affordable at scale (this is similar to most other analytics tools, see [Google Analytics on Sampling](https://support.google.com/analytics/answer/2637192?hl=en#zippy=%2Cin-this-article)). You can find out more how [sampling works with CF AE here](https://developers.cloudflare.com/analytics/analytics-engine/sampling/).
+
+## Acknowledgments
+
+noomers is a derivative of [Counterscale](https://github.com/benvinegar/counterscale), a self-hosted web analytics tracker and dashboard created by [Ben Vinegar](https://github.com/benvinegar) and released under the MIT License. We're grateful for the original project, its design, and the work that went into it. The original copyright notice is preserved in [LICENSE](LICENSE).

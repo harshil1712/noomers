@@ -1,4 +1,4 @@
-import { createConfig } from "@counterscale/eslint-config";
+import { createConfig } from "@noomers/eslint-config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -19,7 +19,7 @@ export default createConfig({
     tsconfigRootDir: "./",
     project: "./tsconfig.json",
     additionalGlobals: {
-        counterscale: true,
+        noomers: true,
         // Add browser globals since this is a browser-based package
         window: true,
         document: true,

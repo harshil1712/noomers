@@ -41,7 +41,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     // normalize country codes to country names
     // NOTE: this must be done ONLY on server otherwise hydration mismatches
     //       can occur because Intl.DisplayNames produces different results
-    //       in different browsers (see https://github.com/benvinegar/counterscale/issues/72)
+    //       in different browsers (see https://github.com/harshil1712/noomers/issues/72)
     const countsByProperty = convertCountryCodesToNames(countsByCountry);
 
     return {

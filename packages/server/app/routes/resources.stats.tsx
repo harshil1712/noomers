@@ -54,7 +54,7 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     // FOR BACKWARDS COMPAT, ONLY SHOW BOUNCE RATE IF WE HAVE DATE FOR THE ENTIRE QUERY PERIOD
     // -----------------------------------------------------------------------------
     // Bounce rate is a later-introduced metric that may not have been recorded for
-    // the full duration of the queried Counterscale dataset (not possible to backfill
+    // the full duration of the queried noomers dataset (not possible to backfill
     // data we dont have!)
 
     // So, cannot reliably show "bounce rate" if bounce data was unavailable for a portion

@@ -31,13 +31,13 @@ function getVersionMeta(version: string | null | undefined): {
     if (isSemver) {
         // Link to release page for semver
         return {
-            url: `https://github.com/benvinegar/counterscale/releases/tag/v${version}`,
+            url: `https://github.com/harshil1712/noomers/releases/tag/v${version}`,
             name: version,
         };
     } else {
         // Link to commit for git SHA - show only first 7 characters
         return {
-            url: `https://github.com/benvinegar/counterscale/commit/${version}`,
+            url: `https://github.com/harshil1712/noomers/commit/${version}`,
             name: version.slice(0, 7),
         };
     }
@@ -65,8 +65,8 @@ export const Layout = ({ children = [] }: { children: React.ReactNode }) => {
             url: "https://example.com/",
             name: "0.0.1",
         },
-        origin: "counterscale.dev",
-        url: "https://counterscale.dev/",
+        origin: "noomers.dev",
+        url: "https://noomers.dev/",
     };
 
     return (
@@ -82,27 +82,27 @@ export const Layout = ({ children = [] }: { children: React.ReactNode }) => {
                 
                 <meta property="og:url" content={data.url} />
                 <meta property="og:type" content="website" />
-                <meta property="og:title" content="Counterscale" />
+                <meta property="og:title" content="noomers" />
                 <meta
                     property="og:description"
                     content="Scalable web analytics you run yourself on Cloudflare"
                 />
                 <meta
                     property="og:image"
-                    content={data.origin + "/counterscale-og-large.webp"}
+                    content={data.origin + "/noomers-og-large.webp"}
                 />
 
                 <meta name="twitter:card" content="summary_large_image" />
-                <meta property="twitter:domain" content="counterscale.dev" />
+                <meta property="twitter:domain" content="noomers.dev" />
                 <meta property="twitter:url" content={data.url} />
-                <meta name="twitter:title" content="Counterscale" />
+                <meta name="twitter:title" content="noomers" />
                 <meta
                     name="twitter:description"
                     content="Scalable web analytics you run yourself on Cloudflare"
                 />
                 <meta
                     name="twitter:image"
-                    content={data.origin + "/counterscale-og-large.webp"}
+                    content={data.origin + "/noomers-og-large.webp"}
                 />
                 <Meta />
                 <Links />
@@ -114,8 +114,8 @@ export const Layout = ({ children = [] }: { children: React.ReactNode }) => {
                 <ScrollRestoration />
                 <Scripts />
                 <script
-                    id="counterscale-script"
-                    data-site-id="counterscale-dev"
+                    id="noomers-script"
+                    data-site-id="noomers-dev"
                     src="/tracker.js"
                 ></script>
             </body>
@@ -126,10 +126,10 @@ export const Layout = ({ children = [] }: { children: React.ReactNode }) => {
 export default function App() {
     const data = useLoaderData<typeof loader>();
 
-    // Check if current domain is a subdomain of counterscale.dev
+    // Check if current domain is a subdomain of noomers.dev
     const currentOrigin = new URL(data.url).hostname;
-    const isCounterscaleSubdomain = currentOrigin.endsWith(".counterscale.dev");
-    const homeUrl = isCounterscaleSubdomain ? "https://counterscale.dev" : "/";
+    const isNoomersSubdomain = currentOrigin.endsWith(".noomers.dev");
+    const homeUrl = isNoomersSubdomain ? "https://noomers.dev" : "/";
 
     return (
         <div className="mt-0 sm:mt-4">
@@ -137,12 +137,12 @@ export default function App() {
                 <nav className="flex justify-between items-center">
                     <div className="flex items-center">
                         <a href={homeUrl} className="text-lg font-bold">
-                            Counterscale
+                            noomers
                         </a>
                         <img
                             className="w-6 ml-1"
                             src="/img/arrow.svg"
-                            alt="Counterscale Icon"
+                            alt="noomers Icon"
                         />
                     </div>
                     <div className="flex items-center font-small font-medium text-md">
@@ -160,7 +160,7 @@ export default function App() {
                             </a>
                         )}
                         <a
-                            href="https://github.com/benvinegar/counterscale"
+                            href="https://github.com/harshil1712/noomers"
                             className="w-6 ml-2"
                         >
                             <img

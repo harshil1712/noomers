@@ -1,6 +1,6 @@
 # Plausible feature parity
 
-This document tracks the remaining work required for Counterscale to behave like Plausible Analytics. It covers the hosted product and its public APIs, not Plausible's billing, support, or internal administration systems.
+This document tracks the remaining work required for noomers to behave like Plausible Analytics. It covers the hosted product and its public APIs, not Plausible's billing, support, or internal administration systems.
 
 Last reviewed: 2026-08-04.
 
@@ -14,16 +14,16 @@ Last reviewed: 2026-08-04.
 | Deferred  | Intentionally excluded from the current single-organization architecture.                               |
 | Blocked   | Implementation or validation requires external infrastructure, credentials, or upstream product access. |
 
-Passing unit tests only prove Counterscale's local contracts. Analytics Engine and R2 SQL behavior must also be validated against deployed Cloudflare resources before full parity can be claimed.
+Passing unit tests only prove noomers's local contracts. Analytics Engine and R2 SQL behavior must also be validated against deployed Cloudflare resources before full parity can be claimed.
 
 ## Current baseline
 
-Counterscale currently has:
+noomers currently has:
 
 - Plausible-compatible `POST /api/event` and `GET /api/health` endpoints.
 - A partial `POST /api/v2/query` Stats API.
 - Partial Sites API provisioning, goals, and custom-property registration.
-- A Counterscale dashboard with summary, time-series, page, referrer, event, goal, browser, country, device, and UTM reports.
+- A noomers dashboard with summary, time-series, page, referrer, event, goal, browser, country, device, and UTM reports.
 - Optional canonical event storage through Cloudflare Pipelines, Data Catalog, and R2 SQL.
 - A D1 site registry, permanent deletion tombstones, and deletion-job records.
 - A single shared-password dashboard and deployment-wide API tokens.
@@ -53,22 +53,22 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 - Long-form and compact Plausible payload fields.
 - Scalar event properties, revenue payloads, `interactive`, engagement time, scroll depth, and hash-based routing input.
 - CORS preflight, `X-Forwarded-For`, `X-Debug-Request`, bot dropping, URL normalization, and static health endpoint compatibility.
-- Browser and server Counterscale tracker modules with manual pageviews and custom events.
+- Browser and server noomers tracker modules with manual pageviews and custom events.
 
 ### Remaining parity
 
 | Feature                           | Status  | Remaining work                                                                                                                      |
 | --------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Official Plausible tracker script | Partial | Counterscale accepts official tracker payloads but serves its own tracker. Validate current official tracker versions continuously. |
+| Official Plausible tracker script | Partial | noomers accepts official tracker payloads but serves its own tracker. Validate current official tracker versions continuously. |
 | Outbound-link tracking            | Missing | Add automatic browser instrumentation and compatible event/property names.                                                          |
 | File-download tracking            | Missing | Detect configured file extensions and emit compatible events.                                                                       |
 | Form-submission tracking          | Missing | Add form instrumentation and compatible properties.                                                                                 |
 | Tagged-event tracking             | Missing | Support Plausible's CSS-class and data-attribute conventions.                                                                       |
 | Automatic 404 tracking            | Missing | Detect and report 404 pages through the served tracker integration.                                                                 |
-| Automatic scroll-depth reporting  | Partial | Input is accepted and durably stored, but the Counterscale tracker does not generate it and no query/report exposes it.             |
+| Automatic scroll-depth reporting  | Partial | Input is accepted and durably stored, but the noomers tracker does not generate it and no query/report exposes it.             |
 | Revenue tracking                  | Partial | Revenue is validated and sent to the durable stream, but Analytics Engine, Stats API, goals, and dashboard do not report it.        |
 | Engagement reporting              | Partial | Engagement events are stored only in the optional durable stream and are not queryable directly.                                    |
-| Tracker configuration             | Partial | Sites API stores Plausible-style tracker settings, but most settings do not alter the served Counterscale tracker.                  |
+| Tracker configuration             | Partial | Sites API stores Plausible-style tracker settings, but most settings do not alter the served noomers tracker.                  |
 | Native `/collect` bot filtering   | Partial | Bot filtering exists for `/api/event`, not for native collection.                                                                   |
 
 ## Stats API v2
@@ -91,7 +91,7 @@ Dimensions:
 - `event:hostname`
 - `time`, `time:hour`, `time:day`, `time:week`, and `time:month`
 
-Hostname breakdowns support `visitors`, `pageviews`, and `events`. Hostname-only queries using session metrics are rejected because the currently supported Plausible combination also requires `event:page`, while Counterscale supports only one dimension.
+Hostname breakdowns support `visitors`, `pageviews`, and `events`. Hostname-only queries using session metrics are rejected because the currently supported Plausible combination also requires `event:page`, while noomers supports only one dimension.
 
 Filters:
 
@@ -283,7 +283,7 @@ The dashboard currently mixes R2 session summaries with Analytics Engine breakdo
 
 | Feature                                | Status  | Remaining work                                                                                                    |
 | -------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
-| Existing Counterscale upgrade backfill | Missing | Populate D1 sites from existing Analytics Engine site IDs before fail-closed collection is enabled.               |
+| Existing noomers upgrade backfill | Missing | Populate D1 sites from existing Analytics Engine site IDs before fail-closed collection is enabled.               |
 | Lossless Plausible raw-event import    | Blocked | Determine available hosted/self-hosted export formats; scheduled hosted raw export may require Enterprise access. |
 | Google Analytics 4 import              | Missing | Add OAuth, property selection, aggregate mapping, progress, and overlap prevention.                               |
 | Plausible aggregate CSV import         | Missing | Parse supported table formats and preserve imported-data limitations.                                             |
@@ -335,7 +335,7 @@ The dashboard currently mixes R2 session summaries with Analytics Engine breakdo
 | Configurable retention         | Missing | Add per-deployment or per-site durable-data policies.                                                         |
 | Deletion SLA                   | Missing | Monitor and alert on overdue jobs.                                                                            |
 | Traffic shields                | Missing | Add future-traffic exclusions by country, hostname, IP, and page.                                             |
-| Data residency controls        | Missing | Counterscale inherits the selected Cloudflare account/resources and does not enforce a region.                |
+| Data residency controls        | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                |
 | Export/data-subject workflow   | Missing | Add a documented administrative export and deletion process.                                                  |
 | Broader bot filtering          | Partial | The implementation does not match Plausible's full UA, referrer, data-center, and behavioral filtering.       |
 
@@ -372,7 +372,7 @@ The dashboard currently mixes R2 session summaries with Analytics Engine breakdo
 
 ## Additional production hardening
 
-These are Counterscale reliability improvements, not documented Plausible public API parity requirements.
+These are noomers reliability improvements, not documented Plausible public API parity requirements.
 
 | Feature                       | Status  | Remaining work                                                                           |
 | ----------------------------- | ------- | ---------------------------------------------------------------------------------------- |
@@ -384,7 +384,7 @@ These are Counterscale reliability improvements, not documented Plausible public
 
 ## Explicit non-goals unless architecture changes
 
-The following Plausible features depend on a multi-user SaaS or commercial control plane and are deferred unless Counterscale's product scope changes:
+The following Plausible features depend on a multi-user SaaS or commercial control plane and are deferred unless noomers's product scope changes:
 
 - Billing, trials, subscriptions, plan limits, and usage lockouts.
 - Separately billed teams and cross-team site transfers.

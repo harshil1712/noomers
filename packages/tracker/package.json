@@ -1,8 +1,8 @@
 {
-    "name": "@counterscale/tracker",
+    "name": "@noomers/tracker",
     "version": "3.4.1",
-    "descriptrion": "Counterscale tracking library for recording pageviews",
-    "homepage": "https://counterscale.dev",
+    "descriptrion": "noomers tracking library for recording pageviews",
+    "homepage": "https://noomers.dev",
     "license": "MIT",
     "sideEffects": false,
     "type": "module",
@@ -19,7 +19,7 @@
         "typecheck": "tsc"
     },
     "devDependencies": {
-        "@counterscale/eslint-config": "workspace:*",
+        "@noomers/eslint-config": "workspace:*",
         "@playwright/test": "^1.49.1",
         "@types/node": "^22.10.2",
         "@vitest/coverage-v8": "~4.0.8",

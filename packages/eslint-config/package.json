@@ -1,5 +1,5 @@
 {
-    "name": "@counterscale/eslint-config",
+    "name": "@noomers/eslint-config",
     "version": "3.4.1",
     "private": true,
     "type": "module",

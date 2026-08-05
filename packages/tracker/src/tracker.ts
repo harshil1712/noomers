@@ -1,10 +1,10 @@
 "use strict";
 
-import * as Counterscale from "./index";
+import * as noomers from "./index";
 
 function findReporterScript() {
     const el = document.getElementById(
-        "counterscale-script",
+        "noomers-script",
     ) as HTMLScriptElement;
     return el;
 }
@@ -17,7 +17,7 @@ function getLegacySiteId(): string | undefined {
     type Command = [CommandName, ...CommandArgs];
 
     let siteId = undefined;
-    const queue = (window.counterscale && window.counterscale.q) || [];
+    const queue = (window.noomers && window.noomers.q) || [];
     queue.forEach(function (cmd: Command) {
         // only interested in grabbing siteId
         if (cmd[0] === "set" && cmd[1] === "siteId") {
@@ -39,7 +39,7 @@ function init() {
         return;
     }
 
-    Counterscale.init({
+    noomers.init({
         siteId,
         reportOnLocalhost,
         reporterUrl,

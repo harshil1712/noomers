@@ -1,6 +1,6 @@
-# Contributing to Counterscale
+# Contributing to noomers
 
-Counterscale development is 100% volunteer-driven. If you use and like this software and want to see it improve, we encourage you to contribute with Issues or Pull Requests.
+noomers development is 100% volunteer-driven. If you use and like this software and want to see it improve, we encourage you to contribute with Issues or Pull Requests.
 
 ## Development
 
@@ -26,7 +26,7 @@ Open `.dev.vars` and enter the same values for `CF_BEARER_TOKEN` and `CF_ACCOUNT
 
 ### Running the Server
 
-Counterscale is built on Vite/React Router (v7+) and Cloudflare Workers.
+noomers is built on Vite/React Router (v7+) and Cloudflare Workers.
 
 In development, you have two options:
 
@@ -44,7 +44,7 @@ When publishing a new version, use this little utility script:
 
 ## Development Philosophy
 
-The primary goal of Counterscale is to be super easy to self-host and maintain. It should be "set up once and forget".
+The primary goal of noomers is to be super easy to self-host and maintain. It should be "set up once and forget".
 
 To achieve that:
 

@@ -43,7 +43,7 @@ describe("Index route", () => {
         // Wait for content to load
         await waitFor(() => {
             expect(
-                screen.getByText("Welcome to Counterscale"),
+                screen.getByText("Welcome to noomers"),
             ).toBeInTheDocument();
         });
 
@@ -70,7 +70,7 @@ describe("Index route", () => {
 
         await waitFor(() => {
             expect(
-                screen.getByText("Welcome to Counterscale"),
+                screen.getByText("Welcome to noomers"),
             ).toBeInTheDocument();
         });
 

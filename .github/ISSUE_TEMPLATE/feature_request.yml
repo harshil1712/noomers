@@ -21,11 +21,11 @@ body:
       id: component
       attributes:
           label: Component
-          description: Which part of Counterscale would this feature affect?
+          description: Which part of noomers would this feature affect?
           options:
-              - "@counterscale/server"
-              - "@counterscale/cli"
-              - "@counterscale/tracker"
+              - "@noomers/server"
+              - "@noomers/cli"
+              - "@noomers/tracker"
       validations:
           required: true
 

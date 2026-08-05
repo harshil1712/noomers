@@ -52,8 +52,8 @@ import { requireAuth } from "~/lib/auth";
 
 export const meta: MetaFunction = () => {
     return [
-        { title: "Counterscale: Web Analytics" },
-        { name: "description", content: "Counterscale: Web Analytics" },
+        { title: "noomers: Web Analytics" },
+        { name: "description", content: "noomers: Web Analytics" },
     ];
 };
 

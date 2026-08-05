@@ -1,19 +1,19 @@
-# @counterscale/eslint-config
+# @noomers/eslint-config
 
-Shared ESLint configurations for Counterscale packages.
+Shared ESLint configurations for noomers packages.
 
 ## Usage
 
 ### Installation
 
-This package is included as a dependency in the Counterscale monorepo.
+This package is included as a dependency in the noomers monorepo.
 
 ### Standard Usage
 
 Create a minimal `eslint.config.mjs` file in your package:
 
 ```js
-import { createConfig } from "@counterscale/eslint-config";
+import { createConfig } from "@noomers/eslint-config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -35,7 +35,7 @@ export default createConfig({
     project: "./tsconfig.json", // Path to your tsconfig.json
     additionalGlobals: {
         // Add any package-specific globals
-        counterscale: true,
+        noomers: true,
     },
 });
 ```
@@ -49,7 +49,7 @@ import {
     createBaseConfig,
     createTypeScriptConfig,
     createReactConfig,
-} from "@counterscale/eslint-config";
+} from "@noomers/eslint-config";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -60,7 +60,7 @@ export default [
     ...createBaseConfig({
         baseDirectory: __dirname,
         ignores: ["build/*", "node_modules", "dist/*"],
-        additionalGlobals: { counterscale: true },
+        additionalGlobals: { noomers: true },
     }),
     ...createReactConfig({ baseDirectory: __dirname }),
     ...createTypeScriptConfig({

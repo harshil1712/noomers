@@ -52,11 +52,11 @@ body:
       id: component
       attributes:
           label: Component
-          description: Which part of Counterscale is affected?
+          description: Which part of noomers is affected?
           options:
-              - "@counterscale/server"
-              - "@counterscale/cli"
-              - "@counterscale/tracker"
+              - "@noomers/server"
+              - "@noomers/cli"
+              - "@noomers/tracker"
 
       validations:
           required: true
@@ -69,7 +69,7 @@ body:
           placeholder: |
               - OS: [e.g. macOS, Windows, Linux]
               - Browser: [e.g. Chrome, Firefox, Safari]
-              - Counterscale version: [e.g. 1.0.0]
+              - noomers version: [e.g. 1.0.0]
               - Node.js version: [e.g. 18.17.0]
               - Cloudflare Workers environment: [if applicable]
       validations:

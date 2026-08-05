@@ -1,0 +1,13 @@
+noomers
+=======
+
+noomers is a derivative work of Counterscale, a self-hosted web analytics
+tracker and dashboard originally created by Ben Vinegar
+(https://github.com/benvinegar). Counterscale is distributed under the MIT
+License.
+
+This project builds on Counterscale's codebase. The original copyright
+notice is preserved in the LICENSE file, and this derivative work is subject
+to the same MIT License terms.
+
+Original project: https://github.com/benvinegar/counterscale
