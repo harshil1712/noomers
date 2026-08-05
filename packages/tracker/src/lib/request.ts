@@ -1,5 +1,6 @@
 import type { CollectRequestParams, CacheResponse } from "../shared/types";
 import { buildCollectUrl } from "../shared/request";
+import { queryParamStringify } from "../shared/utils";
 
 const REQUEST_TIMEOUT = 1000;
 
@@ -61,10 +62,14 @@ export function checkCacheStatus(
  */
 export function makeRequest(url: string, params: CollectRequestParams) {
     const xhr = new XMLHttpRequest();
-    const fullUrl = buildCollectUrl(url, params); // Don't filter empty strings for browser compatibility
+    const isEvent = Boolean(params.en);
+    const fullUrl = isEvent ? url : buildCollectUrl(url, params);
 
-    xhr.open("GET", fullUrl, true);
-    xhr.setRequestHeader("Content-Type", "text/plain");
+    xhr.open(isEvent ? "POST" : "GET", fullUrl, true);
+    xhr.setRequestHeader(
+        "Content-Type",
+        isEvent ? "application/x-www-form-urlencoded" : "text/plain",
+    );
     xhr.timeout = REQUEST_TIMEOUT;
-    xhr.send();
+    xhr.send(isEvent ? queryParamStringify(params).slice(1) : undefined);
 }

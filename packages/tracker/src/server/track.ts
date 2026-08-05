@@ -1,6 +1,6 @@
 import type { ServerClient } from "./client";
 import { makeRequest } from "./request";
-import type { ServerTrackPageviewOpts } from "./types";
+import type { ServerTrackEventOpts, ServerTrackPageviewOpts } from "./types";
 import {
     getHostnameAndPath,
     getReferrer,
@@ -92,5 +92,66 @@ export async function trackPageview(
         "1",
     );
 
-    await makeRequest(client.reporterUrl, requestParams, client.timeout);
+    await makeRequest(
+        client.reporterUrl,
+        requestParams,
+        client.timeout,
+        opts.userAgent || client.userAgent,
+    );
+}
+
+export async function trackEvent(
+    client: ServerClient,
+    name: string,
+    opts: ServerTrackEventOpts,
+) {
+    const eventName = name.trim();
+    if (!eventName || eventName.length > 64) {
+        throw new Error("Event name must be between 1 and 64 characters.");
+    }
+
+    if (!opts.url) {
+        throw new Error("url is required for server-side tracking");
+    }
+
+    let fullUrl = opts.url;
+    if (opts.url.startsWith("/")) {
+        if (!opts.hostname) {
+            throw new Error("hostname is required when tracking relative URLs");
+        }
+        fullUrl = `https://${opts.hostname}${opts.url}`;
+    }
+
+    let parsedUrl: URL;
+    try {
+        parsedUrl = new URL(fullUrl);
+    } catch {
+        throw new Error(`Invalid URL: ${opts.url}`);
+    }
+
+    if (!client.reportOnLocalhost && isLocalhostAddress(parsedUrl.hostname)) {
+        return;
+    }
+
+    const { hostname, path } = getHostnameAndPath(fullUrl);
+    const referrer = getReferrer(hostname, opts.referrer || "");
+    const urlUtmParams = getUtmParamsFromUrl(fullUrl);
+    const optsUtmParams = getUtmParamsFromOpts(opts);
+    const requestParams = buildCollectRequestParams(
+        client.siteId,
+        hostname,
+        path,
+        referrer,
+        mergeUtmParams(urlUtmParams, optsUtmParams),
+        undefined,
+        { name: eventName, props: opts.props },
+        opts.ip,
+    );
+
+    await makeRequest(
+        client.reporterUrl,
+        requestParams,
+        client.timeout,
+        opts.userAgent || client.userAgent,
+    );
 }

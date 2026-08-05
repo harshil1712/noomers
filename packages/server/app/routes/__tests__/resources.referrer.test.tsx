@@ -43,11 +43,10 @@ describe("Resources/Referrer route", () => {
             fetch.mockResolvedValueOnce(
                 createFetchResponse({
                     data: [
-                        { blob5: "/", isVisitor: 0, count: "5" },
+                        { blob5: "/", count: "6" },
                         {
                             blob5: "/example",
-                            isVisitor: 0,
-                            count: "2",
+                            count: "3",
                         },
                     ],
                 }),

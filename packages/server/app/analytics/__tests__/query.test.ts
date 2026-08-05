@@ -25,6 +25,12 @@ describe("AnalyticsEngineAPI", () => {
     );
     let fetch: Mock; // todo: figure out how to type this mocked fetch
 
+    function mockQueryResponses(primary: unknown) {
+        fetch.mockImplementation((_url: string, _init: RequestInit) =>
+            Promise.resolve(createFetchResponse(primary)),
+        );
+    }
+
     beforeEach(() => {
         fetch = global.fetch = vi.fn();
         vi.useFakeTimers();
@@ -60,25 +66,23 @@ describe("AnalyticsEngineAPI", () => {
         test("should return an array of [timestamp, count] tuples grouped by day", async () => {
             expect(process.env.TZ).toBe("EST");
 
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            count: 3,
-                            // note: intentionally sparse data (data for some timestamps missing)
-                            bucket: "2024-01-13 05:00:00",
-                        },
-                        {
-                            count: 2,
-                            bucket: "2024-01-16 05:00:00",
-                        },
-                        {
-                            count: 1,
-                            bucket: "2024-01-17 05:00:00",
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        count: 3,
+                        // note: intentionally sparse data (data for some timestamps missing)
+                        bucket: "2024-01-13 05:00:00",
+                    },
+                    {
+                        count: 2,
+                        bucket: "2024-01-16 05:00:00",
+                    },
+                    {
+                        count: 1,
+                        bucket: "2024-01-17 05:00:00",
+                    },
+                ],
+            });
 
             vi.setSystemTime(new Date("2024-01-18T09:33:02").getTime());
 
@@ -123,31 +127,29 @@ describe("AnalyticsEngineAPI", () => {
         test("should return an array of [timestamp, count] tuples grouped by hour", async () => {
             expect(process.env.TZ).toBe("EST");
 
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            count: 3,
-                            isVisitor: 0,
-                            isBounce: 0,
-                            // note: intentionally sparse data (data for some timestamps missing)
-                            bucket: "2024-01-17 11:00:00",
-                        },
-                        {
-                            count: 2,
-                            isVisitor: 0,
-                            isBounce: 0,
-                            bucket: "2024-01-17 14:00:00",
-                        },
-                        {
-                            count: 1,
-                            isVisitor: 0,
-                            isBounce: 0,
-                            bucket: "2024-01-17 16:00:00",
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        count: 3,
+                        isVisitor: 0,
+                        isBounce: 0,
+                        // note: intentionally sparse data (data for some timestamps missing)
+                        bucket: "2024-01-17 11:00:00",
+                    },
+                    {
+                        count: 2,
+                        isVisitor: 0,
+                        isBounce: 0,
+                        bucket: "2024-01-17 14:00:00",
+                    },
+                    {
+                        count: 1,
+                        isVisitor: 0,
+                        isBounce: 0,
+                        bucket: "2024-01-17 16:00:00",
+                    },
+                ],
+            });
 
             vi.setSystemTime(new Date("2024-01-18T05:33:02").getTime());
 
@@ -236,7 +238,7 @@ describe("AnalyticsEngineAPI", () => {
                 meta: { total: 3 },
             };
 
-            fetch.mockResolvedValue(createFetchResponse(mockResponse));
+            mockQueryResponses(mockResponse);
             vi.setSystemTime(new Date("2024-01-18T05:33:02").getTime());
 
             const result = await api.getViewsGroupedByInterval(
@@ -260,27 +262,25 @@ describe("AnalyticsEngineAPI", () => {
 
     describe("getCounts", () => {
         test("should return an object with view, visitor, and bounce counts", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            count: 3,
-                            isVisitor: 0,
-                            isBounce: 1,
-                        },
-                        {
-                            count: 2,
-                            isVisitor: 0,
-                            isBounce: 0,
-                        },
-                        {
-                            count: 1,
-                            isVisitor: 1,
-                            isBounce: -1,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        count: 3,
+                        isVisitor: 0,
+                        isBounce: 1,
+                    },
+                    {
+                        count: 2,
+                        isVisitor: 0,
+                        isBounce: 0,
+                    },
+                    {
+                        count: 1,
+                        isVisitor: 1,
+                        isBounce: -1,
+                    },
+                ],
+            });
 
             const result = api.getCounts("example.com", "7d");
 
@@ -292,28 +292,60 @@ describe("AnalyticsEngineAPI", () => {
                 bounces: 2,
             });
         });
+
+        test("escapes site IDs and filters", async () => {
+            fetch.mockResolvedValue(createFetchResponse({ data: [] }));
+
+            await api.getCounts("owner\\'s site", "7d", "UTC", {
+                path: "/it\\'s-here",
+            });
+
+            const query = fetch.mock.calls[0][1].body as string;
+            expect(query).toContain("blob8 = 'owner\\\\''s site'");
+            expect(query).toContain("blob3 = '/it\\\\''s-here'");
+        });
+
+        test("counts distinct Plausible visitor IDs", async () => {
+            mockQueryResponses({
+                data: [
+                    {
+                        count: 4,
+                        distinctVisitors: 2,
+                        isVisitor: -1,
+                        isBounce: 0,
+                    },
+                ],
+            });
+
+            await expect(api.getCounts("example.com", "7d")).resolves.toEqual({
+                views: 4,
+                visitors: 2,
+                bounces: 0,
+            });
+            expect(fetch.mock.calls[0][1].body).toContain(
+                "count(DISTINCT blob18)",
+            );
+        });
     });
 
     describe("getVisitorCountByColumn", () => {
         test("it should map logical columns to schema columns and return an array of [column, count] tuples", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob4: "CA",
-                            count: 3,
-                        },
-                        {
-                            blob4: "US",
-                            count: 2,
-                        },
-                        {
-                            blob4: "GB",
-                            count: 1,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        blob4: "CA",
+                        count: 3,
+                    },
+                    {
+                        blob4: "US",
+                        count: 2,
+                    },
+                    {
+                        blob4: "GB",
+                        count: 1,
+                    },
+                ],
+            });
 
             const result = api.getVisitorCountByColumn(
                 "example.com",
@@ -328,6 +360,9 @@ describe("AnalyticsEngineAPI", () => {
                 ["US", 2],
                 ["GB", 1],
             ]);
+            expect(fetch.mock.calls[0][1].body).toContain(
+                "ORDER BY visitors DESC",
+            );
         });
     });
 
@@ -335,24 +370,22 @@ describe("AnalyticsEngineAPI", () => {
         test("it should return an array of [siteId, count] tuples", async () => {
             // note: getSitesByHits orders by count descending in SQL; since we're mocking
             //       the HTTP/SQL response, the mocked results are pre-sorted
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            siteId: "example.com",
-                            count: 130,
-                        },
-                        {
-                            siteId: "foo.com",
-                            count: 100,
-                        },
-                        {
-                            siteId: "test.dev",
-                            count: 90,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        siteId: "example.com",
+                        count: 130,
+                    },
+                    {
+                        siteId: "foo.com",
+                        count: 100,
+                    },
+                    {
+                        siteId: "test.dev",
+                        count: 90,
+                    },
+                ],
+            });
 
             const result = api.getSitesOrderedByHits("7d");
             // verify fetch was invoked before awaiting result
@@ -367,29 +400,13 @@ describe("AnalyticsEngineAPI", () => {
 
     describe("getAllCountsByColumn", () => {
         test("it should return an array of [column, count] tuples", async () => {
-            // return 2 mocked responses
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob4: "CA",
-                            isVisitor: 1,
-                            count: 3,
-                        },
-                    ],
-                }),
-            );
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob4: "CA",
-                            isVisitor: 0,
-                            count: 1,
-                        },
-                    ],
-                }),
-            );
+            fetch.mockImplementation((_url: string, init: RequestInit) => {
+                const query = String(init.body);
+                const data = query.includes("countIf(blob18 = '')")
+                    ? [{ blob4: "CA", isVisitor: 1, count: 3 }]
+                    : [{ blob4: "CA", count: 4 }];
+                return Promise.resolve(createFetchResponse({ data }));
+            });
 
             const result = await api.getAllCountsByColumn(
                 "example.com",
@@ -417,18 +434,24 @@ describe("AnalyticsEngineAPI", () => {
             });
         });
 
+        test("escapes result keys before using them in an IN clause", async () => {
+            fetch.mockImplementation((_url: string, init: RequestInit) => {
+                const query = String(init.body);
+                const data = query.includes("countIf(blob18 = '')")
+                    ? [{ blob3: "/it's-here", count: 1 }]
+                    : [];
+                return Promise.resolve(createFetchResponse({ data }));
+            });
+
+            await api.getAllCountsByColumn("example.com", "path", "7d");
+
+            expect(fetch.mock.calls[1][1].body).toContain(
+                "blob3 IN ('/it''s-here')",
+            );
+        });
+
         test("should handle case where there are no results", async () => {
-            fetch
-                .mockResolvedValueOnce(
-                    createFetchResponse({
-                        data: [], // no visitor count results
-                    }),
-                )
-                .mockResolvedValueOnce(
-                    createFetchResponse({
-                        data: [], // no non-visitor results
-                    }),
-                );
+            fetch.mockResolvedValue(createFetchResponse({ data: [] }));
 
             const result = await api.getAllCountsByColumn(
                 "example.com",
@@ -438,7 +461,133 @@ describe("AnalyticsEngineAPI", () => {
             );
 
             expect(result).toEqual({});
-            expect(fetch).toHaveBeenCalledTimes(2);
+            expect(fetch).toHaveBeenCalledOnce();
+        });
+    });
+
+    describe("custom events", () => {
+        test("returns paginated event counts", async () => {
+            fetch.mockResolvedValueOnce(
+                createFetchResponse({
+                    data: [
+                        { eventName: "Signup", count: 12 },
+                        { eventName: "Download", count: 7 },
+                    ],
+                }),
+            );
+
+            const result = await api.getCountByEventName("example.com", "7d");
+
+            expect(result).toEqual([
+                ["Signup", 12],
+                ["Download", 7],
+            ]);
+            expect((fetch as Mock).mock.calls[0][1].body).toContain(
+                "blob16 != ''",
+            );
+        });
+    });
+
+    describe("goals", () => {
+        test("counts distinct attributed visitors for an event goal", async () => {
+            fetch.mockResolvedValueOnce(
+                createFetchResponse({ data: [{ conversions: 4 }] }),
+            );
+
+            const result = await api.getGoalConversionCount(
+                "example.com",
+                { type: "event", value: "Signup's complete" },
+                "7d",
+                "UTC",
+            );
+
+            expect(result).toBe(4);
+            const query = (fetch as Mock).mock.calls[0][1].body as string;
+            expect(query).toContain("count(DISTINCT blob18)");
+            expect(query).toContain("blob16 = 'Signup''s complete'");
+            expect(query).toContain("blob18 != ''");
+        });
+
+        test("matches pageview goals without including custom events", async () => {
+            fetch.mockResolvedValueOnce(
+                createFetchResponse({ data: [{ conversions: "2" }] }),
+            );
+
+            expect(
+                await api.getGoalConversionCount(
+                    "example.com",
+                    { type: "pageview", value: "/thank-you" },
+                    "7d",
+                ),
+            ).toBe(2);
+            const query = (fetch as Mock).mock.calls[0][1].body as string;
+            expect(query).toContain("blob16 = '' AND blob3 = '/thank-you'");
+        });
+    });
+
+    describe("archive export query", () => {
+        test("aliases timestamps to the date key consumed by the exporter", async () => {
+            fetch.mockResolvedValueOnce(
+                createFetchResponse({
+                    data: [
+                        {
+                            date: "2024-01-01 12:00:00",
+                            siteId: "example.com",
+                            eventName: "Signup",
+                            count: 2,
+                            isVisitor: 0,
+                            isBounce: 0,
+                        },
+                    ],
+                }),
+            );
+
+            const result = await api.getAllCountsByAllColumnsForAllSites(
+                ["eventName"],
+                new Date("2024-01-01T00:00:00Z"),
+                new Date("2024-01-02T00:00:00Z"),
+                "UTC",
+            );
+
+            expect([...result.keys()]).toEqual([
+                ["2024-01-01 12:00:00", "example.com", "Signup"],
+            ]);
+            expect([...result.values()]).toEqual([
+                { views: 0, visitors: 0, bounces: 0, events: 2 },
+            ]);
+            expect((fetch as Mock).mock.calls[0][1].body).toContain(
+                "toStartOfDay(timestamp) as date",
+            );
+        });
+
+        test("counts distinct Plausible visitors in daily rollups", async () => {
+            fetch.mockResolvedValueOnce(
+                createFetchResponse({
+                    data: [
+                        {
+                            date: "2024-01-01 00:00:00",
+                            siteId: "example.com",
+                            eventName: "",
+                            count: 4,
+                            distinctVisitors: 2,
+                            missingVisitorIds: 0,
+                            legacyVisitors: 0,
+                            bounces: 1,
+                        },
+                    ],
+                }),
+            );
+
+            const result = await api.getAllCountsByAllColumnsForAllSites(
+                ["eventName"],
+                new Date("2024-01-01T00:00:00Z"),
+                new Date("2024-01-02T00:00:00Z"),
+                "UTC",
+            );
+
+            expect([...result.values()]).toEqual([
+                { views: 4, visitors: 2, bounces: 1, events: 0 },
+            ]);
         });
     });
 
@@ -486,24 +635,22 @@ describe("AnalyticsEngineAPI", () => {
 
     describe("UTM query methods", () => {
         test("getCountByUtmSource should return visitor counts by UTM source", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob11: "google",
-                            count: 50,
-                        },
-                        {
-                            blob11: "facebook",
-                            count: 30,
-                        },
-                        {
-                            blob11: "twitter",
-                            count: 20,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        blob11: "google",
+                        count: 50,
+                    },
+                    {
+                        blob11: "facebook",
+                        count: 30,
+                    },
+                    {
+                        blob11: "twitter",
+                        count: 20,
+                    },
+                ],
+            });
 
             const result = await api.getCountByUtmSource("example.com", "7d");
 
@@ -516,24 +663,22 @@ describe("AnalyticsEngineAPI", () => {
         });
 
         test("getCountByUtmMedium should return visitor counts by UTM medium", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob12: "cpc",
-                            count: 40,
-                        },
-                        {
-                            blob12: "email",
-                            count: 35,
-                        },
-                        {
-                            blob12: "social",
-                            count: 25,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        blob12: "cpc",
+                        count: 40,
+                    },
+                    {
+                        blob12: "email",
+                        count: 35,
+                    },
+                    {
+                        blob12: "social",
+                        count: 25,
+                    },
+                ],
+            });
 
             const result = await api.getCountByUtmMedium("example.com", "7d");
 
@@ -546,20 +691,18 @@ describe("AnalyticsEngineAPI", () => {
         });
 
         test("getCountByUtmCampaign should return visitor counts by UTM campaign", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob13: "summer_sale",
-                            count: 60,
-                        },
-                        {
-                            blob13: "newsletter",
-                            count: 40,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        blob13: "summer_sale",
+                        count: 60,
+                    },
+                    {
+                        blob13: "newsletter",
+                        count: 40,
+                    },
+                ],
+            });
 
             const result = await api.getCountByUtmCampaign("example.com", "7d");
 
@@ -571,20 +714,18 @@ describe("AnalyticsEngineAPI", () => {
         });
 
         test("getCountByUtmTerm should return visitor counts by UTM term", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob14: "analytics",
-                            count: 15,
-                        },
-                        {
-                            blob14: "web tracking",
-                            count: 10,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        blob14: "analytics",
+                        count: 15,
+                    },
+                    {
+                        blob14: "web tracking",
+                        count: 10,
+                    },
+                ],
+            });
 
             const result = await api.getCountByUtmTerm("example.com", "7d");
 
@@ -596,20 +737,18 @@ describe("AnalyticsEngineAPI", () => {
         });
 
         test("getCountByUtmContent should return visitor counts by UTM content", async () => {
-            fetch.mockResolvedValue(
-                createFetchResponse({
-                    data: [
-                        {
-                            blob15: "banner_ad",
-                            count: 25,
-                        },
-                        {
-                            blob15: "text_link",
-                            count: 15,
-                        },
-                    ],
-                }),
-            );
+            mockQueryResponses({
+                data: [
+                    {
+                        blob15: "banner_ad",
+                        count: 25,
+                    },
+                    {
+                        blob15: "text_link",
+                        count: 15,
+                    },
+                ],
+            });
 
             const result = await api.getCountByUtmContent("example.com", "7d");
 

@@ -249,6 +249,16 @@ describe("Dashboard route", () => {
                         },
                     },
                     {
+                        path: "/resources/events",
+                        loader: () => {
+                            return { countsByProperty: [] };
+                        },
+                    },
+                    {
+                        path: "/resources/goals",
+                        loader: () => ({ goals: [] }),
+                    },
+                    {
                         path: "/resources/browser",
                         loader: () => {
                             return { countsByProperty: [] };
@@ -311,6 +321,8 @@ describe("Dashboard route", () => {
         await waitFor(() => screen.findByText("Path"));
         expect(screen.getByText("Path")).toBeInTheDocument();
         expect(screen.getByText("Referrer")).toBeInTheDocument();
+        expect(screen.getAllByText("Event").length).toBeGreaterThan(0);
+        expect(screen.getByText("Goals")).toBeInTheDocument();
         expect(screen.getByText("Browser")).toBeInTheDocument();
         expect(screen.getByText("Country")).toBeInTheDocument();
         expect(screen.getByText("Device")).toBeInTheDocument();
@@ -361,6 +373,10 @@ describe("Dashboard route", () => {
                             return {
                                 views: 2133,
                                 visitors: 33,
+                                visits: 40,
+                                averageVisitDuration: 82,
+                                bounceRate: 0.3,
+                                hasSufficientBounceData: true,
                             };
                         },
                     },
@@ -393,6 +409,31 @@ describe("Dashboard route", () => {
                                 ],
                             };
                         },
+                    },
+                    {
+                        path: "/resources/events",
+                        loader: () => {
+                            return {
+                                countsByProperty: [["Signup", 12]],
+                            };
+                        },
+                    },
+                    {
+                        path: "/resources/goals",
+                        loader: () => ({
+                            goals: [
+                                {
+                                    id: "goal-1",
+                                    siteId: "example",
+                                    name: "Signup conversion",
+                                    type: "event",
+                                    value: "Signup",
+                                    createdAt: "2026-08-02T00:00:00Z",
+                                    conversions: 12,
+                                    conversionRate: 4.2,
+                                },
+                            ],
+                        }),
                     },
                     {
                         path: "/resources/browser",
@@ -481,10 +522,15 @@ describe("Dashboard route", () => {
         // assert some of the data we mocked actually rendered into the document
         expect(screen.getByText("2.1K")).toBeInTheDocument(); // view count
         expect(screen.getByText("33")).toBeInTheDocument(); // visitor count
+        expect(screen.getByText("40")).toBeInTheDocument(); // visit count
+        expect(screen.getByText("1m 22s")).toBeInTheDocument();
+        expect(screen.getByText("30%")).toBeInTheDocument();
 
         expect(screen.getByText("/about")).toBeInTheDocument();
         expect(screen.getByText("Chrome")).toBeInTheDocument();
         expect(screen.getByText("google.com")).toBeInTheDocument();
+        expect(screen.getByText("Signup")).toBeInTheDocument();
+        expect(screen.getByText("Signup conversion")).toBeInTheDocument();
         expect(screen.getByText("Canada")).toBeInTheDocument(); // assert converted CA -> Canada
         expect(screen.getByText("Mobile")).toBeInTheDocument();
     });

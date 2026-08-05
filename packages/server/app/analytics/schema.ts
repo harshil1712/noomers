@@ -29,6 +29,9 @@ export const ColumnMappings = {
     utmCampaign: "blob13",
     utmTerm: "blob14",
     utmContent: "blob15",
+    eventName: "blob16",
+    eventProperties: "blob17",
+    visitorId: "blob18",
 
     /**
      * doubles

@@ -16,6 +16,8 @@
         "build",
         "app",
         "workers",
+        "migrations",
+        "pipelines",
         "wrangler.json"
     ],
     "scripts": {

@@ -138,12 +138,13 @@ describe("CloudflareClient", () => {
 
     describe("setCloudflareSecrets", () => {
         it("should set all secrets successfully", async () => {
-            vi.mocked($).mockImplementation(() => {
-                return {
+            vi.mocked($).mockImplementation((options: any) => {
+                expect(options.input).toMatch(/^value[12]\n$/);
+                return () => ({
                     stdout: "Secret successfully created/updated",
                     stderr: "",
                     exitCode: 0,
-                };
+                });
             });
 
             const result = await client.setCloudflareSecrets({
@@ -152,6 +153,10 @@ describe("CloudflareClient", () => {
             });
             expect(result).toBe(true);
             expect($).toHaveBeenCalledTimes(2);
+            expect($).toHaveBeenCalledWith({
+                input: "value1\n",
+                quiet: true,
+            });
         });
 
         it("should return false if any secret fails to set", async () => {
@@ -160,13 +165,15 @@ describe("CloudflareClient", () => {
             vi.mocked($).mockImplementation(() => {
                 callCount++;
                 if (callCount === 1) {
-                    return {
+                    return () => ({
                         stdout: "Success",
                         stderr: "",
                         exitCode: 0,
-                    };
+                    });
                 } else {
-                    throw new Error("Failed to set secret");
+                    return () => {
+                        throw new Error("Failed to set secret");
+                    };
                 }
             });
 
@@ -175,6 +182,68 @@ describe("CloudflareClient", () => {
                 SECRET2: "value2",
             });
             expect(result).toBe(false);
+        });
+    });
+
+    describe("R2", () => {
+        it("reuses an existing daily bucket from JSON output", async () => {
+            vi.mocked($).mockReturnValueOnce({
+                stdout: JSON.stringify([
+                    { name: "counterscale-daily-rollups" },
+                ]),
+            } as any);
+
+            await expect(
+                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+            ).resolves.toBe("existing");
+            expect($).toHaveBeenCalledTimes(1);
+        });
+
+        it("reuses an existing daily bucket from table output", async () => {
+            vi.mocked($).mockReturnValueOnce({
+                stdout: "│ counterscale-daily-rollups │ 2026-01-01 │",
+            } as any);
+
+            await expect(
+                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+            ).resolves.toBe("existing");
+            expect($).toHaveBeenCalledTimes(1);
+        });
+
+        it("creates a missing daily bucket", async () => {
+            vi.mocked($)
+                .mockReturnValueOnce({ stdout: "[]" } as any)
+                .mockReturnValueOnce({ stdout: "Created" } as any);
+
+            await expect(
+                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+            ).resolves.toBe("created");
+            expect($).toHaveBeenCalledTimes(2);
+        });
+
+        it("does not create a bucket when listing fails", async () => {
+            vi.mocked($).mockRejectedValueOnce(new Error("Not authenticated"));
+
+            await expect(
+                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+            ).rejects.toThrow("Not authenticated");
+            expect($).toHaveBeenCalledTimes(1);
+        });
+
+        it("handles another installer creating the bucket concurrently", async () => {
+            vi.mocked($)
+                .mockReturnValueOnce({ stdout: "[]" } as any)
+                .mockRejectedValueOnce(new Error("Bucket already exists"))
+                .mockReturnValueOnce({
+                    stdout: JSON.stringify([
+                        { name: "counterscale-daily-rollups" },
+                    ]),
+                } as any);
+
+            await expect(
+                client.getOrCreateR2Bucket("counterscale-daily-rollups"),
+            ).resolves.toBe("existing");
+            expect($).toHaveBeenCalledTimes(3);
         });
     });
 
@@ -293,6 +362,53 @@ Getting User settings...
             await expect(client.getAccounts()).rejects.toThrow(
                 "Command failed",
             );
+        });
+    });
+
+    describe("D1", () => {
+        it("reuses an existing goals database", async () => {
+            vi.mocked($).mockImplementation(() => ({
+                stdout: JSON.stringify([
+                    {
+                        uuid: "11111111-1111-1111-1111-111111111111",
+                        name: "goals",
+                    },
+                ]),
+                stderr: "",
+                exitCode: 0,
+            }));
+
+            await expect(client.getOrCreateD1Database("goals")).resolves.toBe(
+                "11111111-1111-1111-1111-111111111111",
+            );
+            expect($).toHaveBeenCalledTimes(1);
+        });
+
+        it("creates a missing database and applies migrations", async () => {
+            let call = 0;
+            vi.mocked($).mockImplementation(() => {
+                call += 1;
+                if (call === 1) {
+                    return { stdout: "[]", stderr: "", exitCode: 0 };
+                }
+                if (call === 2) {
+                    return {
+                        stdout: `{
+                            "database_name": "goals",
+                            "database_id": "22222222-2222-2222-2222-222222222222"
+                        }`,
+                        stderr: "",
+                        exitCode: 0,
+                    };
+                }
+                return { stdout: "Applied", stderr: "", exitCode: 0 };
+            });
+
+            const id = await client.getOrCreateD1Database("goals");
+            await client.applyD1Migrations("goals");
+
+            expect(id).toBe("22222222-2222-2222-2222-222222222222");
+            expect($).toHaveBeenCalledTimes(3);
         });
     });
 

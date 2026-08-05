@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { trackPageview } from "../track";
+import { trackEvent, trackPageview } from "../track";
 import { ServerClient } from "../client";
 import type { ServerTrackPageviewOpts } from "../types";
 
@@ -312,6 +312,7 @@ describe("trackPageview", () => {
                 "https://example.com/collect",
                 requestParams,
                 1000,
+                undefined,
             );
         });
 
@@ -348,6 +349,56 @@ describe("trackPageview", () => {
                 expect.any(String),
                 expect.any(Object),
                 5000,
+                undefined,
+            );
+        });
+
+        it("should forward custom event properties and source IP", async () => {
+            const { makeRequest } = await import("../request");
+            const {
+                getHostnameAndPath,
+                getReferrer,
+                isLocalhostAddress,
+                getUtmParamsFromUrl,
+                mergeUtmParams,
+            } = await import("../../shared/utils");
+            const { buildCollectRequestParams } = await import(
+                "../../shared/request"
+            );
+            const requestParams = { en: "Signup" };
+
+            (getHostnameAndPath as any).mockReturnValue({
+                hostname: "example.com",
+                path: "/signup",
+            });
+            (getReferrer as any).mockReturnValue("");
+            (isLocalhostAddress as any).mockReturnValue(false);
+            (getUtmParamsFromUrl as any).mockReturnValue({});
+            (mergeUtmParams as any).mockReturnValue({});
+            (buildCollectRequestParams as any).mockReturnValue(requestParams);
+
+            await trackEvent(client, "Signup", {
+                url: "https://example.com/signup",
+                ip: "203.0.113.10",
+                userAgent: "Visitor Browser",
+                props: { plan: "pro" },
+            });
+
+            expect(buildCollectRequestParams).toHaveBeenCalledWith(
+                "test-site",
+                "example.com",
+                "/signup",
+                "",
+                {},
+                undefined,
+                { name: "Signup", props: { plan: "pro" } },
+                "203.0.113.10",
+            );
+            expect(makeRequest).toHaveBeenCalledWith(
+                "https://example.com/collect",
+                requestParams,
+                1000,
+                "Visitor Browser",
             );
         });
     });

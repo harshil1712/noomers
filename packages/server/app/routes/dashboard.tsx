@@ -27,6 +27,8 @@ import {
 
 import { ReferrerCard } from "./resources.referrer";
 import { PathsCard } from "./resources.paths";
+import { EventsCard } from "./resources.events";
+import { GoalsCard } from "./resources.goals";
 import { BrowserCard } from "./resources.browser";
 import { BrowserVersionCard } from "./resources.browserversion";
 import { CountryCard } from "./resources.country";
@@ -251,7 +253,7 @@ export default function Dashboard() {
                         timezone={userTimezone}
                     />
                 </div>
-                <div className="grid md:grid-cols-2 gap-4 mb-4">
+                <div className="grid md:grid-cols-3 gap-4 mb-4">
                     <PathsCard
                         siteId={data.siteId}
                         interval={data.interval}
@@ -264,6 +266,20 @@ export default function Dashboard() {
                         interval={data.interval}
                         filters={data.filters}
                         onFilterChange={handleFilterChange}
+                        timezone={userTimezone}
+                    />
+                    <EventsCard
+                        siteId={data.siteId}
+                        interval={data.interval}
+                        filters={data.filters}
+                        timezone={userTimezone}
+                    />
+                </div>
+                <div className="w-full mb-4">
+                    <GoalsCard
+                        siteId={data.siteId}
+                        interval={data.interval}
+                        filters={data.filters}
                         timezone={userTimezone}
                     />
                 </div>

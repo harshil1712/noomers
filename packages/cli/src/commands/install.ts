@@ -22,6 +22,7 @@ import {
     stageDeployConfig,
     readInitialServerConfig,
     getWorkerAndDatasetName,
+    persistDeployment,
 } from "../lib/config.js";
 
 import { CloudflareClient } from "../lib/cloudflare.js";
@@ -341,6 +342,21 @@ Your token needs these permissions:
                 }
             }
         }
+
+        if (!secrets?.VISITOR_SALT) {
+            const s = spinner();
+            s.start("Setting visitor attribution secret ...");
+            if (
+                await cloudflare.setCloudflareSecrets({
+                    VISITOR_SALT: generateJWTSecret(),
+                })
+            ) {
+                s.stop("Setting visitor attribution secret ... Done!");
+            } else {
+                s.stop("Error setting visitor attribution secret", 1);
+                throw new Error("Error setting visitor attribution secret");
+            }
+        }
     } catch (err) {
         console.error(err);
         process.exit(1);
@@ -353,6 +369,31 @@ Your token needs these permissions:
         s.start(`Deploying Counterscale ...`);
 
         try {
+            const dailyRollupsBucket = initialDeployConfig.r2_buckets?.find(
+                (bucket: { binding?: string }) =>
+                    bucket.binding === "DAILY_ROLLUPS",
+            )?.bucket_name as string | undefined;
+            if (dailyRollupsBucket) {
+                const bucketStatus =
+                    await cloudflare.getOrCreateR2Bucket(dailyRollupsBucket);
+                log.info(
+                    `Daily R2 bucket: ${dailyRollupsBucket} (${bucketStatus})`,
+                );
+            }
+
+            const databaseName = `${workerName}-goals`;
+            const databaseId =
+                await cloudflare.getOrCreateD1Database(databaseName);
+            await stageDeployConfig(
+                tmpStagingConfigPath,
+                initialDeployConfig,
+                workerName,
+                analyticsDataset,
+                accountId,
+                { name: databaseName, id: databaseId },
+            );
+            await cloudflare.applyD1Migrations(databaseName);
+
             if (opts.verbose) {
                 s.stop(`Deploying Counterscale ...`);
             }
@@ -361,6 +402,24 @@ Your token needs these permissions:
                 opts.verbose ? true : false,
                 serverPkgJson.version,
             );
+
+            const pipelineName = initialDeployConfig.pipelines?.find(
+                (pipeline: { binding?: string }) =>
+                    pipeline.binding === "EVENTS_PIPELINE",
+            )?.pipeline as string | undefined;
+            persistDeployment(tmpStagingConfigPath, {
+                version: 1,
+                accountId,
+                workerName,
+                analyticsDataset,
+                d1Database: { name: databaseName, id: databaseId },
+                resources: {
+                    dailyRollupsBucket,
+                    pipelineName,
+                    dataCatalogBucket: initialDeployConfig.vars?.R2_SQL_BUCKET,
+                    dataCatalogTable: initialDeployConfig.vars?.R2_SQL_TABLE,
+                },
+            });
 
             if (!opts.verbose) {
                 s.stop("Deploying Counterscale ... Done.");
@@ -371,6 +430,13 @@ Your token needs these permissions:
         }
 
         if (deployUrl) {
+            if (!initialDeployConfig.pipelines?.length) {
+                note(
+                    `Pipeline/Data Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest pipelines list\nSetup: npx wrangler@latest pipelines setup --name ${workerName}-events\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest r2 bucket catalog get <BUCKET>`,
+                    "Optional convergence storage",
+                );
+            }
+
             await tick(() =>
                 note(
                     "NOTE: If this is your first time deploying to this subdomain, you may have to wait a few minutes before the site is live.",

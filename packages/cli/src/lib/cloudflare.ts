@@ -21,6 +21,11 @@ interface TokenValidationResponse {
     errors?: Array<{ code: number; message: string }>;
 }
 
+interface D1DatabaseInfo {
+    uuid: string;
+    name: string;
+}
+
 export class CloudflareClient {
     private configPath: string;
 
@@ -47,15 +52,20 @@ export class CloudflareClient {
         try {
             const result = await $({ quiet: true })`npx wrangler whoami`;
             const accounts = this.parseAccountsFromTable(result.stdout);
-            
+
             // If table parsing failed, fall back to single account
             if (accounts.length === 0) {
                 const accountId = await this.getAccountId();
                 if (accountId) {
-                    return [{ id: accountId, name: `Account ${accountId.slice(-6)}` }];
+                    return [
+                        {
+                            id: accountId,
+                            name: `Account ${accountId.slice(-6)}`,
+                        },
+                    ];
                 }
             }
-            
+
             return accounts;
         } catch (error) {
             if (error instanceof ProcessOutput) {
@@ -67,26 +77,33 @@ export class CloudflareClient {
 
     private parseAccountsFromTable(output: string): AccountInfo[] {
         const accounts: AccountInfo[] = [];
-        const lines = output.split('\n');
-        
+        const lines = output.split("\n");
+
         for (const line of lines) {
             // Skip header and separator lines
-            if (!line.includes('│') || line.includes('Account Name') || line.includes('─')) {
+            if (
+                !line.includes("│") ||
+                line.includes("Account Name") ||
+                line.includes("─")
+            ) {
                 continue;
             }
-            
-            const parts = line.split('│').map(part => part.trim()).filter(Boolean);
-            
+
+            const parts = line
+                .split("│")
+                .map((part) => part.trim())
+                .filter(Boolean);
+
             if (parts.length >= 2) {
                 const [name, id] = parts;
-                
+
                 // Validate account ID format (32 hex characters)
                 if (/^[0-9a-f]{32}$/.test(id)) {
                     accounts.push({ id, name });
                 }
             }
         }
-        
+
         return accounts;
     }
 
@@ -136,7 +153,8 @@ export class CloudflareClient {
             const data: TokenValidationResponse = await response.json();
 
             if (!data.success) {
-                const errorMessage = data.errors?.[0]?.message || "Token validation failed";
+                const errorMessage =
+                    data.errors?.[0]?.message || "Token validation failed";
                 return { valid: false, error: errorMessage };
             }
 
@@ -184,12 +202,84 @@ export class CloudflareClient {
     ): Promise<boolean> {
         for (const [key, value] of Object.entries(secrets)) {
             try {
-                await $`echo ${value} | npx wrangler secret put ${key} --config ${this.configPath}`;
+                await $({
+                    input: `${value}\n`,
+                    quiet: true,
+                })`npx wrangler secret put ${key} --config ${this.configPath}`;
             } catch {
                 return false;
             }
         }
         return true;
+    }
+
+    async getOrCreateR2Bucket(name: string): Promise<"existing" | "created"> {
+        const listResult =
+            await $`npx wrangler r2 bucket list --config ${this.configPath}`;
+        if (this.r2BucketListContains(listResult.stdout, name)) {
+            return "existing";
+        }
+
+        try {
+            await $`npx wrangler r2 bucket create ${name} --config ${this.configPath}`;
+            return "created";
+        } catch (error) {
+            const retryList =
+                await $`npx wrangler r2 bucket list --config ${this.configPath}`;
+            if (this.r2BucketListContains(retryList.stdout, name)) {
+                return "existing";
+            }
+            throw error;
+        }
+    }
+
+    private r2BucketListContains(output: string, name: string): boolean {
+        try {
+            const buckets = JSON.parse(output) as Array<{
+                name?: string;
+                bucket_name?: string;
+            }>;
+            if (
+                buckets.some(
+                    (bucket) =>
+                        bucket.name === name || bucket.bucket_name === name,
+                )
+            ) {
+                return true;
+            }
+        } catch {
+            // Older Wrangler versions render this command as a table.
+        }
+
+        return output
+            .split("\n")
+            .some((line) =>
+                line
+                    .split(/[│|\s]+/)
+                    .map((value) => value.trim())
+                    .includes(name),
+            );
+    }
+
+    async getOrCreateD1Database(name: string): Promise<string> {
+        const listResult =
+            await $`npx wrangler d1 list --json --config ${this.configPath}`;
+        const databases = JSON.parse(listResult.stdout) as D1DatabaseInfo[];
+        const existing = databases.find((database) => database.name === name);
+        if (existing) return existing.uuid;
+
+        const createResult =
+            await $`npx wrangler d1 create ${name} --config ${this.configPath}`;
+        const id = createResult.stdout.match(
+            /["']?database_id["']?\s*[:=]\s*["']([0-9a-f-]{36})["']/i,
+        )?.[1];
+        if (!id)
+            throw new Error(`Could not determine D1 database ID for ${name}`);
+        return id;
+    }
+
+    async applyD1Migrations(databaseName: string): Promise<void> {
+        await $`npx wrangler d1 migrations apply ${databaseName} --remote --config ${this.configPath}`;
     }
 
     async deploy(verbose: boolean, version: string): Promise<string> {
@@ -218,4 +308,3 @@ export class CloudflareClient {
         }
     }
 }
-

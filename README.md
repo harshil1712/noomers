@@ -20,13 +20,15 @@ Counterscale is free, open source software made available under the MIT license.
 
 Counterscale is powered primarily by Cloudflare Workers and [Workers Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/). As of February 2025, Workers Analytics Engine has _maximum 90 days retention_, which means Counterscale can only show the last 90 days of recorded data. We do, however, provide long term storage of your data in an R2 bucket using Apache Arrow files. This long term storage is enabled by default and can be disabled using the CLI.
 
+Counterscale implements a subset of Plausible's APIs and product features. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline, remaining work, deferred features, and infrastructure-dependent gaps. See the [feature implementation roadmap](docs/implementation-roadmap.md) for sequencing, dependencies, and completion criteria.
+
 ## Installation
 
 ### Requirements
 
-* macOS or Linux environment
-* Node v20 or above
-* An active [Cloudflare](https://cloudflare.com) account (either free or paid)
+- macOS or Linux environment
+- Node v20 or above
+- An active [Cloudflare](https://cloudflare.com) account (either free or paid)
 
 ### Cloudflare Preparation
 
@@ -58,6 +60,8 @@ Follow the prompts. You will be asked for the Cloudflare API token you created e
 - If you choose **No**, your dashboard will be publicly accessible without authentication.
 
 Once the script has finished, the server application should be deployed. Visit `https://{subdomain-emitted-during-deploy}.workers.dev` to verify.
+
+The installer also creates a D1 database for goal definitions, applies its migrations, and configures a rotating, salted visitor identifier used for unique conversion rates. Raw IP addresses are never stored.
 
 NOTE: _If this is your first time deploying Counterscale, it may take take a few minutes before the Worker subdomain becomes live._
 
@@ -99,7 +103,12 @@ import * as Counterscale from "@counterscale/tracker";
 
 Counterscale.init({
     siteId: "your-unique-site-id",
-    reporterUrl: "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
+    reporterUrl:
+        "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
+});
+
+Counterscale.trackEvent("Signup", {
+    props: { plan: "pro", trial: true },
 });
 ```
 
@@ -110,6 +119,7 @@ Counterscale.init({
 | `isInitialized()` | None | `boolean` | Checks if the Counterscale client has been initialized. Returns true if client exists, false otherwise. |
 | `getInitializedClient()` | None | `Client \| undefined` | Returns the initialized client instance or undefined if not initialized. |
 | `trackPageview(opts?)` | `TrackPageviewOpts?` | `void` | Tracks a pageview event. Requires client to be initialized first. Automatically detects URL and referrer if not provided. |
+| `trackEvent(name, opts?)` | `string, TrackEventOpts?` | `void` | Tracks a named custom event with optional string, number, or boolean properties. |
 | `cleanup()` | None | `void` | Cleans up the client instance and removes event listeners. Sets global client to undefined. |
 
 #### 3. Server-Side Module
@@ -140,6 +150,12 @@ await Counterscale.trackPageview({
     utmSource: "social",
     utmMedium: "twitter",
 });
+
+await Counterscale.trackEvent("Signup", {
+    url: "https://example.com/signup",
+    ip: requestIp,
+    props: { plan: "pro" },
+});
 ```
 
 **Server Module Methods**
@@ -149,6 +165,7 @@ await Counterscale.trackPageview({
 | `isInitialized()` | None | `boolean` | Checks if the tracker has been initialized. |
 | `getInitializedClient()` | None | `ServerClient \| undefined` | Returns the initialized server client instance. |
 | `trackPageview(opts)` | `TrackPageviewOpts` | `Promise<void>` | Tracks a pageview event. Requires explicit URL and hostname parameters. |
+| `trackEvent(name, opts)` | `string, ServerTrackEventOpts` | `Promise<void>` | Tracks a custom event. Pass `ip` to attribute server-side conversions without storing the raw address. |
 | `cleanup()` | None | `void` | Cleans up the server client instance. |
 
 The server module is designed for backend applications and differs from the client-side version:
@@ -157,6 +174,57 @@ The server module is designed for backend applications and differs from the clie
 - Uses fetch API instead of XMLHttpRequest
 - Requires explicit URL and hostname parameters
 - Fire-and-forget - tracking errors won't throw exceptions
+
+### Goals and conversions
+
+Use the **Goals** card in the dashboard to create either an event goal (for example, `Signup`) or an exact pageview goal (for example, `/thank-you`). Goal management requires dashboard authentication to be enabled. The dashboard reports unique daily converters and conversion rate for the selected interval and filters.
+
+### Durable event history
+
+Counterscale can optionally send a canonical copy of each event to a Cloudflare Pipeline for storage as an R2 Iceberg table. Analytics Engine remains the realtime data source. The durable record contains parsed browser and device fields plus a rotating visitor hash; it does not contain raw IP addresses or user-agent strings.
+
+Create a Pipeline using `npx wrangler@latest pipelines setup`, load the schema from `packages/server/pipelines/events.schema.json`, and choose simple ingestion into an R2 Data Catalog sink. Then add the Pipeline name to the Worker configuration used for deployment:
+
+```json
+{
+    "pipelines": [
+        {
+            "binding": "EVENT_STREAM",
+            "pipeline": "<PIPELINE_NAME>"
+        }
+    ]
+}
+```
+
+The binding is optional. Without it, collection continues to use Analytics Engine and the existing daily R2 rollups. New rollup objects use site-scoped keys under `sites/<site-id>/`; existing date-only objects are not rewritten.
+
+To calculate exact 30-minute visits, bounce rate, and average visit duration from the Iceberg table, configure these Worker values:
+
+| Value           | Purpose                                                                        |
+| --------------- | ------------------------------------------------------------------------------ |
+| `R2_SQL_BUCKET` | R2 bucket backing the Data Catalog warehouse                                   |
+| `R2_SQL_TABLE`  | Iceberg table in `namespace.table` format, for example `default.events`        |
+| `R2_SQL_TOKEN`  | Secret API token with R2 SQL read, R2 Data Catalog read, and R2 storage access |
+
+Set `R2_SQL_BUCKET` and `R2_SQL_TABLE` as Worker variables and set `R2_SQL_TOKEN` with `wrangler secret put R2_SQL_TOKEN`. When all three are present, dashboard summary metrics use R2 SQL sessionization. If they are absent or R2 SQL is temporarily unavailable, the dashboard falls back to Analytics Engine. The fallback counts Plausible visitors by distinct daily ID, but exact Plausible bounce and visit metrics require R2 SQL. Pipeline data is batched, so exact session metrics can lag realtime collection by several minutes.
+
+Visitor identifiers follow Plausible's privacy model: they rotate each UTC day. Sessions and unique visitors are therefore isolated to one day and cannot be linked across day boundaries.
+
+### Plausible tracker compatibility
+
+Existing Plausible clients can send pageviews, custom events, revenue, properties, and engagement events to CounterScale using the standard Events API endpoint:
+
+```text
+https://{subdomain-emitted-during-deploy}.workers.dev/api/event
+```
+
+Both the documented Plausible Events API JSON fields and the compact payload emitted by `@plausible-analytics/tracker` are accepted. The compatibility endpoint supports `POST /api/event`, CORS preflight requests, `X-Forwarded-For`, `X-Debug-Request`, and `GET /api/health`.
+
+Set the `STATS_API_TOKEN` Worker secret to enable Plausible-compatible queries at `POST /api/v2/query`, then send it as `Authorization: Bearer <token>`. Aggregate visitor, pageview, and event metrics work with Analytics Engine. Exact visits, views per visit, bounce rate, and visit duration require R2 SQL. The compatibility layer supports `day`, `24h`, `7d`, `28d`, `30d`, `91d`, `month`, `6mo`, `12mo`, `year`, and `all` ranges in each site's reporting timezone; custom date ranges; case-sensitive, multi-value `is`, `is_not`, `contains`, and `contains_not` filters on page and hostname; page breakdowns; basic-metric hostname breakdowns; and hour, day, week, month, or automatic time dimensions with optional time labels. Visit-scoped dimensions are rejected until they can be sessionized from the first pageview.
+
+Set the optional `SITES_API_TOKEN` Worker secret to use Plausible's site provisioning endpoints under `/api/v1/sites`. When it is omitted, `STATS_API_TOKEN` authenticates both APIs. The supported provisioning operations are listing, creating, reading, updating configuration, and deleting sites, plus listing, finding or creating, and deleting event or page goals. Provision each site before collecting or querying its statistics. Domain renames are rejected because Analytics Engine records are immutable. Deleting a site immediately tombstones it: Stats API access, new collection, and re-registration are blocked, D1 configuration is removed, and an internal deletion job is recorded. Analytics Engine data then expires through its fixed three-month retention.
+
+Deleting an Iceberg table's underlying R2 objects with an R2 lifecycle rule is unsafe and is not a supported erasure process because those objects include table metadata and shared snapshots. A deletion worker or operator must issue a row-level `DELETE` for the site's records through an Iceberg-compatible engine, commit the table change, and then expire snapshots and remove orphan files according to the table's retention policy. The deletion job tracks that external Iceberg purge as `pending`, `completed`, or `failed`; the Plausible-compatible DELETE response does not expose this internal state. The D1 migrations for the site registry, goals, and deletion jobs are applied automatically by the installer.
 
 ## Upgrading
 
@@ -170,7 +238,6 @@ npx @counterscale/cli@latest install
 ```
 
 You won't have to enter a new API key, and your data will carry forrward.
-
 
 Counterscale uses [semantic versioning](https://semver.org/). If upgrading to a major version (e.g. 2.x, 3.x, 4.x), there may be extra steps. Please consult the [release notes](https://github.com/benvinegar/counterscale/releases).
 
@@ -189,7 +256,8 @@ import * as Counterscale from "@counterscale/tracker";
 
 Counterscale.init({
     siteId: "your-unique-site-id",
-    reporterUrl: "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
+    reporterUrl:
+        "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
     autoTrackPageviews: false, // <- don't forget this
 });
 

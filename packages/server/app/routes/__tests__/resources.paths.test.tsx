@@ -46,11 +46,10 @@ describe("Resources/Paths route", () => {
             fetch.mockResolvedValueOnce(
                 createFetchResponse({
                     data: [
-                        { blob3: "/", isVisitor: 0, count: "5" },
+                        { blob3: "/", count: "7" },
                         {
                             blob3: "/example",
-                            isVisitor: 0,
-                            count: "6",
+                            count: "10",
                         },
                     ],
                 }),

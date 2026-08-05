@@ -1,0 +1,244 @@
+# Feature implementation roadmap
+
+This document turns the gaps in [Plausible feature parity](plausible-feature-parity.md) into an ordered engineering backlog. The parity document is the source of truth for product coverage; this roadmap describes implementation sequence, dependencies, and completion criteria.
+
+Last reviewed: 2026-08-04.
+
+## Status definitions
+
+| Status   | Meaning                                                                                            |
+| -------- | -------------------------------------------------------------------------------------------------- |
+| Ready    | The item is not complete, and its prerequisites are available now.                                 |
+| Planned  | The item is not complete and waits on another roadmap item; that dependency may itself be blocked. |
+| Partial  | A usable implementation exists, but the acceptance criteria are incomplete.                        |
+| Blocked  | Completion requires live infrastructure, credentials, or an upstream export.                       |
+| Deferred | Outside the current single-organization product scope.                                             |
+| Complete | Every acceptance criterion and the definition of done has been met.                                |
+
+## Delivery principles
+
+- Correct analytics semantics take priority over exposing more dimension names.
+- Privacy invariants and fail-closed collection cannot be weakened for compatibility.
+- Every API feature needs closed validation, bounded resource use, dialect-specific SQL tests, and route-level response tests.
+- Features that depend on R2 SQL need live conformance validation before being marked complete.
+- Installer and upgrade paths must be safe and idempotent before new registry-dependent behavior ships.
+- Deletion is complete only when every storage layer is erased or expired and the deletion job records that outcome.
+- Documentation must describe deployed behavior, not planned behavior.
+
+## Recommended sequence
+
+| Phase                        | Outcome                                                                                                               |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 0. Safe foundation           | Existing and new installations can collect without manual registry repair, and API credentials are configured safely. |
+| 1. Durable correctness       | Analytics Engine and R2 SQL are validated, scalable, observable, and usable as trusted query foundations.             |
+| 2. Complete deletion         | Site deletion is processed across D1, Analytics Engine expiry, Iceberg, and daily rollups.                            |
+| 3. Core Stats parity         | Visit dimensions, goals, properties, revenue, filters, ordering, and pagination behave correctly.                     |
+| 4. Migration and history     | Existing Counterscale, Plausible, GA4, and CSV history can be imported and queried.                                   |
+| 5. Dashboard parity          | The UI exposes the exact query model, realtime views, comparisons, reports, and exports.                              |
+| 6. Tracker parity            | The served tracker implements Plausible's automatic event extensions.                                                 |
+| 7. Product workflows         | Segments, funnels, journeys, reports, alerts, integrations, and sharing are added.                                    |
+| 8. Optional multi-user scope | Teams, users, roles, guests, SSO, and billing-like controls are implemented only after an explicit scope decision.    |
+
+## Phase 0: Safe foundation
+
+| ID      | Feature                               | Status  | Dependencies                                        | Acceptance criteria                                                                                                                                                             |
+| ------- | ------------------------------------- | ------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FND-001 | Initial site provisioning             | Ready   | Sites API and installer                             | Installer accepts or prompts for domain and IANA timezone, creates the site idempotently, and prints the correct tracker configuration.                                         |
+| FND-002 | Existing-site registry backfill       | Ready   | D1 sites migration, Analytics Engine query access   | Upgrade detects historical site IDs, presents the proposed backfill, inserts sites before fail-closed collection is deployed, and is safe to rerun.                             |
+| FND-003 | Stats and Sites API token setup       | Ready   | CLI secret management                               | Installer generates or accepts tokens, writes secrets through stdin, never logs values, documents rotation, and verifies API authentication.                                    |
+| FND-004 | Pipeline binding consistency          | Ready   | CLI deployment metadata                             | Installer and runtime use `EVENT_STREAM` consistently; tests reject or migrate stale `EVENTS_PIPELINE` metadata.                                                                |
+| FND-005 | Durable-resource preflight            | Blocked | Wrangler authentication                             | CLI reports Pipeline, catalog, table, bucket, token, and binding readiness without mutating resources. Missing prerequisites produce exact remediation commands.                |
+| FND-006 | Automated Pipeline/Data Catalog setup | Blocked | Stable non-interactive Cloudflare provisioning path | Installer creates or reuses resources idempotently, records IDs, applies the canonical schema, and validates ingestion. Manual setup remains documented until this is possible. |
+| FND-007 | R2 SQL credential provisioning        | Blocked | Cloudflare credential API and live account          | Create least-privilege credentials, store them as Worker secrets, validate a read query, and support rotation without downtime.                                                 |
+
+## Phase 1: Durable correctness and scale
+
+| ID      | Feature                              | Status  | Dependencies                                   | Acceptance criteria                                                                                                                                                            |
+| ------- | ------------------------------------ | ------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| DUR-001 | Live R2 SQL conformance suite        | Blocked | Provisioned R2 Data Catalog and CI credentials | Run representative basic, session, filter, time-bucket, and error queries against R2 SQL; pin documented supported SQL constructs and response shapes.                         |
+| DUR-002 | Documented session SQL primitives    | Partial | DUR-001                                        | Replace unverified aggregate constructs with supported R2 SQL expressions and cover multi-page, inactive, engagement, and boundary sessions.                                   |
+| DUR-003 | Scalable grouped-query primitive     | Ready   | Existing `R2SQLAPI`                            | Add server-side group count, deterministic ordering, limit, and offset without fetching every row or relying on a 10,001-row sentinel.                                         |
+| DUR-004 | Bounded time bucketing               | Planned | DUR-001                                        | Avoid generated multi-megabyte `CASE` expressions, cap query complexity, and preserve site-timezone/DST correctness.                                                           |
+| DUR-005 | Durable freshness metadata           | Planned | FND-006                                        | Measure latest durable event time and expose lag to internal query callers and user-facing responses where appropriate.                                                        |
+| DUR-006 | Pipeline delivery retries            | Blocked | Supported retry/queue architecture             | Define retryable failures, preserve ordering/idempotency, add dead-letter handling, and alert on sustained delivery failure.                                                   |
+| DUR-007 | Analytics Engine write observability | Ready   | Worker observability                           | Count attempted writes, synchronous validation failures, and dropped events without logging payloads or identifiers; use query-based checks for provider-side delivery health. |
+| DUR-008 | Dependency-aware readiness checks    | Planned | DUR-005 and service clients                    | Keep `/api/health` compatibility behavior stable and add a protected readiness endpoint that reports dependency state and durable lag.                                         |
+| DUR-009 | Backup and restore procedures        | Ready   | D1 and R2 tooling                              | Document and test D1 backup, configuration restore, durable-table recovery, and expected Analytics Engine limitations.                                                         |
+| DUR-010 | Live Analytics Engine conformance    | Blocked | Deployed dataset and CI credentials            | Validate aggregate arithmetic, sampling behavior, timestamp boundaries, supported SQL, and response metadata against Analytics Engine.                                         |
+
+## Phase 2: Complete deletion
+
+| ID      | Feature                             | Status  | Dependencies                        | Acceptance criteria                                                                                                                                                       |
+| ------- | ----------------------------------- | ------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DEL-005 | Expanded deletion-job schema        | Ready   | New append-only D1 migration        | Track daily rollup, Iceberg maintenance, Analytics Engine expiry, attempt count, next attempt, and terminal completion independently.                                     |
+| DEL-001 | Deletion-job claim and retry worker | Planned | DEL-005                             | Scheduled processor claims jobs idempotently, prevents concurrent execution, records attempts/errors, applies backoff, and resumes after interruption.                    |
+| DEL-002 | Daily-rollup deletion               | Planned | DEL-001 and DEL-005                 | Delete site-scoped objects; rewrite shared legacy date-only Arrow objects without the deleted site's rows; verify absence; and track pagination, retries, and completion. |
+| DEL-003 | Iceberg row deletion                | Blocked | DEL-005 and writable Iceberg engine | Delete only the site's rows, commit atomically, verify absence, expire snapshots, remove orphan files, and update deletion-job state.                                     |
+| DEL-004 | Analytics Engine expiry completion  | Planned | DEL-001 and DEL-005                 | Mark Analytics Engine deletion complete only after the calculated expiry time and document that physical expiry is provider-managed.                                      |
+| DEL-006 | Deletion status API                 | Planned | DEL-001 through DEL-005             | Authenticated operator endpoint returns per-layer state without exposing credentials, internal paths, or unrelated sites.                                                 |
+| DEL-007 | Deletion monitoring and SLA         | Planned | DEL-001 and worker observability    | Alert on failed, stalled, or overdue jobs and publish an operator runbook.                                                                                                |
+
+## Phase 3: Core Stats API parity
+
+Live completion of this phase is gated by both `DUR-001` and `DUR-010`, even where local implementation and mocked tests can proceed earlier.
+
+### Session attribution
+
+| ID      | Feature                       | Status  | Dependencies                       | Acceptance criteria                                                                                                                                  |
+| ------- | ----------------------------- | ------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| STA-001 | Canonical session relation    | Blocked | DUR-001 and DUR-002                | Reconstruct 30-minute sessions once and expose visit start, entry/exit page, first-page attributes, page/event counts, engagement, and bounce state. |
+| STA-002 | Entry and exit dimensions     | Planned | STA-001                            | Support entry/exit page and hostname with correct event/session metric combinations and multi-page tests.                                            |
+| STA-003 | Source, referrer, and channel | Planned | STA-001                            | Attribute raw referrer/source from the first pageview and implement documented channel classification with fixture coverage.                         |
+| STA-004 | Campaign dimensions           | Planned | STA-001                            | Support UTM medium, source, campaign, content, and term from the first pageview.                                                                     |
+| STA-005 | Technology dimensions         | Planned | STA-001 and canonical event fields | Support device, browser/version, and OS/version using first-page values. Add missing Analytics Engine fields only through unused schema positions.   |
+| STA-006 | Geography dimensions          | Planned | STA-001 and canonical event fields | Support country, region, city, and name/code variants with stable geographic identifiers and first-page attribution.                                 |
+
+### Goals, properties, and revenue
+
+| ID      | Feature                    | Status  | Dependencies                             | Acceptance criteria                                                                                                                    |
+| ------- | -------------------------- | ------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| STA-007 | Goal dimension and filters | Partial | D1 goals and Stats query planner         | Resolve exact event/page goals into safe query predicates and support `event:goal` breakdowns and filters.                             |
+| STA-008 | Wildcard page goals        | Planned | STA-007                                  | Validate Plausible-compatible wildcard syntax and use identical matching in provisioning, dashboard, and Stats API queries.            |
+| STA-009 | Property-filtered goals    | Partial | Event properties and STA-007             | Parse stored goal properties, match all configured constraints, and test scalar types and missing properties.                          |
+| STA-010 | Event property dimensions  | Planned | DUR-001 and registered custom properties | Support `event:props:<name>` dimensions and filters with registration checks, safe JSON extraction, limits, and empty-value semantics. |
+| STA-011 | Conversion metrics         | Planned | STA-007 through STA-010                  | Implement total conversions, unique conversions, `conversion_rate`, and `group_conversion_rate` with correct denominators.             |
+| STA-012 | Revenue goals              | Partial | Durable revenue fields and STA-007       | Add goal currency/configuration, reject incompatible events, and attribute revenue to matching conversions.                            |
+| STA-013 | Revenue metrics            | Planned | STA-012                                  | Implement `total_revenue`, `average_revenue`, currency formatting, null behavior, and metric warnings.                                 |
+| STA-014 | Ecommerce dimensions       | Planned | STA-010 through STA-013                  | Expose product/order properties and revenue breakdowns without treating PII as acceptable analytics data.                              |
+
+### Query model
+
+| ID      | Feature                     | Status  | Dependencies                          | Acceptance criteria                                                                                                        |
+| ------- | --------------------------- | ------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| STA-015 | Multiple dimensions         | Planned | DUR-003 and STA-001                   | Represent dimension tuples throughout validation, SQL, sorting, total rows, pagination, and response construction.         |
+| STA-016 | Multiple order clauses      | Planned | STA-015                               | Apply deterministic ordered tuples and a stable final tie-breaker in both SQL dialects.                                    |
+| STA-017 | Logical filter AST          | Ready   | Existing simple filters               | Support nested `and`, `or`, and `not` with depth/clause/value limits and dialect-specific compilers.                       |
+| STA-018 | Regex filters               | Blocked | Live dialect validation               | Implement `matches` and `matches_not` with RE2-compatible validation and equivalent Analytics Engine/R2 behavior.          |
+| STA-019 | Case-insensitive modifiers  | Planned | STA-017                               | Support `{case_sensitive:false}` only for documented operators/dimensions and avoid locale-dependent behavior.             |
+| STA-020 | Behavioral filters          | Planned | STA-001 and STA-017                   | Implement `has_done` and `has_not_done` over complete sessions with bounded nested conditions.                             |
+| STA-021 | Percentage metric           | Planned | STA-015                               | Calculate each result against the unpaginated filtered total and return documented precision.                              |
+| STA-022 | Scroll-depth metric         | Planned | DUR-001 and durable engagement fields | Implement page-level average scroll depth and unsupported-combination warnings.                                            |
+| STA-023 | Time-on-page metric         | Planned | STA-001 and durable engagement fields | Attribute engagement events to pages and define exit-page behavior.                                                        |
+| STA-024 | Imports and metric warnings | Planned | MIG-006                               | Merge supported imports and return warnings when dimensions or filters force native-only results.                          |
+| STA-025 | Stats API rate limiting     | Planned | OPS-001                               | Enforce configurable token-level limits and return standard limit headers/errors.                                          |
+| STA-026 | Legacy Stats API v1         | Planned | Stable Stats v2 query service         | Add realtime visitors, aggregate, timeseries, and breakdown adapters only if legacy client compatibility remains a target. |
+
+## Phase 4: Migration, imports, and long-term history
+
+| ID      | Feature                              | Status  | Dependencies                             | Acceptance criteria                                                                                                                          |
+| ------- | ------------------------------------ | ------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| MIG-001 | Trusted historical ingestion service | Planned | Durable event schema and MIG-002         | Accept bounded administrative batches with original timestamps, validate every row, prevent duplicates, and never expose this path publicly. |
+| MIG-002 | Import job model                     | Ready   | New D1 migration                         | Persist source, site, covered dates, state, checkpoints, idempotency keys, counts, failures, retries, and completion metadata.               |
+| MIG-003 | Plausible aggregate CSV import       | Planned | MIG-002 and import query storage         | Parse documented aggregate tables, validate dimensions, prevent overlap, and record known uniqueness limitations.                            |
+| MIG-004 | Plausible raw-event import           | Blocked | Enterprise/raw export access and MIG-001 | Map the agreed export schema losslessly, preserve timestamps, validate counts, and reconcile currencies/properties.                          |
+| MIG-005 | GA4 OAuth import                     | Blocked | OAuth credentials and MIG-002            | Select properties, fetch supported reports incrementally, map dimensions, prevent overlap, and explain GA aggregation differences.           |
+| MIG-006 | Import/native query merge            | Planned | MIG-003 or MIG-005                       | Merge supported day-level aggregates, reject or warn on unsupported cross-dimensional queries, and implement `include.imports`.              |
+| MIG-007 | Daily Arrow read path                | Partial | Existing rollups                         | Catalog site-scoped files, query supported aggregates, and expose long-term dashboard ranges without pretending raw events exist.            |
+| MIG-008 | Import verification report           | Planned | MIG-002 through MIG-006                  | Compare source totals/date coverage, surface discrepancies, and support safe restart or rollback before publication.                         |
+
+## Phase 5: Dashboard and analysis
+
+| ID     | Feature                         | Status  | Dependencies                      | Acceptance criteria                                                                                        |
+| ------ | ------------------------------- | ------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| UI-001 | Unified dashboard query service | Partial | Core Stats query model            | Summary, charts, and breakdowns use one semantic layer and expose durable lag/fallback consistently.       |
+| UI-002 | Realtime dashboard              | Ready   | Analytics Engine realtime queries | Show current five-minute visitors and rolling 30-minute activity with bounded refresh behavior.            |
+| UI-003 | Period comparisons              | Planned | UI-001                            | Support previous period, year over year, custom ranges, aligned buckets, and percentage deltas.            |
+| UI-004 | Visit reports                   | Planned | STA-002 through STA-006           | Add entry, exit, source, channel, campaign, geography, device, browser, and OS reports.                    |
+| UI-005 | Engagement reports              | Planned | STA-022 and STA-023               | Display time on page and scroll depth with correct missing-data states.                                    |
+| UI-006 | Goal and revenue reports        | Planned | STA-007 through STA-014           | Display unique/total conversions, rates, revenue totals/averages, trends, and property/product breakdowns. |
+| UI-007 | Rich dashboard filters          | Planned | STA-017 through STA-020           | Add multi-select, exclusion, contains, regex where supported, and visible filter composition.              |
+| UI-008 | Saved segments                  | Planned | UI-007 and D1 persistence         | Save personal segments first; defer shared ownership until multi-user scope is approved.                   |
+| UI-009 | Site settings                   | Ready   | Sites API                         | Manage domain-safe settings, timezone, tracker options, goals, properties, API setup, and deletion status. |
+| UI-010 | Annotations                     | Ready   | D1 persistence                    | Create, edit, delete, share, and render dated chart annotations.                                           |
+| UI-011 | Dashboard CSV/ZIP export        | Planned | UI-001                            | Export current date range, filters, dimensions, and import choice with explicit row limits.                |
+| UI-012 | Full queued aggregate export    | Planned | Durable storage and MIG-002       | Produce complete native aggregate archives, report progress, authorize downloads, and expire objects.      |
+| UI-013 | Long-term date ranges           | Planned | MIG-006 or MIG-007                | Query history beyond Analytics Engine retention and clearly identify data source/limitations.              |
+| UI-014 | Geographic visualization        | Planned | STA-006                           | Add accessible country/region/city views without loading unbounded map data.                               |
+
+## Phase 6: Tracker parity
+
+| ID      | Feature                              | Status   | Dependencies                        | Acceptance criteria                                                                                                                  |
+| ------- | ------------------------------------ | -------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| TRK-001 | Configuration-driven tracker build   | Partial  | Sites tracker configuration         | Served tracker behavior matches stored configuration and produces a stable configuration-specific URL or equivalent loader contract. |
+| TRK-002 | Outbound-link tracking               | Planned  | TRK-001                             | Detect eligible external links, preserve navigation, emit compatible event/properties, and cover SPA and modifier-click cases.       |
+| TRK-003 | File-download tracking               | Planned  | TRK-001                             | Detect configured extensions and emit compatible download events without duplicate link events.                                      |
+| TRK-004 | Form tracking                        | Planned  | TRK-001                             | Observe successful submissions without breaking validation, navigation, or framework handlers.                                       |
+| TRK-005 | Tagged events                        | Planned  | TRK-001                             | Support documented CSS/data conventions and scalar properties.                                                                       |
+| TRK-006 | Automatic 404 tracking               | Planned  | TRK-001 and integration contract    | Emit compatible events for server-rendered and SPA 404 states.                                                                       |
+| TRK-007 | Scroll-depth generation              | Planned  | Engagement instrumentation          | Generate bounded engagement/scroll events, handle visibility/unload, and avoid excessive requests.                                   |
+| TRK-008 | Native collector bot filtering       | Ready    | Shared bot policy                   | Apply consistent bot decisions to native and Plausible-compatible ingestion without breaking server events.                          |
+| TRK-009 | Official tracker compatibility suite | Ready    | Current official package versions   | Run captured browser payloads and integration fixtures against `/api/event` in CI.                                                   |
+| TRK-010 | Managed first-party proxy            | Deferred | Product scope and deployment design | Provide an opt-in proxy path only if blocker resistance becomes a supported product goal.                                            |
+
+## Phase 7: Product workflows and integrations
+
+| ID      | Feature                           | Status   | Dependencies                               | Acceptance criteria                                                                                                                                                                                                                                                                   |
+| ------- | --------------------------------- | -------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PRD-001 | Funnels                           | Planned  | STA-001, STA-007, and STA-017              | Persist 2-8 step sequential/strict funnels, calculate completion/drop-off, and honor supported filters.                                                                                                                                                                               |
+| PRD-002 | User journeys                     | Planned  | STA-001 and STA-007                        | Explore forward/backward paths with bounded steps, directory grouping, drop-off, and conversion rate.                                                                                                                                                                                 |
+| PRD-003 | Weekly/monthly email reports      | Blocked  | UI-001 and transactional email credentials | Schedule by site timezone, manage recipients, render accessible reports, and record delivery failures.                                                                                                                                                                                |
+| PRD-004 | Traffic-spike alerts              | Planned  | UI-002 and scheduler                       | Evaluate thresholds with cooldowns and avoid duplicate notifications.                                                                                                                                                                                                                 |
+| PRD-005 | Traffic-drop alerts               | Planned  | UI-001 and scheduler                       | Evaluate trailing baselines, suppress insufficient-data alerts, and enforce cooldowns.                                                                                                                                                                                                |
+| PRD-006 | Slack report delivery             | Planned  | PRD-003                                    | Support a documented delivery mechanism and verify ownership before activation.                                                                                                                                                                                                       |
+| PRD-007 | Public dashboards                 | Planned  | UI-009 and read-only authorization         | Publish/revoke explicit read-only URLs without exposing settings or API credentials.                                                                                                                                                                                                  |
+| PRD-008 | Embedded dashboards               | Planned  | PRD-007                                    | Add constrained embed routes, themes, responsive sizing, and frame security policy.                                                                                                                                                                                                   |
+| PRD-009 | Google Search Console             | Blocked  | OAuth credentials and query reports        | Import delayed search metrics, map sites, expose sampling/delay, and support revocation.                                                                                                                                                                                              |
+| PRD-010 | Looker Studio connector           | Planned  | IAM-007 or equivalent scoped tokens        | Provide a stable schema, bounded queries, token revocation, and connector documentation.                                                                                                                                                                                              |
+| PRD-011 | WordPress/WooCommerce integration | Deferred | Maintainer/product decision                | Add installation/proxy, automatic commerce events, properties, revenue, and upgrade compatibility.                                                                                                                                                                                    |
+| PRD-012 | Google Tag Manager template       | Deferred | Maintainer/product decision                | Publish and test a versioned community-gallery-compatible template.                                                                                                                                                                                                                   |
+| PRD-013 | Framework integration guides      | Ready    | Stable tracker APIs                        | Add tested guides for supported frameworks without claiming maintenance for third-party integrations.                                                                                                                                                                                 |
+| PRD-014 | Traffic shields                   | Ready    | Collection policy storage                  | Exclude future traffic by country, hostname, page, and exact-IP fingerprints computed as a domain-separated, site-scoped HMAC such as `HMAC(pepper, "traffic-shield\0" + siteId + "\0" + ip)`; never store or log raw IPs, and defer CIDR matching pending a separate privacy design. |
+
+## Phase 8: Optional multi-user and organization scope
+
+These items remain deferred until Counterscale intentionally moves beyond a single-organization, shared-password deployment.
+
+| ID      | Feature                      | Status   | Dependencies                                  | Acceptance criteria                                                                            |
+| ------- | ---------------------------- | -------- | --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| IAM-001 | Individual user accounts     | Deferred | Identity architecture and transactional email | Add verified identity, recovery, secure sessions, and account lifecycle.                       |
+| IAM-002 | Teams and memberships        | Deferred | IAM-001                                       | Persist teams, ownership, membership, invitations, and site scope.                             |
+| IAM-003 | Roles and authorization      | Deferred | IAM-002                                       | Enforce owner, admin, editor, billing, viewer, and guest permissions at every UI/API boundary. |
+| IAM-004 | Guests API                   | Deferred | IAM-001 through IAM-003                       | Replace `501` stubs with invitation, acceptance, listing, role update, and removal behavior.   |
+| IAM-005 | Shared links                 | Deferred | Site-scoped authorization and segments        | Add named, revocable, optionally password-protected and segment-constrained links.             |
+| IAM-006 | Site transfer                | Deferred | IAM-002 and immutable-domain strategy         | Transfer ownership without leaking historical data or breaking tracker IDs.                    |
+| IAM-007 | Scoped API keys              | Deferred | IAM-002 and IAM-003                           | Issue hashed, revocable, expiring keys with site/team scopes and audit history.                |
+| IAM-008 | Two-factor enforcement       | Deferred | IAM-001 and IAM-002                           | Add enrollment, recovery, enforcement policy, and session revocation.                          |
+| IAM-009 | SAML SSO and JIT             | Deferred | IAM-001 through IAM-003                       | Add domain verification, metadata, role mapping, forced SSO, JIT, and session timeout.         |
+| IAM-010 | Audit logs                   | Deferred | Identity and role-aware mutations             | Record actor, action, target, result, and time without logging secrets or analytics payloads.  |
+| IAM-011 | Consolidated multi-site view | Deferred | Teams and complete Stats dimensions           | Combine authorized sites while preserving timezone, goal, property, and import limitations.    |
+
+## Cross-cutting production hardening
+
+| ID      | Feature                       | Status  | Dependencies                      | Acceptance criteria                                                                                       |
+| ------- | ----------------------------- | ------- | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| OPS-001 | API and ingestion rate limits | Planned | Durable/shared limiter            | Protect Events, Stats, Sites, and administrative endpoints with explicit scopes and standard responses.   |
+| OPS-002 | Per-site quotas               | Planned | Site registry and counters        | Prevent one site from exhausting deployment resources and expose operator-visible usage.                  |
+| OPS-003 | Monitoring and SLOs           | Planned | DUR-005, DUR-007, and DEL-007     | Define ingestion availability, query latency, durable lag, and deletion completion indicators and alerts. |
+| OPS-004 | Disaster recovery runbook     | Planned | DUR-009                           | Recreate resources, restore D1/durable data, rotate credentials, and validate service recovery.           |
+| OPS-005 | Migration rollback strategy   | Ready   | Versioned deploys and migrations  | Define forward fixes, compatibility windows, and safe behavior after partial migration failure.           |
+| OPS-007 | Data-subject administration   | Planned | Export and deletion workflows     | Provide operator procedures for site export/deletion without introducing persistent visitor identity.     |
+| OPS-008 | Data residency documentation  | Ready   | Cloudflare resource configuration | Document inherited residency behavior and avoid unsupported EU-only guarantees.                           |
+
+## Definition of done for a feature
+
+A roadmap item is complete only when:
+
+- Behavior and unsupported combinations are explicitly defined.
+- External input is closed-schema validated and bounded.
+- Privacy and deletion invariants remain intact.
+- Unit, route, repository, and SQL-generation tests cover success and failure paths.
+- Live Cloudflare behavior is validated when the feature depends on Analytics Engine, Pipeline, Data Catalog, or R2 SQL.
+- Migrations are append-only and verified for fresh installs and upgrades.
+- Installer, environment types, examples, and generated artifacts are synchronized.
+- Relevant package typechecks, tests, lint, root build, and `git diff --check` pass.
+- README, parity documentation, and this roadmap reflect the shipped behavior.
+
+## Maintaining this roadmap
+
+- Keep IDs stable so issues and pull requests can reference them.
+- Change status only when acceptance criteria or a documented subset is complete.
+- Mark an item `Ready` when its dependencies are available, `Planned` while it waits on another roadmap ID, and `Blocked` when its own completion requires unavailable external access.
+- Use `Partial` only when a usable implementation already exists; replace it with `Complete` only after every acceptance criterion and the definition of done are met.
+- Add newly discovered parity gaps to `plausible-feature-parity.md` first, then create or update a roadmap item.
+- Move deferred items into active phases only after an explicit product-scope decision.
+- Recheck official Plausible and Cloudflare documentation before implementing behavior that depends on upstream contracts.

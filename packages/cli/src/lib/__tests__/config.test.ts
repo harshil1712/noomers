@@ -3,9 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     getServerPkgDir,
     getWorkerAndDatasetName,
+    getDeploymentConfigPath,
     makePathsAbsolute,
+    persistDeployment,
     readInitialServerConfig,
     stageDeployConfig,
+    DEPLOYMENT_CONFIG_PATH,
+    DEPLOYMENT_METADATA_PATH,
 } from "../config.js";
 
 // Mock external dependencies
@@ -43,6 +47,7 @@ vi.mock("node:fs", async () => {
     return {
         ...actual,
         existsSync: vi.fn(),
+        mkdirSync: vi.fn(),
         readFileSync: vi.fn(() => "{}"),
         writeFileSync: vi.fn(),
     };
@@ -327,6 +332,56 @@ describe("CLI Functions", () => {
             );
 
             expect(writtenConfig.account_id).toBeUndefined();
+        });
+    });
+
+    describe("installed deployment", () => {
+        it("returns the persisted Wrangler config", async () => {
+            const { existsSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+
+            expect(getDeploymentConfigPath()).toBe(DEPLOYMENT_CONFIG_PATH);
+        });
+
+        it("fails clearly when no deployment is installed", async () => {
+            const { existsSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(false);
+
+            expect(() => getDeploymentConfigPath()).toThrow(
+                /Run counterscale install first/,
+            );
+        });
+
+        it("persists the staged config and deployment metadata", async () => {
+            const { mkdirSync, readFileSync, writeFileSync } = await import(
+                "node:fs"
+            );
+            vi.mocked(readFileSync).mockReturnValue('{"name":"worker"}');
+            const metadata = {
+                version: 1 as const,
+                accountId: "account-id",
+                workerName: "worker",
+                analyticsDataset: "dataset",
+                d1Database: { name: "worker-goals", id: "database-id" },
+                resources: { dailyRollupsBucket: "daily-rollups" },
+            };
+
+            persistDeployment("/tmp/wrangler.json", metadata);
+
+            expect(mkdirSync).toHaveBeenCalledWith(expect.any(String), {
+                recursive: true,
+                mode: 0o700,
+            });
+            expect(writeFileSync).toHaveBeenCalledWith(
+                DEPLOYMENT_CONFIG_PATH,
+                '{"name":"worker"}',
+                { mode: 0o600 },
+            );
+            expect(writeFileSync).toHaveBeenCalledWith(
+                DEPLOYMENT_METADATA_PATH,
+                JSON.stringify(metadata, null, 2),
+                { mode: 0o600 },
+            );
         });
     });
 });

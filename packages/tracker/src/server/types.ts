@@ -1,4 +1,4 @@
-import type { BaseClientConfig } from "../shared/types";
+import type { BaseClientConfig, EventProperties } from "../shared/types";
 
 export type ServerClientOpts = BaseClientConfig & {
     userAgent?: string;
@@ -16,4 +16,8 @@ export type ServerTrackPageviewOpts = {
     utmCampaign?: string;
     utmTerm?: string;
     utmContent?: string;
+};
+
+export type ServerTrackEventOpts = ServerTrackPageviewOpts & {
+    props?: EventProperties;
 };

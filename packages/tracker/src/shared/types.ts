@@ -4,8 +4,14 @@ export type CollectRequestParams = {
     r: string; // referrer
     sid: string; // siteId
     ht?: string; // hit type
+    en?: string; // custom event name; absent for pageviews
+    ep?: string; // JSON-encoded custom event properties
+    ip?: string; // optional server-side source IP; never persisted
     [key: string]: string | undefined; // Allow additional string properties
 } & UtmParams;
+
+export type EventProperty = string | number | boolean;
+export type EventProperties = Record<string, EventProperty>;
 
 export type UtmParams = {
     us?: string; // utm_source

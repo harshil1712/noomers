@@ -16,6 +16,10 @@ vi.mock("../../lib/cloudflare.js", () => ({
     CloudflareClient: vi.fn(),
 }));
 
+vi.mock("../../lib/config.js", () => ({
+    getDeploymentConfigPath: vi.fn(() => "/mock/deployment/wrangler.json"),
+}));
+
 import { password, isCancel } from "@clack/prompts";
 import { generatePasswordHash, generateJWTSecret } from "../../lib/auth.js";
 import { CloudflareClient } from "../../lib/cloudflare.js";

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { envCommand, SECRETS_BY_ALIAS } from "../env.js";
 import { CloudflareClient } from "../../lib/cloudflare.js";
-import { getServerPkgDir } from "../../lib/config.js";
+import { getDeploymentConfigPath } from "../../lib/config.js";
 import { select, isCancel, cancel } from "@clack/prompts";
 import {
     promptApiToken,
@@ -22,7 +22,9 @@ vi.mock("path");
 describe("env.ts", () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(getServerPkgDir).mockReturnValue("/mock/server/dir");
+        vi.mocked(getDeploymentConfigPath).mockReturnValue(
+            "/mock/deployment/wrangler.json",
+        );
     });
 
     describe("SECRETS_BY_ALIAS", () => {
@@ -62,6 +64,9 @@ describe("env.ts", () => {
 
             await envCommand("token");
 
+            expect(CloudflareClient).toHaveBeenCalledWith(
+                "/mock/deployment/wrangler.json",
+            );
             expect(mockSetSecrets).toHaveBeenCalledWith({
                 CF_BEARER_TOKEN: "mock-api-token",
             });

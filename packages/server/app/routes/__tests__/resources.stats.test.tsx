@@ -138,4 +138,95 @@ describe("resources.stats loader", () => {
             hasSufficientBounceData: true,
         });
     });
+
+    test("uses durable session metrics when R2 SQL is configured", async () => {
+        vi.setSystemTime(new Date("2023-01-08T00:00:00Z").getTime());
+        const getSessionMetrics = vi.fn().mockResolvedValue({
+            views: 980,
+            visitors: 240,
+            visits: 300,
+            bounces: 90,
+            averageVisitDuration: 82.4,
+        });
+        const context = {
+            analyticsEngine: {
+                getCounts: vi
+                    .fn()
+                    .mockRejectedValue(new Error("AE unavailable")),
+                getEarliestEvents: vi
+                    .fn()
+                    .mockRejectedValue(new Error("AE unavailable")),
+            },
+            sessionAnalytics: { getSessionMetrics },
+            cloudflare: {
+                env: {
+                    CF_PASSWORD_HASH: "$2b$12$test.hash.value",
+                    CF_JWT_SECRET: "test-secret",
+                },
+            },
+        };
+        const request = new Request(
+            "https://example.com/resources/stats?site=test-site&interval=7d&timezone=UTC",
+        );
+
+        const data = await loader({ context, request } as any);
+
+        expect(getSessionMetrics).toHaveBeenCalledWith(
+            "test-site",
+            expect.any(Date),
+            expect.any(Date),
+            expect.any(Object),
+        );
+        expect(context.analyticsEngine.getCounts).not.toHaveBeenCalled();
+        expect(
+            context.analyticsEngine.getEarliestEvents,
+        ).not.toHaveBeenCalled();
+        expect(data).toEqual({
+            views: 980,
+            visitors: 240,
+            visits: 300,
+            bounceRate: 0.3,
+            averageVisitDuration: 82.4,
+            hasSufficientBounceData: true,
+        });
+    });
+
+    test("falls back to realtime metrics when R2 SQL fails", async () => {
+        vi.setSystemTime(new Date("2023-01-08T00:00:00Z").getTime());
+        const consoleError = vi
+            .spyOn(console, "error")
+            .mockImplementation(() => {});
+        const context = {
+            analyticsEngine: {
+                getCounts: mockGetCounts,
+                getEarliestEvents: vi.fn().mockResolvedValue({
+                    earliestEvent: new Date("2023-01-01T00:00:00Z"),
+                    earliestBounce: new Date("2023-01-01T00:00:00Z"),
+                }),
+            },
+            sessionAnalytics: {
+                getSessionMetrics: vi.fn().mockRejectedValue(new Error("down")),
+            },
+            cloudflare: {
+                env: {
+                    CF_PASSWORD_HASH: "$2b$12$test.hash.value",
+                    CF_JWT_SECRET: "test-secret",
+                },
+            },
+        };
+        const request = new Request(
+            "https://example.com/resources/stats?site=test-site&interval=1d&timezone=UTC",
+        );
+
+        const data = await loader({ context, request } as any);
+
+        expect(data).toEqual({
+            views: 1000,
+            visitors: 250,
+            bounceRate: 0.5,
+            hasSufficientBounceData: true,
+        });
+        expect(consoleError).toHaveBeenCalled();
+        consoleError.mockRestore();
+    });
 });

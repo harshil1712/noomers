@@ -14,6 +14,12 @@ describe("collect endpoint", () => {
             WEB_COUNTER_AE: {
                 writeDataPoint: vi.fn(),
             },
+            GOALS_DB: {
+                prepare: vi.fn(() => ({
+                    bind: vi.fn().mockReturnThis(),
+                    first: vi.fn().mockResolvedValue({ status: "active" }),
+                })),
+            },
         };
     });
 

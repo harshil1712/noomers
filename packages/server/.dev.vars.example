@@ -1,8 +1,14 @@
 # You also need to specify these as environment variables in 
 # your Cloudflare configuration
 CF_BEARER_TOKEN=''
+VISITOR_SALT='replace-with-a-random-secret'
+STATS_API_TOKEN='replace-with-a-random-secret'
+SITES_API_TOKEN=''
 CF_ACCOUNT_ID=''
 CF_PASSWORD_HASH=''
 CF_JWT_SECRET=''
 CF_AUTH_ENABLED=''
 CF_STORAGE_ENABLED=''
+R2_SQL_BUCKET=''
+R2_SQL_TABLE='default.events'
+R2_SQL_TOKEN=''

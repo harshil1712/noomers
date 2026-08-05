@@ -43,6 +43,62 @@ describe("Shared Request Utils", () => {
             });
         });
 
+        it("should include a custom event and its properties", () => {
+            const result = buildCollectRequestParams(
+                "test-site",
+                "example.com",
+                "/signup",
+                "",
+                {},
+                undefined,
+                {
+                    name: "Signup",
+                    props: { plan: "pro", seats: 3, trial: true },
+                },
+            );
+
+            expect(result).toEqual({
+                p: "/signup",
+                h: "example.com",
+                r: "",
+                sid: "test-site",
+                en: "Signup",
+                ep: JSON.stringify({ plan: "pro", seats: 3, trial: true }),
+            });
+        });
+
+        it("should reject invalid or oversized event properties", () => {
+            expect(() =>
+                buildCollectRequestParams(
+                    "test-site",
+                    "example.com",
+                    "/signup",
+                    "",
+                    {},
+                    undefined,
+                    {
+                        name: "Signup",
+                        props: { nested: {} } as never,
+                    },
+                ),
+            ).toThrow("Event properties must be strings");
+
+            expect(() =>
+                buildCollectRequestParams(
+                    "test-site",
+                    "example.com",
+                    "/signup",
+                    "",
+                    {},
+                    undefined,
+                    {
+                        name: "Signup",
+                        props: { value: "x".repeat(2049) },
+                    },
+                ),
+            ).toThrow("must not exceed 2048 characters");
+        });
+
         it("should merge UTM parameters", () => {
             const utmParams: UtmParams = {
                 us: "google",

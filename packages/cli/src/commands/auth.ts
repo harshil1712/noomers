@@ -1,13 +1,10 @@
 import { generatePasswordHash, generateJWTSecret } from "../lib/auth.js";
 import { CloudflareClient } from "../lib/cloudflare.js";
-import { getServerPkgDir } from "../lib/config.js";
+import { getDeploymentConfigPath } from "../lib/config.js";
 import { promptForPassword } from "../lib/ui.js";
-import path from "path";
 
 export async function enableAuth() {
-    const serverPkgDir = getServerPkgDir();
-    const configPath = path.join(serverPkgDir, "wrangler.json");
-    const cloudflare = new CloudflareClient(configPath);
+    const cloudflare = new CloudflareClient(getDeploymentConfigPath());
     
     try {
         console.log("Enabling authentication...");
@@ -48,9 +45,7 @@ export async function enableAuth() {
 }
 
 export async function disableAuth() {
-    const serverPkgDir = getServerPkgDir();
-    const configPath = path.join(serverPkgDir, "wrangler.json");
-    const cloudflare = new CloudflareClient(configPath);
+    const cloudflare = new CloudflareClient(getDeploymentConfigPath());
     
     try {
         console.log("Disabling authentication...");
@@ -74,9 +69,7 @@ export async function disableAuth() {
 }
 
 export async function updatePassword() {
-    const serverPkgDir = getServerPkgDir();
-    const configPath = path.join(serverPkgDir, "wrangler.json");
-    const cloudflare = new CloudflareClient(configPath);
+    const cloudflare = new CloudflareClient(getDeploymentConfigPath());
     
     try {
         console.log("Updating authentication password...");

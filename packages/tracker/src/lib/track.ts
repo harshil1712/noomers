@@ -8,10 +8,15 @@ import {
     isLocalhostAddress,
 } from "../shared/utils";
 import { buildCollectRequestParams } from "../shared/request";
+import type { EventProperties } from "../shared/types";
 
 export type TrackPageviewOpts = {
     url?: string;
     referrer?: string;
+};
+
+export type TrackEventOpts = TrackPageviewOpts & {
+    props?: EventProperties;
 };
 
 export function autoTrackPageviews(client: Client) {
@@ -113,6 +118,42 @@ export async function trackPageview(
         referrer,
         utmParams,
         hitType,
+    );
+
+    makeRequest(client.reporterUrl, requestParams);
+}
+
+export async function trackEvent(
+    client: Client,
+    name: string,
+    opts: TrackEventOpts = {},
+) {
+    const eventName = name.trim();
+    if (!eventName || eventName.length > 64) {
+        throw new Error("Event name must be between 1 and 64 characters.");
+    }
+
+    if (
+        !client.reportOnLocalhost &&
+        isLocalhostAddress(window.location.hostname)
+    ) {
+        return;
+    }
+
+    const canonical = getCanonicalUrl();
+    const location = canonical ?? window.location;
+    const url = opts.url || location.pathname + location.search || "/";
+    const { hostname, path } = getHostnameAndPath(url, true);
+    const referrer = getBrowserReferrer(hostname, opts.referrer || "");
+    const utmParams = getUtmParamsFromBrowserUrl(url);
+    const requestParams = buildCollectRequestParams(
+        client.siteId,
+        hostname,
+        path,
+        referrer,
+        utmParams,
+        undefined,
+        { name: eventName, props: opts.props },
     );
 
     makeRequest(client.reporterUrl, requestParams);

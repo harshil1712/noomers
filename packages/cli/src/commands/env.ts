@@ -1,12 +1,11 @@
 import { CloudflareClient } from "../lib/cloudflare.js";
-import { getServerPkgDir } from "../lib/config.js";
+import { getDeploymentConfigPath } from "../lib/config.js";
 import {
     promptApiToken,
     promptTrackerScriptName,
     getScriptSnippet,
 } from "../lib/ui.js";
 import { select, isCancel, cancel } from "@clack/prompts";
-import path from "path";
 
 type SupportedSecret = "CF_BEARER_TOKEN" | "CF_TRACKER_SCRIPT_NAME";
 
@@ -40,9 +39,7 @@ export const SECRETS_BY_ALIAS = new Map<string, SecretConfig>([
 ]);
 
 export async function envCommand(secretKey?: string) {
-    const serverPkgDir = getServerPkgDir();
-    const configPath = path.join(serverPkgDir, "wrangler.json");
-    const cloudflare = new CloudflareClient(configPath);
+    const cloudflare = new CloudflareClient(getDeploymentConfigPath());
 
     try {
         let selectedSecret: SecretConfig;

@@ -1,11 +1,8 @@
 import { CloudflareClient } from "../lib/cloudflare.js";
-import { getServerPkgDir } from "../lib/config.js";
-import path from "path";
+import { getDeploymentConfigPath } from "../lib/config.js";
 
 export async function enableStorage() {
-    const serverPkgDir = getServerPkgDir();
-    const configPath = path.join(serverPkgDir, "wrangler.json");
-    const cloudflare = new CloudflareClient(configPath);
+    const cloudflare = new CloudflareClient(getDeploymentConfigPath());
 
     try {
         console.log("Enabling storage...");
@@ -27,9 +24,7 @@ export async function enableStorage() {
 }
 
 export async function disableStorage() {
-    const serverPkgDir = getServerPkgDir();
-    const configPath = path.join(serverPkgDir, "wrangler.json");
-    const cloudflare = new CloudflareClient(configPath);
+    const cloudflare = new CloudflareClient(getDeploymentConfigPath());
 
     try {
         console.log("Disabling storage...");

@@ -1,9 +1,62 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import {
+    existsSync,
+    mkdirSync,
+    readFileSync,
+    writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
 export const COUNTERSCALE_DIR = path.join(homedir(), ".counterscale");
+export const DEPLOYMENT_CONFIG_PATH = path.join(
+    COUNTERSCALE_DIR,
+    "wrangler.json",
+);
+export const DEPLOYMENT_METADATA_PATH = path.join(
+    COUNTERSCALE_DIR,
+    "deployment.json",
+);
+
+export interface DeploymentMetadata {
+    version: 1;
+    accountId: string;
+    workerName: string;
+    analyticsDataset: string;
+    d1Database: { name: string; id: string };
+    resources: {
+        dailyRollupsBucket?: string;
+        pipelineName?: string;
+        dataCatalogBucket?: string;
+        dataCatalogTable?: string;
+    };
+}
+
+export function getDeploymentConfigPath(): string {
+    if (!existsSync(DEPLOYMENT_CONFIG_PATH)) {
+        throw new Error(
+            `No installed deployment found at ${DEPLOYMENT_CONFIG_PATH}. Run counterscale install first.`,
+        );
+    }
+    return DEPLOYMENT_CONFIG_PATH;
+}
+
+export function persistDeployment(
+    stagedConfigPath: string,
+    metadata: DeploymentMetadata,
+): void {
+    mkdirSync(COUNTERSCALE_DIR, { recursive: true, mode: 0o700 });
+    writeFileSync(
+        DEPLOYMENT_CONFIG_PATH,
+        readFileSync(stagedConfigPath, "utf8"),
+        { mode: 0o600 },
+    );
+    writeFileSync(
+        DEPLOYMENT_METADATA_PATH,
+        JSON.stringify(metadata, null, 2),
+        { mode: 0o600 },
+    );
+}
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -129,6 +182,7 @@ export async function stageDeployConfig(
     workerName: string,
     analyticsDataset: string,
     accountId?: string,
+    d1Database?: { name: string; id: string },
 ): Promise<void> {
     const serverPkgDir = getServerPkgDir();
 
@@ -141,6 +195,11 @@ export async function stageDeployConfig(
 
     if (accountId) {
         outDeployConfig.account_id = accountId;
+    }
+
+    if (d1Database && outDeployConfig.d1_databases?.[0]) {
+        outDeployConfig.d1_databases[0].database_name = d1Database.name;
+        outDeployConfig.d1_databases[0].database_id = d1Database.id;
     }
 
     writeFileSync(targetPath, JSON.stringify(outDeployConfig, null, 2));

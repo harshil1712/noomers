@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
-import { trackPageview } from "../track";
+import { trackEvent, trackPageview } from "../track";
 import * as requestModule from "../request";
 import { Client } from "../client";
 
@@ -71,6 +71,27 @@ describe("trackPageview", () => {
                 r: "",
                 sid: "test-site",
                 ht: "1", // First hit (new visit)
+            }),
+        );
+    });
+
+    test("should track a custom event with typed properties", async () => {
+        const client = new Client({
+            siteId: "test-site",
+            reporterUrl: "https://example.com/collect",
+            autoTrackPageviews: false,
+        });
+
+        await trackEvent(client, " Signup ", {
+            props: { plan: "pro", seats: 3, trial: true },
+        });
+
+        expect(makeRequestMock).toHaveBeenCalledWith(
+            "https://example.com/collect",
+            expect.objectContaining({
+                sid: "test-site",
+                en: "Signup",
+                ep: JSON.stringify({ plan: "pro", seats: 3, trial: true }),
             }),
         );
     });

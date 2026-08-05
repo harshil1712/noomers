@@ -16,7 +16,12 @@ export async function extractAsArrow(
 
     // Get all columns we want to extract
     const columns = Object.keys(ColumnMappings).filter(
-        (key) => key !== "siteId" && key !== "newVisitor" && key !== "bounce",
+        (key) =>
+            key !== "siteId" &&
+            key !== "newVisitor" &&
+            key !== "bounce" &&
+            key !== "visitorId" &&
+            key !== "eventProperties",
     ) as (keyof typeof ColumnMappings)[];
 
     // Fetch data for yesterday
@@ -36,6 +41,7 @@ export async function extractAsArrow(
             views: counts.views,
             visitors: counts.visitors,
             bounces: counts.bounces,
+            events: counts.events || 0,
         };
 
         // Add column values
@@ -46,21 +52,20 @@ export async function extractAsArrow(
         records.push(record);
     });
 
-    // Create Arrow table from JSON records
-    const table = tableFromJSON(records);
+    const recordsBySite = Map.groupBy(records, (record) => String(record.siteId));
+    const filenames = await Promise.all(
+        Array.from(recordsBySite, async ([siteId, siteRecords]) => {
+            const table = tableFromJSON(siteRecords);
+            const arrowBuffer = new Uint8Array(tableToIPC(table, "file"));
+            const filename = `sites/${encodeURIComponent(siteId)}/analytics-${yesterday.format("YYYY-MM-DD")}.arrow`;
+            await bucket.put(filename, arrowBuffer);
+            return filename;
+        }),
+    );
 
-    // Convert to Arrow IPC buffer
-    const arrowBuffer = new Uint8Array(tableToIPC(table, "file"));
+    console.log(`Saved ${records.length} records to ${filenames.length} files`);
 
-    // Generate filename with yesterday's date
-    const filename = `analytics-${yesterday.format("YYYY-MM-DD")}.arrow`;
-
-    // Save to R2
-    await bucket.put(filename, arrowBuffer);
-
-    console.log(`Saved ${records.length} records to ${filename}`);
-
-    return { filename, recordCount: records.length };
+    return { filenames, recordCount: records.length };
 }
 
 // IIFE for testing

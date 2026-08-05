@@ -8,6 +8,8 @@ import timezone from "dayjs/plugin/timezone";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+const PAGEVIEW_FILTER_SQL = `${ColumnMappings.eventName} = ''`;
 interface AnalyticsQueryResult<
     SelectionSet extends Record<string, string | number>,
 > {
@@ -21,6 +23,7 @@ interface AnalyticsCountResult {
     views: number;
     visitors: number;
     bounces: number;
+    events?: number;
 }
 
 export type ViewsGroupedByInterval = [string, AnalyticsCountResult][];
@@ -149,10 +152,14 @@ function filtersToSql(filters: SearchFilters) {
     let filterStr = "";
     supportedFilters.forEach((filter) => {
         if (Object.hasOwnProperty.call(filters, filter)) {
-            filterStr += `AND ${ColumnMappings[filter]} = '${filters[filter]}'`;
+            filterStr += `AND ${ColumnMappings[filter]} = ${sqlString(filters[filter] || "")}`;
         }
     });
     return filterStr;
+}
+
+function sqlString(value?: string): string {
+    return `'${(value || "").replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
 }
 
 /**
@@ -238,6 +245,7 @@ export class AnalyticsEngineAPI {
 
         const query = `
             SELECT SUM(_sample_interval) as count,
+                count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
 
             /* interval start needs local timezone, e.g. 00:00 in America/New York means start of day in NYC */
             toStartOfInterval(timestamp, INTERVAL '${intervalCount}' ${intervalType}, '${tz}') as _bucket,
@@ -249,13 +257,15 @@ export class AnalyticsEngineAPI {
             FROM metricsDataset
             WHERE timestamp >= toDateTime('${localStartTime.format("YYYY-MM-DD HH:mm:ss")}')
 								AND timestamp < toDateTime('${localEndTime.format("YYYY-MM-DD HH:mm:ss")}')
-                AND ${ColumnMappings.siteId} = '${siteId}'
+                AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
+                AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
             GROUP BY _bucket, isVisitor, isBounce
             ORDER BY _bucket ASC`;
 
         type SelectionSet = {
             count: number;
+            distinctVisitors?: number;
             bucket: string;
             isVisitor: number;
             isBounce: number;
@@ -290,12 +300,16 @@ export class AnalyticsEngineAPI {
                                 };
                             }
                             accumulateCountsFromRowResult(accum[key], row);
+                            if (row.isVisitor === -1) {
+                                accum[key].visitors += Number(
+                                    row.distinctVisitors || 0,
+                                );
+                            }
 
                             return accum;
                         },
                         initialRows,
                     );
-
                     // return as sorted array of tuples (i.e. [datetime, count])
                     const sortedRows = Object.entries(rowsByDateTime).sort(
                         (a, b) => {
@@ -350,17 +364,20 @@ export class AnalyticsEngineAPI {
 
         const query = `
             SELECT SUM(_sample_interval) as count,
+                count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
                 ${ColumnMappings.newVisitor} as isVisitor,
                 ${ColumnMappings.bounce} as isBounce
             FROM metricsDataset
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
+                AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
-            AND ${siteIdColumn} = '${siteId}'
+            AND ${siteIdColumn} = ${sqlString(siteId)}
             GROUP BY isVisitor, isBounce
             ORDER BY isVisitor, isBounce ASC`;
 
         type SelectionSet = {
             count: number;
+            distinctVisitors?: number;
             isVisitor: number;
             isBounce: number;
         };
@@ -389,6 +406,11 @@ export class AnalyticsEngineAPI {
                     //       no row where isVisit=0), so this code makes no assumption on number of results
                     responseData.data.forEach((row) => {
                         accumulateCountsFromRowResult(counts, row);
+                        if (row.isVisitor === -1) {
+                            counts.visitors += Number(
+                                row.distinctVisitors || 0,
+                            );
+                        }
                     });
                     resolve(counts);
                 })(),
@@ -415,53 +437,55 @@ export class AnalyticsEngineAPI {
 
         const _column = ColumnMappings[column];
         const query = `
-            SELECT ${_column}, SUM(_sample_interval) as count
+            SELECT ${_column},
+                SUM(_sample_interval) as count,
+                count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
+                countIf(${ColumnMappings.visitorId} = '') as missingVisitorIds,
+                sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) as legacyVisitors,
+                distinctVisitors + legacyVisitors - (missingVisitorIds > 0) as visitors
             FROM metricsDataset
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
-                AND ${ColumnMappings.newVisitor} = 1
-                AND ${ColumnMappings.siteId} = '${siteId}'
+                AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
+                AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
             GROUP BY ${_column}
-            ORDER BY count DESC
+            ORDER BY visitors DESC
             LIMIT ${limit * page}`;
 
         type SelectionSet = {
             count: number;
+            distinctVisitors?: number;
+            missingVisitorIds?: number;
+            legacyVisitors?: number;
+            visitors?: number;
         } & Record<
             (typeof ColumnMappings)[T],
             ColumnMappingToType<(typeof ColumnMappings)[T]>
         >;
 
-        const queryResult = this.query(query);
-        const returnPromise = new Promise<
-            [ColumnMappingToType<typeof _column>, number][]
-        >((resolve, reject) =>
-            (async () => {
-                const response = await queryResult;
+        const response = await this.query(query);
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
 
-                if (!response.ok) {
-                    reject(response.statusText);
-                }
+        const responseData =
+            (await response.json()) as AnalyticsQueryResult<SelectionSet>;
+        const counts = new Map<ColumnMappingToType<typeof _column>, number>();
+        for (const row of responseData.data) {
+            const key = row[_column];
+            const hasAggregatedVisitors = row.distinctVisitors !== undefined;
+            const visitors = hasAggregatedVisitors
+                ? Number(
+                      row.visitors ??
+                          Number(row.distinctVisitors) -
+                              (Number(row.missingVisitorIds) > 0 ? 1 : 0) +
+                              Number(row.legacyVisitors || 0),
+                  )
+                : Number(row.count);
+            counts.set(key, visitors);
+        }
 
-                const responseData =
-                    (await response.json()) as AnalyticsQueryResult<SelectionSet>;
-
-                // since CF AE doesn't support OFFSET clauses, we select up to LIMIT and
-                // then slice that into the individual requested page
-                const pageData = responseData.data.slice(
-                    limit * (page - 1),
-                    limit * page,
-                );
-
-                resolve(
-                    pageData.map((row) => {
-                        const key = row[_column];
-                        return [key, Number(row["count"])] as const;
-                    }),
-                );
-            })(),
-        );
-        return returnPromise;
+        return [...counts.entries()].slice(limit * (page - 1), limit * page);
     }
 
     async getAllCountsByAllColumnsForAllSites(
@@ -486,18 +510,18 @@ export class AnalyticsEngineAPI {
 
         const query = `
             SELECT 
-                timestamp,
+                toStartOfDay(timestamp) as date,
                 SUM(_sample_interval) as count,
+                count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
+                countIf(${ColumnMappings.visitorId} = '') as missingVisitorIds,
+                sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) as legacyVisitors,
+                SUM(${ColumnMappings.bounce} * _sample_interval) as bounces,
                 ${ColumnMappings.siteId} as siteId, 
-                ${ColumnMappings.newVisitor} as isVisitor, 
-                ${ColumnMappings.bounce} as isBounce,
                 ${columnsStrWithAliases}
             FROM metricsDataset
             WHERE timestamp >= toDateTime('${startDateTimeSql}') AND timestamp < toDateTime('${endDateTimeSql}')
-            GROUP BY timestamp,
+            GROUP BY date,
                 ${ColumnMappings.siteId}, 
-                ${ColumnMappings.newVisitor}, 
-                ${ColumnMappings.bounce}, 
                 ${columnsStr}
             ORDER BY count DESC
         `;
@@ -505,8 +529,10 @@ export class AnalyticsEngineAPI {
         type SelectionSet = {
             date: string;
             count: number;
-            isVisitor: number;
-            isBounce: number;
+            distinctVisitors?: number;
+            missingVisitorIds?: number;
+            legacyVisitors?: number;
+            bounces?: number;
         } & {
             [K in keyof typeof ColumnMappings]: string;
         };
@@ -518,7 +544,6 @@ export class AnalyticsEngineAPI {
 
             const responseData =
                 (await response.json()) as AnalyticsQueryResult<SelectionSet>;
-
 
             return responseData.data.reduce((acc, row) => {
                 // key is the comma joined string of siteId + all columns
@@ -533,10 +558,23 @@ export class AnalyticsEngineAPI {
                         views: 0,
                         visitors: 0,
                         bounces: 0,
+                        events: 0,
                     } as AnalyticsCountResult);
                 }
 
-                accumulateCountsFromRowResult(acc.get(key)!, row);
+                const counts = acc.get(key)!;
+                if (row.eventName) {
+                    counts.events = (counts.events || 0) + Number(row.count);
+                } else {
+                    counts.views += Number(row.count);
+                    counts.visitors +=
+                        row.distinctVisitors === undefined
+                            ? 0
+                            : Number(row.distinctVisitors) -
+                              (Number(row.missingVisitorIds) > 0 ? 1 : 0) +
+                              Number(row.legacyVisitors || 0);
+                    counts.bounces += Number(row.bounces || 0);
+                }
                 return acc;
             }, new Map<string[], AnalyticsCountResult>());
         });
@@ -572,31 +610,29 @@ export class AnalyticsEngineAPI {
         // next, make a second query - this time for non-visitor hits - by filtering
         // on the keys returned by the first query.
         const keys = visitorCountByColumn.map(([key]) => key);
+        if (keys.length === 0) return {};
 
         let filterStr = filtersToSql(filters);
         const _column = ColumnMappings[column];
 
         if (keys.length > 0) {
-            filterStr += ` AND ${_column} IN (${keys.map((key) => `'${key}'`).join(", ")})`;
+            filterStr += ` AND ${_column} IN (${keys.map((key) => sqlString(String(key))).join(", ")})`;
         }
 
         const query = `
             SELECT ${_column},
-                ${ColumnMappings.newVisitor} as isVisitor,
                 SUM(_sample_interval) as count
             FROM metricsDataset
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
-                AND ${ColumnMappings.newVisitor} = 0
-                AND ${ColumnMappings.siteId} = '${siteId}'
+                AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
+                AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
-            GROUP BY ${_column}, ${ColumnMappings.newVisitor}
+            GROUP BY ${_column}
             ORDER BY count DESC
             LIMIT ${limit * page}`;
 
         type SelectionSet = {
             count: number;
-            isVisitor: number;
-            isBounce: number;
         } & Record<
             (typeof ColumnMappings)[T],
             ColumnMappingToType<(typeof ColumnMappings)[T]>
@@ -615,39 +651,26 @@ export class AnalyticsEngineAPI {
                     const responseData =
                         (await response.json()) as AnalyticsQueryResult<SelectionSet>;
 
-                    // since CF AE doesn't support OFFSET clauses, we select up to LIMIT and
-                    // then slice that into the individual requested page
-                    const pageData = responseData.data.slice(
-                        limit * (page - 1),
-                        limit * page,
-                    );
-
-                    // remap visitor counts into SelectionSet objects, then insert into
-                    // the query results (pageData)
+                    const result = {} as Record<string, AnalyticsCountResult>;
                     visitorCountByColumn.forEach(([key, value]) => {
-                        pageData.push({
-                            [_column]: key,
-                            count: value,
-                            isVisitor: 1,
-                        } as SelectionSet);
+                        result[String(key)] = {
+                            views: 0,
+                            visitors: value,
+                            bounces: 0,
+                        };
                     });
 
-                    const result = pageData.reduce(
-                        (acc, row) => {
-                            const key = row[_column] as string;
-                            if (!Object.hasOwn(acc, key)) {
-                                acc[key] = {
-                                    views: 0,
-                                    visitors: 0,
-                                    bounces: 0,
-                                } as AnalyticsCountResult;
-                            }
-
-                            accumulateCountsFromRowResult(acc[key], row);
-                            return acc;
-                        },
-                        {} as Record<string, AnalyticsCountResult>,
-                    );
+                    responseData.data.forEach((row) => {
+                        const key = String(row[_column]);
+                        if (!Object.hasOwn(result, key)) {
+                            result[key] = {
+                                views: 0,
+                                visitors: 0,
+                                bounces: 0,
+                            };
+                        }
+                        result[key].views += Number(row.count);
+                    });
 
                     resolve(result);
                 })(),
@@ -680,6 +703,77 @@ export class AnalyticsEngineAPI {
             // sort by visitors
             return result.sort((a, b) => b[1] - a[1]);
         });
+    }
+
+    async getCountByEventName(
+        siteId: string,
+        interval: string,
+        tz?: string,
+        filters: SearchFilters = {},
+        page: number = 1,
+        limit: number = 10,
+    ): Promise<[eventName: string, events: number][]> {
+        const { startIntervalSql, endIntervalSql } = intervalToSql(
+            interval,
+            tz,
+        );
+        const filterStr = filtersToSql(filters);
+        const eventNameColumn = ColumnMappings.eventName;
+        const query = `
+            SELECT ${eventNameColumn} as eventName,
+                SUM(_sample_interval) as count
+            FROM metricsDataset
+            WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
+                AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
+                AND ${eventNameColumn} != ''
+                ${filterStr}
+            GROUP BY ${eventNameColumn}
+            ORDER BY count DESC
+            LIMIT ${limit * page}`;
+
+        type SelectionSet = { eventName: string; count: number };
+        const response = await this.query(query);
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+
+        const responseData =
+            (await response.json()) as AnalyticsQueryResult<SelectionSet>;
+        return responseData.data
+            .slice(limit * (page - 1), limit * page)
+            .map((row) => [row.eventName, Number(row.count)]);
+    }
+
+    async getGoalConversionCount(
+        siteId: string,
+        goal: { type: "event" | "pageview"; value: string },
+        interval: string,
+        tz?: string,
+        filters: SearchFilters = {},
+    ): Promise<number> {
+        const { startIntervalSql, endIntervalSql } = intervalToSql(
+            interval,
+            tz,
+        );
+        const goalPredicate =
+            goal.type === "event"
+                ? `${ColumnMappings.eventName} = ${sqlString(goal.value)}`
+                : `${PAGEVIEW_FILTER_SQL} AND ${ColumnMappings.path} = ${sqlString(goal.value)}`;
+        const query = `
+            SELECT count(DISTINCT ${ColumnMappings.visitorId}) as conversions
+            FROM metricsDataset
+            WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
+                AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
+                AND ${ColumnMappings.visitorId} != ''
+                AND ${goalPredicate}
+                ${filtersToSql(filters)}`;
+
+        type SelectionSet = { conversions: number };
+        const response = await this.query(query);
+        if (!response.ok) throw new Error(response.statusText);
+        const responseData =
+            (await response.json()) as AnalyticsQueryResult<SelectionSet>;
+        return Number(responseData.data[0]?.conversions || 0);
     }
 
     async getCountByCountry(
@@ -891,6 +985,7 @@ export class AnalyticsEngineAPI {
                 ${ColumnMappings.siteId} as siteId
             FROM metricsDataset
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
+                AND ${PAGEVIEW_FILTER_SQL}
             GROUP BY siteId
             ORDER BY count DESC
             LIMIT ${limit}
@@ -937,7 +1032,8 @@ export class AnalyticsEngineAPI {
                 MIN(timestamp) as earliestEvent,
                 ${ColumnMappings.bounce} as isBounce
             FROM metricsDataset
-            WHERE ${ColumnMappings.siteId} = '${siteId}'
+            WHERE ${ColumnMappings.siteId} = ${sqlString(siteId)}
+                AND ${PAGEVIEW_FILTER_SQL}
             GROUP by isBounce
         `;
 

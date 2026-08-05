@@ -20,9 +20,15 @@
             "binding": "DAILY_ROLLUPS"
         }
     ],
+    "d1_databases": [
+        {
+            "binding": "GOALS_DB",
+            "database_name": "counterscale-goals",
+            "database_id": "00000000-0000-0000-0000-000000000000",
+            "migrations_dir": "./migrations"
+        }
+    ],
     "triggers": {
-        "crons": [
-            "0 2 * * *"
-        ]
+        "crons": ["0 2 * * *"]
     }
 }

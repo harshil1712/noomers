@@ -1,4 +1,5 @@
 export interface SearchFilters {
+    host?: string;
     path?: string;
     referrer?: string;
     deviceModel?: string;

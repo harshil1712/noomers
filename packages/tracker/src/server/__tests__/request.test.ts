@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { makeRequest } from "../request";
 import type { CollectRequestParams } from "../../shared/types";
 
-// Mock fetch and buildCollectUrl
+// Mock fetch and request serialization
 global.fetch = vi.fn();
 
 class MockAbortController {
@@ -16,8 +16,8 @@ global.setTimeout = vi.fn().mockImplementation(() => {
 }) as any;
 global.clearTimeout = vi.fn();
 
-vi.mock("../../shared/request", () => ({
-    buildCollectUrl: vi.fn(),
+vi.mock("../../shared/utils", () => ({
+    queryParamStringify: vi.fn(),
 }));
 
 describe("makeRequest", () => {
@@ -32,12 +32,15 @@ describe("makeRequest", () => {
         vi.clearAllMocks();
     });
 
-    it("should make a GET request with correct headers", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
+    it("should make a POST request with parameters in the body", async () => {
+        const { queryParamStringify } = await import("../../shared/utils");
+        const mockQueryParamStringify = queryParamStringify as ReturnType<
+            typeof vi.fn
+        >;
 
-        const fullUrl = "https://example.com/collect?p=/test&h=example.com";
-        mockBuildCollectUrl.mockReturnValue(fullUrl);
+        mockQueryParamStringify.mockReturnValue(
+            "?p=%2Ftest&h=example.com&ip=203.0.113.10",
+        );
 
         mockFetch.mockResolvedValue({
             text: vi.fn().mockResolvedValue("ok"),
@@ -49,26 +52,58 @@ describe("makeRequest", () => {
             h: "example.com",
             r: "",
             sid: "test-site",
+            ip: "203.0.113.10",
         };
 
         await makeRequest(url, params);
 
-        expect(mockBuildCollectUrl).toHaveBeenCalledWith(url, params, true);
-        expect(mockFetch).toHaveBeenCalledWith(fullUrl, {
-            method: "GET",
+        expect(mockQueryParamStringify).toHaveBeenCalledWith(params, true);
+        expect(mockFetch).toHaveBeenCalledWith(url, {
+            method: "POST",
             headers: {
-                "Content-Type": "text/plain",
-                "User-Agent": "Counterscale-Tracker-Server/3.2.0",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "Counterscale-Tracker-Server/3.4.1",
             },
+            body: "p=%2Ftest&h=example.com&ip=203.0.113.10",
             signal: mockAbortController.signal,
         });
     });
 
-    it("should set up timeout and clear it on success", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
+    it("should forward the visitor user agent", async () => {
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue(
+            "?sid=test-site&ip=203.0.113.10",
+        );
+        mockFetch.mockResolvedValue({
+            text: vi.fn().mockResolvedValue("ok"),
+        } as any);
 
-        mockBuildCollectUrl.mockReturnValue("https://example.com/collect");
+        await makeRequest(
+            "https://example.com/collect",
+            {
+                sid: "test-site",
+                p: "/",
+                h: "example.com",
+                r: "",
+                ip: "203.0.113.10",
+            },
+            1000,
+            "Visitor Browser",
+        );
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            "https://example.com/collect",
+            expect.objectContaining({
+                headers: expect.objectContaining({
+                    "User-Agent": "Visitor Browser",
+                }),
+            }),
+        );
+    });
+
+    it("should set up timeout and clear it on success", async () => {
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue("");
         mockFetch.mockResolvedValue({
             text: vi.fn().mockResolvedValue("ok"),
         } as any);
@@ -84,10 +119,8 @@ describe("makeRequest", () => {
     });
 
     it("should use default timeout when not specified", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
-
-        mockBuildCollectUrl.mockReturnValue("https://example.com/collect");
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue("");
         mockFetch.mockResolvedValue({
             text: vi.fn().mockResolvedValue("ok"),
         } as any);
@@ -101,10 +134,8 @@ describe("makeRequest", () => {
     });
 
     it("should consume response text", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
-
-        mockBuildCollectUrl.mockReturnValue("https://example.com/collect");
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue("");
         const mockText = vi.fn().mockResolvedValue("response body");
         mockFetch.mockResolvedValue({
             text: mockText,
@@ -116,10 +147,8 @@ describe("makeRequest", () => {
     });
 
     it("should not throw on fetch error", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
-
-        mockBuildCollectUrl.mockReturnValue("https://example.com/collect");
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue("");
         mockFetch.mockRejectedValue(new Error("Network error"));
 
         await expect(
@@ -128,10 +157,8 @@ describe("makeRequest", () => {
     });
 
     it("should not throw on timeout", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
-
-        mockBuildCollectUrl.mockReturnValue("https://example.com/collect");
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue("");
         mockFetch.mockImplementation(
             () => new Promise((_, reject) => reject(new Error("Timeout"))),
         );
@@ -142,10 +169,8 @@ describe("makeRequest", () => {
     });
 
     it("should set up abort controller", async () => {
-        const { buildCollectUrl } = await import("../../shared/request");
-        const mockBuildCollectUrl = buildCollectUrl as ReturnType<typeof vi.fn>;
-
-        mockBuildCollectUrl.mockReturnValue("https://example.com/collect");
+        const { queryParamStringify } = await import("../../shared/utils");
+        vi.mocked(queryParamStringify).mockReturnValue("");
         mockFetch.mockResolvedValue({
             text: vi.fn().mockResolvedValue("ok"),
         } as any);
