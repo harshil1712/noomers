@@ -1,0 +1,109 @@
+docs/convergence-provisioning.md
+  s_3fa8f62b4a9d48::t_7215962e5fbc84 1-27
+docs/implementation-roadmap.md
+  s_13d4618301e69c::t_0a37d5a019916c 1-244
+docs/plausible-feature-parity.md
+  s_13d4618301e69c::t_ea027c7ead205c 1-436
+packages/cli/src/commands/auth.ts
+  s_3fa8f62b4a9d48::t_b9d8016af070a1 3,7,48,72
+packages/cli/src/commands/env.ts
+  s_3fa8f62b4a9d48::t_16d7a7b77e9c2f 2,42
+packages/cli/src/commands/install.ts
+  s_3fa8f62b4a9d48::t_876194de5e20e8 25,345-359,372-396,406-423,433-439
+packages/cli/src/commands/storage.ts
+  s_3fa8f62b4a9d48::t_74caa4b22c7d90 2,5,27
+packages/cli/src/lib/__tests__/cloudflare.test.ts
+  s_0599ecb8e1d080::t_9709eb02cc35cf 141-143,147,156-159,168,172,174-176,188-249,368-414
+packages/cli/src/lib/cloudflare.ts
+  s_0599ecb8e1d080::t_1ca4b3d5133560 24-28,55,60-65,68,80-81,84-88,91-96,99,106,156-157,205-208,216-284
+packages/cli/src/lib/config.ts
+  s_3fa8f62b4a9d48::t_a944353cd48e26 1-6,12-59,185,200-204
+packages/server/app/analytics/__tests__/plausible.test.ts
+  s_95c40f6ea8ddbc::t_4cf561ac6855f6 1-493
+packages/server/app/routes/__tests__/api.compatibility.test.tsx
+  s_95c40f6ea8ddbc::t_7aabaa4d381b4a 1-59
+packages/server/app/routes/__tests__/collect.test.tsx
+  s_95c40f6ea8ddbc::t_76e67876fd941e 17-22
+packages/server/app/routes/__tests__/resources.events.test.tsx
+  s_13d4618301e69c::t_62e5a35defcdab 1-58
+packages/server/app/routes/__tests__/resources.stats.test.tsx
+  s_13d4618301e69c::t_d78f2719a46fe4 141-231
+packages/server/app/routes/api.event.tsx
+  s_f7314222ba5fe4::t_55d0ca78e75976 1-17
+packages/server/app/routes/collect.tsx
+  s_13d4618301e69c::t_489a437090a403 1,15-22
+packages/server/app/routes/resources.events.tsx
+  s_13d4618301e69c::t_fa6cd416d92dd5 1-51
+packages/server/app/routes/resources.goals.tsx
+  s_13d4618301e69c::t_7880b94a4502a1 1-225
+packages/server/app/routes/resources.stats.tsx
+  s_13d4618301e69c::t_f2e2b6a1b4078b 15,21-47,49-52,83-89,103-110,112,133-135,143-150,157-169
+packages/server/app/sites/__tests__/repository.test.ts
+  s_3fa8f62b4a9d48::t_1362af123bbd0a 1-149
+packages/server/worker-configuration.d.ts
+  s_13d4618301e69c::t_23b098fde98793 2,7
+packages/server/wrangler.json
+  s_13d4618301e69c::t_1cb3f884ab369e 23-30,32
+packages/tracker/src/index.ts
+  s_13d4618301e69c::t_69d6f2ae9e793d 4-8,25-26,38-46
+packages/tracker/src/shared/__tests__/request.test.ts
+  s_3ddac252e4fcda::t_4cb7dae1077b3f 46-101
+packages/tracker/src/shared/request.ts
+  s_13d4618301e69c::t_f5f44113d44200 1,4-25,33-34,47-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ba6c1a4cb3bfce18f33957a7e02331eb8252b1af",
+  "prompts": {},
+  "sessions": {
+    "s_0599ecb8e1d080": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_035e7f097ffelyELyNr5rWmrDX",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_13d4618301e69c": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0458c4b98ffez3jRwNh9dVesKH",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_3ddac252e4fcda": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_03c12413affePh3gUD79lovjlB",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_3fa8f62b4a9d48": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_035e7f0aeffeJ5kuMiwc7Tgx0R",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_95c40f6ea8ddbc": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_035eaa9c0ffeau4JbTx4M1iRj1",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_f7314222ba5fe4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_03c3d3f0dffeF9yfZHjr8Wh96s",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
