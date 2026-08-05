@@ -1,0 +1,127 @@
+.github/ISSUE_TEMPLATE/bug_report.yml
+  s_5380dc60f56375::t_b5139ecd864c90 55,57-59,72
+.github/ISSUE_TEMPLATE/config.yml
+  s_5380dc60f56375::t_d930800a7ddaf2 4,7
+.github/ISSUE_TEMPLATE/feature_request.yml
+  s_5380dc60f56375::t_4e3dec8f552a29 24,26-28
+.github/pull_request_template.md
+  s_5380dc60f56375::t_9bd65e0ab6e357 7,11,15
+AGENTS.md
+  s_5380dc60f56375::t_22bf76d9dee385 7,51,57-60,67,163
+CONTRIBUTING.md
+  s_5380dc60f56375::t_ed06245cc008cb 1,3,29,47
+docs/convergence-provisioning.md
+  s_5380dc60f56375::t_083634b5a85833 3,16
+docs/implementation-roadmap.md
+  s_5380dc60f56375::t_0eef816b32d9fb 36,194
+docs/plausible-feature-parity.md
+  s_5380dc60f56375::t_1dcddcf8fc1bc7 3,17,21,26,56,62,68,71,94,286,338,375,387
+packages/cli/eslint.config.mjs
+  s_5380dc60f56375::t_6e665ed2761747 1
+packages/cli/package.json
+  s_5380dc60f56375::t_86b973735519a8 2,4-5,10,17,31
+packages/cli/scripts/generate-secrets.mjs
+  s_5380dc60f56375::t_5938c8ee49d906 8
+packages/cli/src/commands/__tests__/auth.test.ts
+  s_5380dc60f56375::t_6f22ec42cc1435 202
+packages/cli/src/commands/auth.ts
+  s_5380dc60f56375::t_57590339351f7c 80
+packages/cli/src/commands/install.ts
+  s_5380dc60f56375::t_4a7fd942c834b7 56,59,131,149,292,297,312,316,320,332,336,340,369,398,425,428
+packages/cli/src/index.ts
+  s_5380dc60f56375::t_57956a14629268 15,28,51,57,76,82,104,110,123,129
+packages/cli/src/lib/__tests__/cloudflare.test.ts
+  s_5380dc60f56375::t_79778e0b1a019a 39,192,197,204,208,219,228,239,244
+packages/cli/src/lib/__tests__/config.test.ts
+  s_5380dc60f56375::t_0f017d85875b9d 24,77,81,85-86,102,105,122,220,351
+packages/cli/src/lib/__tests__/ui.test.ts
+  s_5380dc60f56375::t_1ada82da9946f2 53,63,67,77,83-84
+packages/cli/src/lib/cloudflare.ts
+  s_5380dc60f56375::t_2cefda9931b391 35
+packages/cli/src/lib/config.ts
+  s_5380dc60f56375::t_be03a10c75b1c4 11,13,17,38,48,64-65,92,100,163,175
+packages/cli/src/lib/ui.ts
+  s_5380dc60f56375::t_0d292fb7b05d5a 25,29,37,50,61,65,67,69
+packages/eslint-config/README.md
+  s_5380dc60f56375::t_4f1e616c27edee 1,3,9,16,38,52,63
+packages/eslint-config/package.json
+  s_5380dc60f56375::t_5f1c73ffdd309c 2
+packages/server/app/__tests__/root.test.tsx
+  s_5380dc60f56375::t_f842b894af2bef 133-134,158
+packages/server/app/analytics/query.ts
+  s_5380dc60f56375::t_7dbb8f9d693ae2 117
+packages/server/app/lib/__tests__/auth.test.ts
+  s_5380dc60f56375::t_281a11b329d4b7 29,32,102,109,148,159,176,189,193,212,226,230,254,258,286,299,303,316,321,339,353,357
+packages/server/app/lib/__tests__/session.test.ts
+  s_5380dc60f56375::t_6506f01b74af56 10,20,28,37
+packages/server/app/lib/auth.ts
+  s_5380dc60f56375::t_10d7eeb7cdbfbf 55,111
+packages/server/app/lib/session.ts
+  s_5380dc60f56375::t_bed8e445ac26ba 6,12
+packages/server/app/routes/__tests__/_index.test.tsx
+  s_5380dc60f56375::t_5396252d5cddb4 46,73
+packages/server/app/routes/_index.tsx
+  s_5380dc60f56375::t_2c3b3206775726 8-9,53-54,60
+packages/server/app/routes/admin-redirect.tsx
+  s_5380dc60f56375::t_94a755630ae6b4 5
+packages/server/app/routes/dashboard.tsx
+  s_5380dc60f56375::t_f64d3f54d5a9ea 55-56
+packages/server/app/routes/resources.country.tsx
+  s_5380dc60f56375::t_22b702c3cc319d 44
+packages/server/app/routes/resources.stats.tsx
+  s_5380dc60f56375::t_e3cc2d845a1dff 57
+packages/server/eslint.config.mjs
+  s_5380dc60f56375::t_f3fc7da93bb25c 1,23
+packages/server/wrangler.json
+  s_5380dc60f56375::t_109560c5711c30 3,18-19,26
+packages/tracker/README.md
+  s_5380dc60f56375::t_3b6470fe147a1b 1,3,5,12,15,18,20,26,34,37,39,46
+packages/tracker/SERVER.md
+  s_5380dc60f56375::t_8c576aa52ab036 3,10,16,19,21,27,40,45,53,118-119
+packages/tracker/eslint.config.mjs
+  s_5380dc60f56375::t_59e902134cb0a0 1,22
+packages/tracker/global.d.ts
+  s_5380dc60f56375::t_2ed34f8337d808 4
+packages/tracker/integration/01_legacyInit/index.html
+  s_5380dc60f56375::t_a4bffa17bf1f57 9,18
+packages/tracker/integration/02_dataAttrsInit/index.html
+  s_5380dc60f56375::t_54015c6b6b2b00 8
+packages/tracker/integration/03_pushState/index.html
+  s_5380dc60f56375::t_2fc08ca5d14a6c 7
+packages/tracker/integration/04_utmTracking/index.html
+  s_5380dc60f56375::t_07fd6d363c5864 12,21
+packages/tracker/package.json
+  s_5380dc60f56375::t_c9e2dc83e3c6d4 2,4-5,22
+packages/tracker/src/__tests__/index.spec.ts
+  s_5380dc60f56375::t_ffabe5ff9d57d6 3,54,59,67,72,83,88,91,97,103,107,113,123,140,150,173,210,219,228,238
+packages/tracker/src/index.ts
+  s_5380dc60f56375::t_3644a5355e3189 32,41
+packages/tracker/src/server/__tests__/integration/server.test.ts
+  s_5380dc60f56375::t_9b7ef63da07401 2,16,21,54,97,118,145,184,216,222,228-229,236,261,274,287,297,310,328
+packages/tracker/src/server/__tests__/request.test.ts
+  s_5380dc60f56375::t_7145ba36c1a8c8 65
+packages/tracker/src/server/request.ts
+  s_5380dc60f56375::t_0c01011f4b5f97 23
+packages/tracker/src/tracker.ts
+  s_5380dc60f56375::t_e1042bbeb79c38 3,7,20,42
+pnpm-lock.yaml
+  s_5380dc60f56375::t_8fbd5e2f92bb69 35,141-143,205,289
+turbo.json
+  s_5380dc60f56375::t_645988624511f0 7-8,12-13,17,32-33,38-39,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "af3d3c1303b3129d667da56a041f7ee2f1873489",
+  "prompts": {},
+  "sessions": {
+    "s_5380dc60f56375": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02c28bf7effe6CqoJilZ0PupNz",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
