@@ -59,6 +59,14 @@ Follow the prompts. You will be asked for the Cloudflare API token you created e
 - If you choose **Yes** (recommended for public deployments), you'll be prompted to create a password that will be required to access your analytics dashboard.
 - If you choose **No**, your dashboard will be publicly accessible without authentication.
 
+On a fresh install you will also be asked for an **initial site domain** and **IANA reporting timezone** (or pass them with `--domain` and `--timezone`). You'll be prompted to **enter a strong noomers API token** (at least 32 characters) that you have generated yourself and saved — for example in a password manager. The installer never auto-generates, prints, or logs the token value. It writes that same value to both `STATS_API_TOKEN` and `SITES_API_TOKEN` (a single shared token, because the server uses shared-token semantics) and provisions the initial site through the Sites API. The tracking snippets are printed using your real domain as the `siteId`.
+
+Generate and save a strong token before installing, for example:
+
+```bash
+openssl rand -hex 32
+```
+
 Once the script has finished, the server application should be deployed. Visit `https://{subdomain-emitted-during-deploy}.workers.dev` to verify.
 
 The installer also creates a D1 database for goal definitions, applies its migrations, and configures a rotating, salted visitor identifier used for unique conversion rates. Raw IP addresses are never stored.
@@ -224,6 +232,8 @@ Set the `STATS_API_TOKEN` Worker secret to enable Plausible-compatible queries a
 
 Set the optional `SITES_API_TOKEN` Worker secret to use Plausible's site provisioning endpoints under `/api/v1/sites`. When it is omitted, `STATS_API_TOKEN` authenticates both APIs. The supported provisioning operations are listing, creating, reading, updating configuration, and deleting sites, plus listing, finding or creating, and deleting event or page goals. Provision each site before collecting or querying its statistics. Domain renames are rejected because Analytics Engine records are immutable. Deleting a site immediately tombstones it: Stats API access, new collection, and re-registration are blocked, D1 configuration is removed, and an internal deletion job is recorded. Analytics Engine data then expires through its fixed three-month retention.
 
+The installer uses a single deployment token for both `STATS_API_TOKEN` and `SITES_API_TOKEN`. This is intentional: the server uses a single shared token, so one value authorizes every registered site in the deployment. The token is never auto-generated, printed, or logged. On a fresh install the installer securely prompts you to **enter a strong token you have generated and saved** (for example in a password manager, such as `openssl rand -hex 32`) and writes that same value to both secrets. On an existing install it securely prompts for your existing token in memory only and never writes or rotates anything. To rotate the token, run `npx @noomers/cli env api-token`; it securely prompts for a new value and writes it to both secrets without printing it. Any client using the previous token must switch to the new value.
+
 Deleting an Iceberg table's underlying R2 objects with an R2 lifecycle rule is unsafe and is not a supported erasure process because those objects include table metadata and shared snapshots. A deletion worker or operator must issue a row-level `DELETE` for the site's records through an Iceberg-compatible engine, commit the table change, and then expire snapshots and remove orphan files according to the table's retention policy. The deletion job tracks that external Iceberg purge as `pending`, `completed`, or `failed`; the Plausible-compatible DELETE response does not expose this internal state. The D1 migrations for the site registry, goals, and deletion jobs are applied automatically by the installer.
 
 ## Upgrading
@@ -237,7 +247,11 @@ npx @noomers/cli@latest install
 # npx @noomers/cli@VERSION install
 ```
 
-You won't have to enter a new API key, and your data will carry forrward.
+You won't have to enter a new API key, and your data will carry forward.
+
+When upgrading an existing deployment, the installer discovers historical site IDs present in Analytics Engine as backfill **candidates** and inserts them into the D1 registry before deploying the new Worker version. It uses the Cloudflare Account Analytics token it holds in memory (or prompts for it securely on existing installs, since it cannot be read back from Wrangler secret lists), validates and bounds the result, and asks for confirmation before inserting. Backfill is **fail-closed**: if discovery fails, a malformed historical site ID is found, the result exceeds the bound, the D1 insert fails, or you decline a nonempty proposal, the installer aborts rather than deploying with an incomplete registry. Empty or null site IDs are ignored. The insert is rerun-safe: it skips sites already registered and permanently tombstoned sites. Discovery does not compare against D1, so a candidate may already be registered; the insert simply skips it. All historical candidates in a single backfill use the **same reporting timezone** (the one you selected during install); if you expect multiple historical sites, verify each site's timezone afterward and update any that differ using the Sites API or dashboard.
+
+On an existing install the installer securely prompts for the existing noomers API token (in memory only) and uses it to provision and verify the initial site through the Sites API. The token is never auto-generated or logged, so on any subsequent upgrade the installer must ask you for the token you configured; existing tokens are never silently rotated.
 
 noomers uses [semantic versioning](https://semver.org/). If upgrading to a major version (e.g. 2.x, 3.x, 4.x), there may be extra steps. Please consult the [release notes](https://github.com/harshil1712/noomers/releases).
 
@@ -286,6 +300,8 @@ npx @noomers/cli@latest install
 Options:
 
 - `--advanced` - Enable advanced mode to customize worker name and analytics dataset
+- `--domain <domain>` - Initial analytics site domain (skips the domain prompt)
+- `--timezone <timezone>` - Initial analytics site IANA timezone (skips the timezone prompt)
 - `--verbose` - Show additional logging information
 
 #### `auth`
@@ -347,6 +363,28 @@ Disable storage:
 
 ```bash
 npx @noomers/cli@latest storage disable
+```
+
+#### `env`
+
+Manage Worker secret values for your noomers deployment.
+
+```bash
+npx @noomers/cli@latest env [secret]
+```
+
+Available aliases:
+
+- `token` - Rotate the Cloudflare API token
+- `api-token` - Rotate the deployment-wide noomers API token. Prompts securely and writes the same value to both `STATS_API_TOKEN` and `SITES_API_TOKEN`. Because the server uses a single shared token, this value authorizes every registered site in the deployment; clients using the previous token must switch.
+- `tracker-script` - Change the served tracker script name
+
+##### Example:
+
+Rotate the noomers API token:
+
+```bash
+npx @noomers/cli@latest env api-token
 ```
 
 ## Development

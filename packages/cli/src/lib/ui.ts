@@ -3,6 +3,7 @@ import chalk from "chalk";
 import { highlight } from "cli-highlight";
 import { password, text, isCancel, cancel, spinner } from "@clack/prompts";
 import { CloudflareClient } from "./cloudflare.js";
+import { normalizeDomain, normalizeTimezone } from "./validation.js";
 
 export const CLI_COLORS: Record<string, [number, number, number]> = {
     orange: [245, 107, 61],
@@ -21,10 +22,7 @@ export const highlightTheme = {
     plain: chalk.white,
 };
 
-export function getTitle(
-    noomersVersion: string,
-    homepage: string,
-): string {
+export function getTitle(noomersVersion: string, homepage: string): string {
     const title = chalk.rgb(...CLI_COLORS.orange)(
         figlet.textSync("noomers", {
             font: "Slant",
@@ -40,15 +38,23 @@ export function getTitle(
     return `${title}\n${subtitle}`;
 }
 
+export const DEFAULT_SITE_ID = "YOUR_UNIQUE_SITE_ID__CHANGE_THIS";
+
+/**
+ * Build the HTML tracking snippet. `siteId` defaults to a placeholder for
+ * callers that do not yet know the canonical domain; the collector authorizes
+ * `sites.domain`, so the snippet's `data-site-id` must be the real domain.
+ */
 export function getScriptSnippet(
     deployUrl: string,
     scriptName: string = "tracker",
+    siteId: string = DEFAULT_SITE_ID,
 ) {
     return highlight(
         `
 <script
     id="noomers-script"
-    data-site-id="YOUR_UNIQUE_SITE_ID__CHANGE_THIS"
+    data-site-id="${siteId}"
     src="${deployUrl}/${scriptName}.js"
     defer
 ></script>`,
@@ -59,6 +65,7 @@ export function getScriptSnippet(
 export function getPackageSnippet(
     deployUrl: string,
     noomersVersion: string,
+    siteId: string = DEFAULT_SITE_ID,
 ) {
     return highlight(
         `
@@ -67,7 +74,7 @@ export function getPackageSnippet(
 import * as noomers from "@noomers/tracker";
 
 noomers.init({
-    siteId: "YOUR_UNIQUE_SITE_ID__CHANGE_THIS",
+    siteId: "${siteId}",
     reporterUrl: "${deployUrl}/collect",
 });`,
         { language: "typescript", theme: highlightTheme },
@@ -197,4 +204,152 @@ export async function promptTrackerScriptName(): Promise<string> {
     }
 
     return scriptName;
+}
+
+export async function promptForDomain(): Promise<string> {
+    const domain = await text({
+        message:
+            "Which domain should the initial analytics site track? " +
+            chalk.dim(
+                "(lowercase, no spaces/slashes/colons; this becomes the snippet's siteId)",
+            ),
+        validate: (value) => {
+            if (typeof value !== "string" || value.length === 0) {
+                return "A domain is required";
+            }
+            try {
+                normalizeDomain(value);
+                return undefined;
+            } catch (error) {
+                return error instanceof Error
+                    ? error.message
+                    : "Invalid domain";
+            }
+        },
+    });
+
+    if (isCancel(domain)) {
+        cancel("Operation canceled.");
+        if (process.env.NODE_ENV === "test") {
+            throw new Error("Operation canceled");
+        }
+        process.exit(0);
+    }
+
+    if (typeof domain !== "string" || domain.length === 0) {
+        throw new Error("A domain is required");
+    }
+
+    return normalizeDomain(domain);
+}
+
+export async function promptForTimezone(): Promise<string> {
+    const timezone = await text({
+        message:
+            "Which IANA reporting timezone should this site use? " +
+            chalk.dim("[default: Etc/UTC]"),
+        initialValue: "Etc/UTC",
+        validate: (value) => {
+            if (typeof value !== "string" || value.length === 0) {
+                return "A timezone is required";
+            }
+            try {
+                normalizeTimezone(value);
+                return undefined;
+            } catch (error) {
+                return error instanceof Error
+                    ? error.message
+                    : "Invalid timezone";
+            }
+        },
+    });
+
+    if (isCancel(timezone)) {
+        cancel("Operation canceled.");
+        if (process.env.NODE_ENV === "test") {
+            throw new Error("Operation canceled");
+        }
+        process.exit(0);
+    }
+
+    if (typeof timezone !== "string" || timezone.length === 0) {
+        throw new Error("A timezone is required");
+    }
+
+    return normalizeTimezone(timezone);
+}
+
+/**
+ * Securely prompt for the deployment's noomers API token (the shared token
+ * stored as STATS_API_TOKEN/SITES_API_TOKEN) without logging or echoing it.
+ */
+export async function promptForNoomersApiToken(): Promise<string> {
+    const token = await password({
+        message:
+            "Enter the existing noomers API token (used to provision sites):",
+        mask: "*",
+        validate: (value) => {
+            if (typeof value !== "string" || value.length === 0) {
+                return "The API token is required";
+            }
+            return undefined;
+        },
+    });
+
+    if (isCancel(token)) {
+        cancel("Operation canceled.");
+        if (process.env.NODE_ENV === "test") {
+            throw new Error("Operation canceled");
+        }
+        process.exit(0);
+    }
+
+    if (typeof token !== "string" || token.length === 0) {
+        throw new Error("The API token is required");
+    }
+
+    return token;
+}
+
+/** Minimum length for a new noomers API token accepted by the installer. */
+export const MIN_API_TOKEN_LENGTH = 32;
+
+/**
+ * Securely prompt for a strong noomers API token on a fresh install. The token
+ * is never auto-generated or logged; the user generates and saves it (for
+ * example in a password manager) and enters it here. It is written to both
+ * STATS_API_TOKEN and SITES_API_TOKEN. Requires a sensible minimum length but
+ * is not validated as a Cloudflare token.
+ */
+export async function promptForNewApiToken(): Promise<string> {
+    const token = await password({
+        message:
+            "Enter a strong noomers API token you have generated and saved (used to authenticate the Stats API and Sites API):",
+        mask: "*",
+        validate: (value) => {
+            if (
+                typeof value !== "string" ||
+                value.length < MIN_API_TOKEN_LENGTH
+            ) {
+                return `The API token must be at least ${MIN_API_TOKEN_LENGTH} characters`;
+            }
+            return undefined;
+        },
+    });
+
+    if (isCancel(token)) {
+        cancel("Operation canceled.");
+        if (process.env.NODE_ENV === "test") {
+            throw new Error("Operation canceled");
+        }
+        process.exit(0);
+    }
+
+    if (typeof token !== "string" || token.length < MIN_API_TOKEN_LENGTH) {
+        throw new Error(
+            `The API token must be at least ${MIN_API_TOKEN_LENGTH} characters`,
+        );
+    }
+
+    return token;
 }

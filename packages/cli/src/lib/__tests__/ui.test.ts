@@ -6,6 +6,8 @@ import {
     getPackageSnippet,
     promptForPassword,
     promptApiToken,
+    promptForNewApiToken,
+    MIN_API_TOKEN_LENGTH,
 } from "../ui.js";
 
 vi.mock("@clack/prompts", () => ({
@@ -70,6 +72,16 @@ describe("UI module", () => {
             );
             expect(snippet).toContain(`${deployUrl}/tracker.js`);
         });
+
+        it("should use a real siteId when provided", () => {
+            const deployUrl = "https://example.noomers.dev";
+            const snippet = stripAnsiEscapeCodes(
+                getScriptSnippet(deployUrl, "tracker", "example.com"),
+            );
+
+            expect(snippet).toContain('data-site-id="example.com"');
+            expect(snippet).not.toContain("YOUR_UNIQUE_SITE_ID");
+        });
     });
 
     describe("getPackageSnippet", () => {
@@ -86,6 +98,17 @@ describe("UI module", () => {
                 'siteId: "YOUR_UNIQUE_SITE_ID__CHANGE_THIS"',
             );
             expect(snippet).toContain(`reporterUrl: "${deployUrl}/collect"`);
+        });
+
+        it("should use a real siteId when provided", () => {
+            const deployUrl = "https://example.noomers.dev";
+            const version = "1.0.0";
+            const snippet = stripAnsiEscapeCodes(
+                getPackageSnippet(deployUrl, version, "example.com"),
+            );
+
+            expect(snippet).toContain('siteId: "example.com"');
+            expect(snippet).not.toContain("YOUR_UNIQUE_SITE_ID");
         });
     });
 
@@ -327,6 +350,68 @@ describe("UI module", () => {
 
             await expect(promptApiToken()).rejects.toThrow(
                 "Failed to validate token. Please check your internet connection.",
+            );
+        });
+    });
+
+    describe("promptForNewApiToken", () => {
+        beforeEach(async () => {
+            process.env.NODE_ENV = "test";
+            const mockPrompts = await import("@clack/prompts");
+            (
+                mockPrompts.spinner as unknown as ReturnType<typeof vi.fn>
+            ).mockReturnValue({
+                start: vi.fn(),
+                stop: vi.fn(),
+            });
+        });
+
+        it("returns a strong token that meets the minimum length", async () => {
+            const mockToken = "x".repeat(MIN_API_TOKEN_LENGTH);
+            (isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+                false,
+            );
+            const mockPrompts = await import("@clack/prompts");
+            (
+                mockPrompts.password as unknown as ReturnType<typeof vi.fn>
+            ).mockResolvedValue(mockToken);
+
+            const result = await promptForNewApiToken();
+            expect(result).toBe(mockToken);
+        });
+
+        it("rejects tokens shorter than the minimum length", async () => {
+            (isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+                false,
+            );
+            const mockPrompts = await import("@clack/prompts");
+            (
+                mockPrompts.password as unknown as ReturnType<typeof vi.fn>
+            ).mockImplementationOnce(({ validate }: PasswordOptions) => {
+                if (!validate) throw new Error("validate missing");
+                expect(validate("short")).toBe(
+                    `The API token must be at least ${MIN_API_TOKEN_LENGTH} characters`,
+                );
+                expect(
+                    validate("x".repeat(MIN_API_TOKEN_LENGTH)),
+                ).toBeUndefined();
+                return "x".repeat(MIN_API_TOKEN_LENGTH);
+            });
+
+            await promptForNewApiToken();
+        });
+
+        it("throws if the user cancels", async () => {
+            (isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+                true,
+            );
+            const mockPrompts = await import("@clack/prompts");
+            (
+                mockPrompts.password as unknown as ReturnType<typeof vi.fn>
+            ).mockResolvedValue("x".repeat(MIN_API_TOKEN_LENGTH));
+
+            await expect(promptForNewApiToken()).rejects.toThrow(
+                "Operation canceled",
             );
         });
     });

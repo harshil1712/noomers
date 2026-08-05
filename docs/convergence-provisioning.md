@@ -16,7 +16,7 @@ Run Cloudflare's documented interactive setup, using `packages/server/pipelines/
 npx wrangler@latest pipelines setup --name noomers-events
 ```
 
-Choose a Data Catalog (Iceberg) sink, simple setup, the intended R2 bucket, table `events`, and simple ingestion. The setup command creates the bucket and enables its catalog if needed. Add the emitted `pipelines` binding to the deployment's Wrangler configuration before redeploying.
+Choose a Data Catalog (Iceberg) sink, simple setup, the intended R2 bucket, table `events`, and simple ingestion. The setup command creates the bucket and enables its catalog if needed. Add the emitted `pipelines` binding to the deployment's Wrangler configuration before redeploying. The binding **must** be named `EVENT_STREAM` (the runtime binding used by the collector); the installer reads pipeline metadata only from `EVENT_STREAM` and rejects stale `EVENTS_PIPELINE` bindings.
 
 Check the catalog after setup:
 

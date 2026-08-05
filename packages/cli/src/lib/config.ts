@@ -1,18 +1,10 @@
-import {
-    existsSync,
-    mkdirSync,
-    readFileSync,
-    writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 
 export const NOOMERS_DIR = path.join(homedir(), ".noomers");
-export const DEPLOYMENT_CONFIG_PATH = path.join(
-    NOOMERS_DIR,
-    "wrangler.json",
-);
+export const DEPLOYMENT_CONFIG_PATH = path.join(NOOMERS_DIR, "wrangler.json");
 export const DEPLOYMENT_METADATA_PATH = path.join(
     NOOMERS_DIR,
     "deployment.json",
@@ -30,6 +22,48 @@ export interface DeploymentMetadata {
         dataCatalogBucket?: string;
         dataCatalogTable?: string;
     };
+}
+
+/**
+ * The canonical runtime Pipeline binding name. The server writes durable
+ * events through `EVENT_STREAM`; metadata must use this name consistently and
+ * must never fall back to the legacy `EVENTS_PIPELINE` binding.
+ */
+export const EVENT_STREAM_BINDING = "EVENT_STREAM";
+
+/**
+ * Legacy binding names that must not be honored. Callers should reject or
+ * migrate them rather than silently reading a stale pipeline name.
+ */
+export const LEGACY_PIPELINE_BINDINGS = ["EVENTS_PIPELINE"];
+
+/**
+ * Resolve the pipeline name from a deployed Wrangler configuration's
+ * `pipelines` array, honoring only the canonical `EVENT_STREAM` binding.
+ * Returns undefined when no canonical binding is present. Throws when a stale
+ * `EVENTS_PIPELINE` binding is the only one present, so the installer surfaces
+ * the migration decision instead of silently using stale metadata.
+ */
+export function resolvePipelineName(
+    pipelines: Array<{ binding?: string; pipeline?: string }> | undefined,
+): string | undefined {
+    if (!Array.isArray(pipelines) || pipelines.length === 0) {
+        return undefined;
+    }
+
+    const stream = pipelines.find((p) => p.binding === EVENT_STREAM_BINDING);
+    if (stream?.pipeline) return stream.pipeline;
+
+    const stale = pipelines.find((p) =>
+        LEGACY_PIPELINE_BINDINGS.includes(p.binding ?? ""),
+    );
+    if (stale) {
+        throw new Error(
+            `Stale pipeline binding "${stale.binding}" found. Rename it to "${EVENT_STREAM_BINDING}" so metadata matches the runtime binding.`,
+        );
+    }
+
+    return undefined;
 }
 
 export function getDeploymentConfigPath(): string {
@@ -51,11 +85,9 @@ export function persistDeployment(
         readFileSync(stagedConfigPath, "utf8"),
         { mode: 0o600 },
     );
-    writeFileSync(
-        DEPLOYMENT_METADATA_PATH,
-        JSON.stringify(metadata, null, 2),
-        { mode: 0o600 },
-    );
+    writeFileSync(DEPLOYMENT_METADATA_PATH, JSON.stringify(metadata, null, 2), {
+        mode: 0o600,
+    });
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -96,9 +128,7 @@ export function getServerPkgDir(): string {
         return nodeModulesDir;
     }
 
-    throw new Error(
-        "Could not find @noomers/server package. Is it installed?",
-    );
+    throw new Error("Could not find @noomers/server package. Is it installed?");
 }
 
 // Recursively convert all relative paths to absolute

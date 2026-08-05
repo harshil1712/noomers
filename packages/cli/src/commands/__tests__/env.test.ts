@@ -5,6 +5,7 @@ import { getDeploymentConfigPath } from "../../lib/config.js";
 import { select, isCancel, cancel } from "@clack/prompts";
 import {
     promptApiToken,
+    promptForNewApiToken,
     promptTrackerScriptName,
     getScriptSnippet,
 } from "../../lib/ui.js";
@@ -49,6 +50,17 @@ describe("env.ts", () => {
             );
             expect(trackerSecret?.prompt).toBe(promptTrackerScriptName);
         });
+
+        it("should contain api-token secret configuration that writes both API secrets", () => {
+            const apiTokenSecret = SECRETS_BY_ALIAS.get("api-token");
+            expect(apiTokenSecret).toBeDefined();
+            expect(apiTokenSecret?.keys).toEqual([
+                "STATS_API_TOKEN",
+                "SITES_API_TOKEN",
+            ]);
+            expect(apiTokenSecret?.prompt).toBe(promptForNewApiToken);
+            expect(apiTokenSecret?.rotationWarning).toMatch(/Rotating/i);
+        });
     });
 
     describe("envCommand", () => {
@@ -70,6 +82,35 @@ describe("env.ts", () => {
             expect(mockSetSecrets).toHaveBeenCalledWith({
                 CF_BEARER_TOKEN: "mock-api-token",
             });
+        });
+
+        it("should write the same token to STATS_API_TOKEN and SITES_API_TOKEN for api-token", async () => {
+            vi.mocked(promptForNewApiToken).mockResolvedValue(
+                "shared-deployment-token-0123456789abcdef",
+            );
+            const mockSetSecrets = vi.fn().mockResolvedValue(true);
+            const consoleSpy = vi
+                .spyOn(console, "log")
+                .mockImplementation(() => {});
+
+            vi.mocked(CloudflareClient).mockImplementation(function () {
+                return {
+                    setCloudflareSecrets: mockSetSecrets,
+                } as any;
+            });
+
+            await envCommand("api-token");
+
+            expect(mockSetSecrets).toHaveBeenCalledWith({
+                STATS_API_TOKEN: "shared-deployment-token-0123456789abcdef",
+                SITES_API_TOKEN: "shared-deployment-token-0123456789abcdef",
+            });
+            expect(consoleSpy).toHaveBeenCalledWith(
+                expect.stringContaining(
+                    "Wrote secret(s): STATS_API_TOKEN, SITES_API_TOKEN",
+                ),
+            );
+            consoleSpy.mockRestore();
         });
 
         it("should show script snippet when updating tracker script", async () => {

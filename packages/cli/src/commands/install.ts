@@ -23,6 +23,7 @@ import {
     readInitialServerConfig,
     getWorkerAndDatasetName,
     persistDeployment,
+    resolvePipelineName,
 } from "../lib/config.js";
 
 import { CloudflareClient } from "../lib/cloudflare.js";
@@ -32,8 +33,21 @@ import {
     CLI_COLORS,
     promptForPassword,
     promptApiToken,
+    promptForDomain,
+    promptForTimezone,
+    promptForNoomersApiToken,
+    promptForNewApiToken,
 } from "../lib/ui.js";
 import { generateJWTSecret, generatePasswordHash } from "../lib/auth.js";
+import {
+    discoverHistoricalSites,
+    applyBackfill,
+    presentBackfill,
+    provisionInitialSite,
+    provisionSiteIdempotently,
+    resolveNoomersApiToken,
+} from "../lib/provision.js";
+import { normalizeDomain, normalizeTimezone } from "../lib/validation.js";
 
 export function bail() {
     cancel("Operation canceled.");
@@ -52,9 +66,7 @@ export async function promptPasswordProtection(): Promise<boolean> {
     return enableAuth === true;
 }
 
-export async function promptDeploy(
-    noomersVersion: string,
-): Promise<boolean> {
+export async function promptDeploy(noomersVersion: string): Promise<boolean> {
     const deploy = await confirm({
         message: `Do you want to deploy version ${noomersVersion} now?`,
         initialValue: false,
@@ -145,9 +157,7 @@ export async function install(
     const opts = argv as Record<string, boolean | unknown>;
 
     // Create a temporary directory for our config
-    const tmpStagingDir = fs.mkdtempSync(
-        path.join(os.tmpdir(), "noomers-"),
-    );
+    const tmpStagingDir = fs.mkdtempSync(path.join(os.tmpdir(), "noomers-"));
     const tmpStagingConfigPath = path.join(tmpStagingDir, "wrangler.json");
 
     // Ensure we clean up the temporary directory when we're done
@@ -250,6 +260,16 @@ export async function install(
 
     const secrets = await cloudflare.getCloudflareSecrets();
 
+    // Retain the Cloudflare Account Analytics token in memory so it can be
+    // reused for the upgrade backfill below without re-prompting.
+    let cfBearerToken: string | undefined;
+
+    // The deployment-wide noomers API token (shared Stats/Sites token). The token
+    // is always accepted from the user, never auto-generated. On a fresh install
+    // it is written to both secrets; existing installs are never silently
+    // rotated and never skip provisioning.
+    let noomersApiToken: string | undefined;
+
     try {
         // Check if CF_BEARER_TOKEN is missing
         if (!secrets?.CF_BEARER_TOKEN) {
@@ -273,12 +293,37 @@ Your token needs these permissions:
                         CF_BEARER_TOKEN: apiToken,
                     })
                 ) {
+                    cfBearerToken = apiToken;
                     s.stop("Setting Cloudflare API token ... Done!");
                 } else {
                     s.stop("Error setting Cloudflare API token", 1);
                     throw new Error("Error setting Cloudflare API token");
                 }
             }
+        }
+
+        // FND-003: resolve the deployment-wide noomers API token. The token is
+        // always accepted from the user, never auto-generated or logged. On a
+        // fresh install (neither secret present) securely prompt for a strong
+        // token and write the same value to both STATS_API_TOKEN and
+        // SITES_API_TOKEN. On any existing install (one or both secrets
+        // present) securely prompt for the existing token and never write or
+        // rotate; if only one secret exists the missing one is not implicitly
+        // created.
+        const tokenResolution = await resolveNoomersApiToken(secrets, {
+            promptNew: promptForNewApiToken,
+            promptExisting: promptForNoomersApiToken,
+            writeBoth: async (token) =>
+                cloudflare.setCloudflareSecrets({
+                    STATS_API_TOKEN: token,
+                    SITES_API_TOKEN: token,
+                }),
+        });
+        noomersApiToken = tokenResolution.token;
+        if (tokenResolution.stored) {
+            log.info(
+                "Stats/Sites API token configured (stored as STATS_API_TOKEN and SITES_API_TOKEN).",
+            );
         }
 
         if (
@@ -328,14 +373,9 @@ Your token needs these permissions:
                         CF_AUTH_ENABLED: "false",
                     })
                 ) {
-                    s.stop(
-                        "Setting noomers Authentication Settings ... Done!",
-                    );
+                    s.stop("Setting noomers Authentication Settings ... Done!");
                 } else {
-                    s.stop(
-                        "Error setting noomers Authentication Settings",
-                        1,
-                    );
+                    s.stop("Error setting noomers Authentication Settings", 1);
                     throw new Error(
                         "Error setting noomers Authentication Settings",
                     );
@@ -363,7 +403,55 @@ Your token needs these permissions:
     }
 
     if (await promptDeploy(serverPkgJson.version)) {
-        let deployUrl;
+        let deployUrl: string | undefined;
+        let siteDomain = opts.domain as string | undefined;
+        let siteTimezone = opts.timezone as string | undefined;
+
+        // ---- Interactive input happens before the deploy spinner ----
+        // FND-001: accept/prompt for the initial site domain and IANA timezone.
+        // Both CLI-provided option values and prompted values are normalized and
+        // validated before any backfill or deploy so the canonical domain is used
+        // as the siteId everywhere.
+        if (siteDomain === undefined || siteTimezone === undefined) {
+            siteDomain = siteDomain ?? (await promptForDomain());
+            siteTimezone = siteTimezone ?? (await promptForTimezone());
+        }
+        siteDomain = normalizeDomain(siteDomain);
+        siteTimezone = normalizeTimezone(siteTimezone);
+
+        // FND-002: discover and confirm the upgrade backfill before deploying.
+        // Uses the retained Cloudflare Account Analytics token (or a securely
+        // prompted one on existing installs, since it cannot be read back from
+        // wrangler secret list). Backfill is fail-closed: discovery errors, a
+        // malformed nonempty ID, an over-bounds result, a declined nonempty
+        // plan, or a failed D1 insert all abort the install. Discovered domains
+        // are historical candidates; the insert skips already-registered and
+        // permanently tombstoned domains.
+        let backfillPlan: Awaited<
+            ReturnType<typeof discoverHistoricalSites>
+        > | null = null;
+        {
+            const backfillToken = cfBearerToken ?? (await promptApiToken());
+            if (backfillToken) {
+                backfillPlan = await presentBackfill({
+                    discover: () =>
+                        discoverHistoricalSites(
+                            cloudflare,
+                            accountId,
+                            backfillToken,
+                            analyticsDataset,
+                            siteTimezone,
+                        ),
+                    confirm: () =>
+                        confirm({
+                            message:
+                                "Insert these historical candidate sites into the D1 registry now?",
+                            initialValue: true,
+                        }).then((value) => value === true),
+                    log: (msg) => log.info(msg),
+                });
+            }
+        }
 
         const s = spinner();
         s.start(`Deploying noomers ...`);
@@ -394,6 +482,13 @@ Your token needs these permissions:
             );
             await cloudflare.applyD1Migrations(databaseName);
 
+            // Apply the confirmed backfill now that D1 exists. This is a
+            // non-interactive, rerun-safe insert; any failure aborts.
+            if (backfillPlan) {
+                await applyBackfill(cloudflare, databaseName, backfillPlan);
+                log.info("Upgrade backfill applied (rerun-safe).");
+            }
+
             if (opts.verbose) {
                 s.stop(`Deploying noomers ...`);
             }
@@ -403,10 +498,15 @@ Your token needs these permissions:
                 serverPkgJson.version,
             );
 
-            const pipelineName = initialDeployConfig.pipelines?.find(
-                (pipeline: { binding?: string }) =>
-                    pipeline.binding === "EVENTS_PIPELINE",
-            )?.pipeline as string | undefined;
+            if (deployUrl === "<unknown>") {
+                throw new Error(
+                    "Deployment succeeded but its Workers subdomain could not be determined. Rerun noomers install to provision the initial site.",
+                );
+            }
+
+            const pipelineName = resolvePipelineName(
+                initialDeployConfig.pipelines,
+            );
             persistDeployment(tmpStagingConfigPath, {
                 version: 1,
                 accountId,
@@ -422,8 +522,53 @@ Your token needs these permissions:
             });
 
             if (!opts.verbose) {
-                s.stop("Deploying noomers ... Done.");
+                // Stop the spinner before the (retry-capable) post-deploy
+                // provisioning so its logs and backoff sleeps interleave cleanly.
+                s.stop("Deploying noomers ... deployed.");
             }
+
+            // FND-001/FND-003: idempotently provision the initial site and
+            // verify that the deployment token authenticates against the Sites
+            // API. A successful install must not print a real snippet for a
+            // site that was never provisioned, so any failure here fails the
+            // install clearly (the deploy has happened; instruct rerun).
+            if (!noomersApiToken) {
+                throw new Error(
+                    "No deployment API token is available to provision the initial site. Rerun noomers install to remediate.",
+                );
+            }
+            if (!deployUrl) {
+                throw new Error(
+                    "No deployment URL is available to provision the initial site. Rerun noomers install to remediate.",
+                );
+            }
+            const provisionUrl = deployUrl;
+            // Provision with bounded retry/backoff to absorb fresh
+            // workers.dev propagation and transient network/5xx failures. Each
+            // attempt is GET-before-POST (idempotent). Deterministic 4xx/auth
+            // failures are not retried.
+            await provisionInitialSite({
+                provision: () =>
+                    provisionSiteIdempotently(
+                        cloudflare,
+                        provisionUrl,
+                        noomersApiToken,
+                        siteDomain,
+                        siteTimezone,
+                    ),
+                verifyAuth: () =>
+                    cloudflare.verifySitesApiAuth(
+                        provisionUrl,
+                        noomersApiToken,
+                    ),
+                log: (msg) =>
+                    log.info(
+                        `${msg} ${chalk
+                            .rgb(...CLI_COLORS.teal)
+                            .bold(siteDomain)}`,
+                    ),
+            });
+            log.info("Deployment complete.");
         } catch (err) {
             s.stop("Deploying noomers ... Failed!", 1);
             throw err;
@@ -451,16 +596,21 @@ Your token needs these permissions:
                 ),
             );
 
+            const siteId = siteDomain;
             await tick(() =>
                 console.log(
-                    "\nTo start capturing data, add the tracking script to your website: ",
+                    `\nTo start capturing data for ${chalk
+                        .rgb(...CLI_COLORS.teal)
+                        .bold(
+                            siteId,
+                        )}, add the tracking script to your website: `,
                 ),
             );
             await tick(() => {
-                console.log(getScriptSnippet(deployUrl));
+                console.log(getScriptSnippet(deployUrl, "tracker", siteId));
                 console.log("\n\n" + chalk.dim("-- OR --") + "\n");
                 console.log(
-                    getPackageSnippet(deployUrl, serverPkgJson.version),
+                    getPackageSnippet(deployUrl, serverPkgJson.version, siteId),
                 );
             });
         }

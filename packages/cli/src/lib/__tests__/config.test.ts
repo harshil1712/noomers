@@ -10,6 +10,7 @@ import {
     stageDeployConfig,
     DEPLOYMENT_CONFIG_PATH,
     DEPLOYMENT_METADATA_PATH,
+    resolvePipelineName,
 } from "../config.js";
 
 // Mock external dependencies
@@ -72,10 +73,12 @@ describe("CLI Functions", () => {
             const { dirname } = await import("path");
             const { existsSync } = await import("node:fs");
             const { fileURLToPath } = await import("url");
-            
+
             // Mock fileURLToPath to return a specific path
-            vi.mocked(fileURLToPath).mockReturnValue("/some/path/to/node_modules/@noomers/cli/dist/config.js");
-            
+            vi.mocked(fileURLToPath).mockReturnValue(
+                "/some/path/to/node_modules/@noomers/cli/dist/config.js",
+            );
+
             // Mock dirname to return the directory
             vi.mocked(dirname).mockReturnValue(
                 "/some/path/to/node_modules/@noomers/cli/dist",
@@ -97,10 +100,12 @@ describe("CLI Functions", () => {
             const { dirname } = await import("path");
             const { existsSync } = await import("node:fs");
             const { fileURLToPath } = await import("url");
-            
+
             // Mock fileURLToPath to return a monorepo path
-            vi.mocked(fileURLToPath).mockReturnValue("/monorepo/checkout/noomers/packages/cli/dist/config.js");
-            
+            vi.mocked(fileURLToPath).mockReturnValue(
+                "/monorepo/checkout/noomers/packages/cli/dist/config.js",
+            );
+
             vi.mocked(dirname).mockReturnValue(
                 "/monorepo/checkout/noomers/packages/cli/dist",
             );
@@ -382,6 +387,44 @@ describe("CLI Functions", () => {
                 JSON.stringify(metadata, null, 2),
                 { mode: 0o600 },
             );
+        });
+    });
+
+    describe("resolvePipelineName (FND-004)", () => {
+        it("resolves the pipeline from the EVENT_STREAM binding", () => {
+            expect(
+                resolvePipelineName([
+                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                ]),
+            ).toBe("noomers-events");
+        });
+
+        it("returns undefined when no pipelines are configured", () => {
+            expect(resolvePipelineName(undefined)).toBeUndefined();
+            expect(resolvePipelineName([])).toBeUndefined();
+        });
+
+        it("returns undefined for an EVENT_STREAM binding with no pipeline name", () => {
+            expect(
+                resolvePipelineName([{ binding: "EVENT_STREAM" }]),
+            ).toBeUndefined();
+        });
+
+        it("rejects stale EVENTS_PIPELINE metadata instead of silently using it", () => {
+            expect(() =>
+                resolvePipelineName([
+                    { binding: "EVENTS_PIPELINE", pipeline: "stale" },
+                ]),
+            ).toThrow(/Stale pipeline binding "EVENTS_PIPELINE"/);
+        });
+
+        it("prefers EVENT_STREAM over a stale binding when both are present", () => {
+            expect(
+                resolvePipelineName([
+                    { binding: "EVENTS_PIPELINE", pipeline: "stale" },
+                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                ]),
+            ).toBe("noomers-events");
         });
     });
 });

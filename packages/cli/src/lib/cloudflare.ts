@@ -1,6 +1,7 @@
 import { $, ProcessOutput } from "zx";
 import path from "path";
 import { homedir } from "node:os";
+import type { AnalyticsEngineQueryResponse } from "./backfill.js";
 
 interface SecretItem {
     name: string;
@@ -31,8 +32,7 @@ export class CloudflareClient {
 
     constructor(configPath?: string) {
         this.configPath =
-            configPath ||
-            path.join(homedir(), ".noomers", "wrangler.json");
+            configPath || path.join(homedir(), ".noomers", "wrangler.json");
     }
 
     async getAccountId(): Promise<string | null> {
@@ -251,14 +251,12 @@ export class CloudflareClient {
             // Older Wrangler versions render this command as a table.
         }
 
-        return output
-            .split("\n")
-            .some((line) =>
-                line
-                    .split(/[│|\s]+/)
-                    .map((value) => value.trim())
-                    .includes(name),
-            );
+        return output.split("\n").some((line) =>
+            line
+                .split(/[│|\s]+/)
+                .map((value) => value.trim())
+                .includes(name),
+        );
     }
 
     async getOrCreateD1Database(name: string): Promise<string> {
@@ -306,5 +304,134 @@ export class CloudflareClient {
             }
             throw error;
         }
+    }
+
+    /**
+     * Execute a SQL statement against the deployed D1 database. Used for the
+     * rerun-safe backfill insert before fail-closed collection is live.
+     */
+    async executeD1Statement(databaseName: string, sql: string): Promise<void> {
+        try {
+            await $({
+                quiet: true,
+            })`npx wrangler d1 execute ${databaseName} --remote --command ${sql} --config ${this.configPath}`;
+        } catch (error) {
+            if (error instanceof ProcessOutput) {
+                throw new Error(error.stderr || error.stdout);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Query the Cloudflare Analytics Engine SQL API for distinct historical
+     * site IDs. Uses the existing Cloudflare Account Analytics token. The
+     * query must already be bounded and validated (see backfill.ts).
+     */
+    async queryAnalyticsEngine(
+        accountId: string,
+        apiToken: string,
+        sql: string,
+    ): Promise<AnalyticsEngineQueryResponse> {
+        const response = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${accountId}/analytics_engine/sql`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${apiToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: sql,
+            },
+        );
+
+        if (!response.ok) {
+            throw new Error(
+                `Analytics Engine query failed (HTTP ${response.status}): ${response.statusText}`,
+            );
+        }
+
+        return (await response.json()) as AnalyticsEngineQueryResponse;
+    }
+
+    /**
+     * Fetch a site from the deployed Sites API by domain. Returns the site
+     * object when found, null when the site does not exist, and throws on
+     * authentication or API errors so callers can distinguish "not found"
+     * from "cannot verify".
+     */
+    async getSiteByDomain(
+        deployUrl: string,
+        apiToken: string,
+        domain: string,
+    ): Promise<Record<string, unknown> | null> {
+        const response = await fetch(
+            `${deployUrl}/api/v1/sites/${encodeURIComponent(domain)}`,
+            {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${apiToken}`,
+                    "Content-Type": "application/json",
+                },
+            },
+        );
+
+        if (response.status === 404) return null;
+
+        if (!response.ok) {
+            throw new Error(
+                `Sites API GET failed (HTTP ${response.status}): ${response.statusText}`,
+            );
+        }
+
+        return (await response.json()) as Record<string, unknown>;
+    }
+
+    /**
+     * Create a site through the deployed Sites API. Throws on authentication
+     * or API errors so callers never mistake a failure for success.
+     */
+    async createSite(
+        deployUrl: string,
+        apiToken: string,
+        domain: string,
+        timezone: string,
+    ): Promise<Record<string, unknown>> {
+        const response = await fetch(`${deployUrl}/api/v1/sites`, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${apiToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ domain, timezone }),
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                `Sites API POST failed (HTTP ${response.status}): ${response.statusText}`,
+            );
+        }
+
+        return (await response.json()) as Record<string, unknown>;
+    }
+
+    /**
+     * Verify that the deployment-wide API token authenticates against the
+     * Sites API by issuing a list request. Returns true when authenticated.
+     */
+    async verifySitesApiAuth(
+        deployUrl: string,
+        apiToken: string,
+    ): Promise<boolean> {
+        const response = await fetch(`${deployUrl}/api/v1/sites`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${apiToken}`,
+                "Content-Type": "application/json",
+            },
+        });
+
+        if (response.status === 401 || response.status === 403) return false;
+        return response.ok;
     }
 }

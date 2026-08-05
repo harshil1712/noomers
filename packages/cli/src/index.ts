@@ -36,6 +36,16 @@ const parser = yargs(hideBin(process.argv))
                 type: "boolean",
                 default: false,
             });
+            yargs.option("domain", {
+                type: "string",
+                describe:
+                    "Initial analytics site domain (skips the domain prompt).",
+            });
+            yargs.option("timezone", {
+                type: "string",
+                describe:
+                    "Initial analytics site IANA timezone (skips the timezone prompt).",
+            });
         },
         async (argv) => {
             await install(argv, SERVER_PKG_DIR, SERVER_PKG);
@@ -50,19 +60,19 @@ const parser = yargs(hideBin(process.argv))
                     "enable",
                     "Enable authentication for your noomers deployment",
                     {},
-                    enableAuth
+                    enableAuth,
                 )
                 .command(
                     "disable",
                     "Disable authentication for your noomers deployment",
                     {},
-                    disableAuth
+                    disableAuth,
                 )
                 .command(
                     "role",
                     "Update the authentication password",
                     {},
-                    updatePassword
+                    updatePassword,
                 )
                 .help();
             return authYargs;
@@ -75,19 +85,19 @@ const parser = yargs(hideBin(process.argv))
                         "enable",
                         "Enable authentication for your noomers deployment",
                         {},
-                        enableAuth
+                        enableAuth,
                     )
                     .command(
                         "disable",
                         "Disable authentication for your noomers deployment",
                         {},
-                        disableAuth
+                        disableAuth,
                     )
                     .command(
                         "role",
                         "Update the authentication password",
                         {},
-                        updatePassword
+                        updatePassword,
                     )
                     .help();
                 authYargs.showHelp();

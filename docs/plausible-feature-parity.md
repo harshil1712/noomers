@@ -34,16 +34,16 @@ This is not yet a drop-in replacement for the full Plausible product.
 
 P0 items block safe installation, correct core analytics, or complete deletion. P1 items expand compatibility after that baseline is reliable.
 
-| Priority | Feature                                         | Why it matters                                                                                                                          |
-| -------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| P0       | Initial site provisioning and upgrade migration | Collection rejects unknown sites, but the installer does not create a site or backfill existing Analytics Engine site IDs.              |
-| P0       | Session-correct visit dimensions                | Source, campaign, geography, technology, entry, and exit reports require first-page session attribution rather than event-row grouping. |
-| P0       | Complete deletion execution                     | Iceberg rows and daily Arrow rollups are not automatically erased when a site is deleted.                                               |
-| P1       | Automated durable-event provisioning            | Exact session metrics require Pipeline, Data Catalog, and R2 SQL resources that are currently configured manually.                      |
-| P1       | Goal and revenue reporting                      | Revenue and goal definitions exist, but Stats API and dashboard reporting remain incomplete.                                            |
-| P1       | Historical imports                              | There is no Plausible, Google Analytics, or CSV migration path.                                                                         |
-| P1       | Broader Stats API query model                   | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                      |
-| P1       | Scalable R2 query pagination                    | Dimension queries currently stop at 10,000 rows instead of performing bounded server-side ordering and pagination.                      |
+| Priority | Feature                                         | Why it matters                                                                                                                                |
+| -------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | Initial site provisioning and upgrade migration | Collection rejects unknown sites; the installer now creates a site and backfills existing Analytics Engine site IDs, pending live validation. |
+| P0       | Session-correct visit dimensions                | Source, campaign, geography, technology, entry, and exit reports require first-page session attribution rather than event-row grouping.       |
+| P0       | Complete deletion execution                     | Iceberg rows and daily Arrow rollups are not automatically erased when a site is deleted.                                                     |
+| P1       | Automated durable-event provisioning            | Exact session metrics require Pipeline, Data Catalog, and R2 SQL resources that are currently configured manually.                            |
+| P1       | Goal and revenue reporting                      | Revenue and goal definitions exist, but Stats API and dashboard reporting remain incomplete.                                                  |
+| P1       | Historical imports                              | There is no Plausible, Google Analytics, or CSV migration path.                                                                               |
+| P1       | Broader Stats API query model                   | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                            |
+| P1       | Scalable R2 query pagination                    | Dimension queries currently stop at 10,000 rows instead of performing bounded server-side ordering and pagination.                            |
 
 ## Events API and tracking
 
@@ -57,19 +57,19 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 
 ### Remaining parity
 
-| Feature                           | Status  | Remaining work                                                                                                                      |
-| --------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Feature                           | Status  | Remaining work                                                                                                                 |
+| --------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Official Plausible tracker script | Partial | noomers accepts official tracker payloads but serves its own tracker. Validate current official tracker versions continuously. |
-| Outbound-link tracking            | Missing | Add automatic browser instrumentation and compatible event/property names.                                                          |
-| File-download tracking            | Missing | Detect configured file extensions and emit compatible events.                                                                       |
-| Form-submission tracking          | Missing | Add form instrumentation and compatible properties.                                                                                 |
-| Tagged-event tracking             | Missing | Support Plausible's CSS-class and data-attribute conventions.                                                                       |
-| Automatic 404 tracking            | Missing | Detect and report 404 pages through the served tracker integration.                                                                 |
+| Outbound-link tracking            | Missing | Add automatic browser instrumentation and compatible event/property names.                                                     |
+| File-download tracking            | Missing | Detect configured file extensions and emit compatible events.                                                                  |
+| Form-submission tracking          | Missing | Add form instrumentation and compatible properties.                                                                            |
+| Tagged-event tracking             | Missing | Support Plausible's CSS-class and data-attribute conventions.                                                                  |
+| Automatic 404 tracking            | Missing | Detect and report 404 pages through the served tracker integration.                                                            |
 | Automatic scroll-depth reporting  | Partial | Input is accepted and durably stored, but the noomers tracker does not generate it and no query/report exposes it.             |
-| Revenue tracking                  | Partial | Revenue is validated and sent to the durable stream, but Analytics Engine, Stats API, goals, and dashboard do not report it.        |
-| Engagement reporting              | Partial | Engagement events are stored only in the optional durable stream and are not queryable directly.                                    |
+| Revenue tracking                  | Partial | Revenue is validated and sent to the durable stream, but Analytics Engine, Stats API, goals, and dashboard do not report it.   |
+| Engagement reporting              | Partial | Engagement events are stored only in the optional durable stream and are not queryable directly.                               |
 | Tracker configuration             | Partial | Sites API stores Plausible-style tracker settings, but most settings do not alter the served noomers tracker.                  |
-| Native `/collect` bot filtering   | Partial | Bot filtering exists for `/api/event`, not for native collection.                                                                   |
+| Native `/collect` bot filtering   | Partial | Bot filtering exists for `/api/event`, not for native collection.                                                              |
 
 ## Stats API v2
 
@@ -281,20 +281,20 @@ The dashboard currently mixes R2 session summaries with Analytics Engine breakdo
 
 ## Imports, migration, and exports
 
-| Feature                                | Status  | Remaining work                                                                                                    |
-| -------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------- |
-| Existing noomers upgrade backfill | Missing | Populate D1 sites from existing Analytics Engine site IDs before fail-closed collection is enabled.               |
-| Lossless Plausible raw-event import    | Blocked | Determine available hosted/self-hosted export formats; scheduled hosted raw export may require Enterprise access. |
-| Google Analytics 4 import              | Missing | Add OAuth, property selection, aggregate mapping, progress, and overlap prevention.                               |
-| Plausible aggregate CSV import         | Missing | Parse supported table formats and preserve imported-data limitations.                                             |
-| Historical raw-event ingestion         | Missing | Add trusted timestamped ingestion, validation, idempotency, and durable writes.                                   |
-| Import job state                       | Missing | Persist progress, failures, retries, source, and coverage dates.                                                  |
-| Import/native deduplication            | Missing | Prevent overlapping date ranges and double counting.                                                              |
-| Import-aware queries                   | Missing | Merge daily aggregate imports with native data and return compatibility warnings.                                 |
-| Dashboard export                       | Missing | Export visible reports with current date range and filters.                                                       |
-| Full aggregate export                  | Missing | Add queued archive generation and expiring downloads.                                                             |
-| Scheduled raw-event export             | Missing | Add configurable schema, schedule, format, and object-storage destination.                                        |
-| Daily Arrow restore/read path          | Missing | Existing daily rollups have no reader, query, or restoration command.                                             |
+| Feature                             | Status  | Remaining work                                                                                                                                         |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Existing noomers upgrade backfill   | Partial | Installer backfills D1 from bounded distinct Analytics Engine site IDs before fail-closed collection; live Analytics Engine and D1 validation pending. |
+| Lossless Plausible raw-event import | Blocked | Determine available hosted/self-hosted export formats; scheduled hosted raw export may require Enterprise access.                                      |
+| Google Analytics 4 import           | Missing | Add OAuth, property selection, aggregate mapping, progress, and overlap prevention.                                                                    |
+| Plausible aggregate CSV import      | Missing | Parse supported table formats and preserve imported-data limitations.                                                                                  |
+| Historical raw-event ingestion      | Missing | Add trusted timestamped ingestion, validation, idempotency, and durable writes.                                                                        |
+| Import job state                    | Missing | Persist progress, failures, retries, source, and coverage dates.                                                                                       |
+| Import/native deduplication         | Missing | Prevent overlapping date ranges and double counting.                                                                                                   |
+| Import-aware queries                | Missing | Merge daily aggregate imports with native data and return compatibility warnings.                                                                      |
+| Dashboard export                    | Missing | Export visible reports with current date range and filters.                                                                                            |
+| Full aggregate export               | Missing | Add queued archive generation and expiring downloads.                                                                                                  |
+| Scheduled raw-event export          | Missing | Add configurable schema, schedule, format, and object-storage destination.                                                                             |
+| Daily Arrow restore/read path       | Missing | Existing daily rollups have no reader, query, or restoration command.                                                                                  |
 
 ## Reports, alerts, and integrations
 
@@ -335,7 +335,7 @@ The dashboard currently mixes R2 session summaries with Analytics Engine breakdo
 | Configurable retention         | Missing | Add per-deployment or per-site durable-data policies.                                                         |
 | Deletion SLA                   | Missing | Monitor and alert on overdue jobs.                                                                            |
 | Traffic shields                | Missing | Add future-traffic exclusions by country, hostname, IP, and page.                                             |
-| Data residency controls        | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                |
+| Data residency controls        | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                     |
 | Export/data-subject workflow   | Missing | Add a documented administrative export and deletion process.                                                  |
 | Broader bot filtering          | Partial | The implementation does not match Plausible's full UA, referrer, data-center, and behavioral filtering.       |
 
@@ -352,23 +352,23 @@ The dashboard currently mixes R2 session summaries with Analytics Engine breakdo
 
 ### Remaining parity and production hardening
 
-| Feature                              | Status  | Remaining work                                                                                                |
-| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------- |
-| Initial site creation                | Missing | Prompt for or accept a domain/timezone during installation.                                                   |
-| Existing-site upgrade migration      | Missing | Backfill the D1 registry before collection becomes registry-dependent.                                        |
-| Pipeline/Data Catalog provisioning   | Blocked | Wrangler's setup is credential-dependent and interactive; automate when a stable non-interactive path exists. |
-| R2 SQL credential provisioning       | Blocked | Create/scoped credentials and configure secrets through a supported API flow.                                 |
-| Stats/Sites API token generation     | Missing | Generate, store, rotate, and display setup instructions safely.                                               |
-| Pipeline binding metadata            | Partial | Standardize on the runtime `EVENT_STREAM` binding name throughout installer metadata.                         |
-| Dependency-aware health checks       | Missing | Check D1, Analytics Engine, Pipeline configuration, and R2 SQL rather than always returning `ok`.             |
-| Pipeline retry/dead-letter handling  | Missing | Durable send failures are currently logged while collection succeeds.                                         |
-| Analytics Engine write observability | Missing | Write failures are logged and swallowed. Add metrics and alerts.                                              |
-| Rate limiting and quotas             | Missing | Protect Events, Stats, and Sites APIs.                                                                        |
-| Monitoring and SLOs                  | Missing | Add ingestion/query latency, error, lag, and deletion dashboards and alerts.                                  |
-| Backup and restore                   | Missing | Document and automate D1 backup plus durable-event recovery.                                                  |
-| Disaster recovery                    | Missing | Define resource recreation and data restoration procedures.                                                   |
-| Migration rollback                   | Missing | Define safe behavior for failed schema or deployment upgrades.                                                |
-| Pipeline lag visibility              | Missing | Surface durable-data freshness in API/dashboard responses.                                                    |
+| Feature                              | Status  | Remaining work                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial site creation                | Partial | Installer prompts for/accepts a domain and IANA timezone and provisions the site idempotently; live validation against a deployed Worker pending.                                                                                                                                                                                                               |
+| Existing-site upgrade migration      | Partial | Installer discovers bounded distinct Analytics Engine site IDs as backfill candidates and inserts them into D1 before fail-closed collection; backfill is fail-closed (aborts on discovery error, malformed ID, over-bounds, decline, or insert failure) and inserts skip already-registered and tombstoned sites; live Analytics Engine/D1 validation pending. |
+| Pipeline/Data Catalog provisioning   | Blocked | Wrangler's setup is credential-dependent and interactive; automate when a stable non-interactive path exists.                                                                                                                                                                                                                                                   |
+| R2 SQL credential provisioning       | Blocked | Create/scoped credentials and configure secrets through a supported API flow.                                                                                                                                                                                                                                                                                   |
+| Stats/Sites API token configuration  | Partial | Fresh installs securely accept a strong user-provided token and write it to `STATS_API_TOKEN` and `SITES_API_TOKEN`; existing installs securely prompt for the existing token and are never silently rotated; an `env api-token` alias rotates both; live verification pending.                                                                                 |
+| Pipeline binding metadata            | Partial | Installer now reads the runtime `EVENT_STREAM` binding and rejects stale `EVENTS_PIPELINE` metadata; persisted metadata should be migrated on existing installs.                                                                                                                                                                                                |
+| Dependency-aware health checks       | Missing | Check D1, Analytics Engine, Pipeline configuration, and R2 SQL rather than always returning `ok`.                                                                                                                                                                                                                                                               |
+| Pipeline retry/dead-letter handling  | Missing | Durable send failures are currently logged while collection succeeds.                                                                                                                                                                                                                                                                                           |
+| Analytics Engine write observability | Missing | Write failures are logged and swallowed. Add metrics and alerts.                                                                                                                                                                                                                                                                                                |
+| Rate limiting and quotas             | Missing | Protect Events, Stats, and Sites APIs.                                                                                                                                                                                                                                                                                                                          |
+| Monitoring and SLOs                  | Missing | Add ingestion/query latency, error, lag, and deletion dashboards and alerts.                                                                                                                                                                                                                                                                                    |
+| Backup and restore                   | Missing | Document and automate D1 backup plus durable-event recovery.                                                                                                                                                                                                                                                                                                    |
+| Disaster recovery                    | Missing | Define resource recreation and data restoration procedures.                                                                                                                                                                                                                                                                                                     |
+| Migration rollback                   | Missing | Define safe behavior for failed schema or deployment upgrades.                                                                                                                                                                                                                                                                                                  |
+| Pipeline lag visibility              | Missing | Surface durable-data freshness in API/dashboard responses.                                                                                                                                                                                                                                                                                                      |
 
 ## Additional production hardening
 
