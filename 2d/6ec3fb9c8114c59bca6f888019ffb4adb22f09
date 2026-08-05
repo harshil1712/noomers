@@ -1,0 +1,55 @@
+docs/convergence-provisioning.md
+  s_6f777e9e1d3239::t_88dd08396d9864 19
+docs/implementation-roadmap.md
+  s_b8a41fb6eeb07f::t_f4ab2a78de300b 36,44-52
+docs/plausible-feature-parity.md
+  s_b8a41fb6eeb07f::t_41711777c49628 37-46,60-61,63-67,69-70,72,284-297,338,355-371
+packages/cli/src/index.ts
+  s_b8a41fb6eeb07f::t_5ccfbe35351205 39-48,63,69,75,88,94,100
+packages/cli/src/lib/__tests__/backfill.test.ts
+  s_b8a41fb6eeb07f::t_3743561d7a2452 1-291
+packages/cli/src/lib/__tests__/config.test.ts
+  s_b8a41fb6eeb07f::t_ec8f88d7ef9074 13,76,78-81,103,105-108,392-429
+packages/cli/src/lib/__tests__/provision.test.ts
+  s_b8a41fb6eeb07f::t_062ae5f3fe81f2 1-578
+packages/cli/src/lib/__tests__/ui.test.ts
+  s_b8a41fb6eeb07f::t_c945b320e82899 9-10,75-84,102-112,356-417
+packages/cli/src/lib/__tests__/validation.test.ts
+  s_b8a41fb6eeb07f::t_515482c829ed67 1-62
+packages/cli/src/lib/backfill.ts
+  s_b8a41fb6eeb07f::t_33eef9362a6245 1-228
+packages/cli/src/lib/cloudflare.ts
+  s_b8a41fb6eeb07f::t_78930a9865dd3b 4,35,254-259,308-436
+packages/cli/src/lib/config.ts
+  s_b8a41fb6eeb07f::t_faa2711506ab91 1,7,27-68,88-90,131
+packages/cli/src/lib/provision.ts
+  s_b8a41fb6eeb07f::t_101038e4f9cb09 1-291
+packages/cli/src/lib/ui.ts
+  s_b8a41fb6eeb07f::t_aaa4ca37cc0c87 6,25,41-47,51,57,68,77,208-355
+packages/cli/src/lib/validation.ts
+  s_b8a41fb6eeb07f::t_f6f73ff1785b90 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2d6ec3fb9c8114c59bca6f888019ffb4adb22f09",
+  "prompts": {},
+  "sessions": {
+    "s_6f777e9e1d3239": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02c114ff1ffeEPChO4UzIglHCw",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_b8a41fb6eeb07f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02c07aa36ffeYSEiiXm683sF0K",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
