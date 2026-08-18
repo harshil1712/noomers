@@ -7,6 +7,7 @@ import { getServerPkgDir } from "./lib/config.js";
 import { install } from "./commands/install.js";
 import { enableAuth, disableAuth, updatePassword } from "./commands/auth.js";
 import { enableStorage, disableStorage } from "./commands/storage.js";
+import { validateCommand } from "./commands/validate.js";
 import { envCommand, SECRETS_BY_ALIAS } from "./commands/env.js";
 
 import { hideBin } from "yargs/helpers";
@@ -143,6 +144,38 @@ const parser = yargs(hideBin(process.argv))
                     .help();
                 storageYargs.showHelp();
             }
+        },
+    )
+    .command(
+        "validate",
+        "Run read-only live validation checks against a deployed noomers server",
+        (yargs) => {
+            yargs.option("url", {
+                type: "string",
+                demandOption: true,
+                describe:
+                    "Deployment base URL (HTTPS, except localhost/127.0.0.1; no path, credentials, query, or fragment).",
+            });
+            yargs.option("site", {
+                type: "string",
+                demandOption: true,
+                describe:
+                    "The exact site domain that must already exist in the registry.",
+            });
+            yargs.option("skip-durable", {
+                type: "boolean",
+                default: false,
+                describe:
+                    "Skip the exact session-metric (R2 SQL) check, which exercises durable storage.",
+            });
+        },
+        async (argv) => {
+            await validateCommand({
+                url: argv.url as string,
+                site: argv.site as string,
+                skipDurable: argv.skipDurable as boolean | undefined,
+                verbose: argv.verbose as boolean | undefined,
+            });
         },
     )
     .command(

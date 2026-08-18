@@ -419,6 +419,85 @@ export class AnalyticsEngineAPI {
         return returnPromise;
     }
 
+    async getCountsForRange(
+        siteId: string,
+        startDate: Date,
+        endDate: Date,
+        tz?: string,
+        filters: SearchFilters = {},
+    ) {
+        // Explicit half-open [startDate, endDate) boundaries. Callers must supply
+        // the same dates used for R2 SQL so the realtime fallback and the durable
+        // session path query an identical interval. `tz` is used only to convert
+        // the supplied local-instant dates to UTC for the Analytics Engine query.
+        const siteIdColumn = ColumnMappings["siteId"];
+
+        const startDateTimeSql = dayjs(startDate)
+            .tz(tz)
+            .utc()
+            .format("YYYY-MM-DD HH:mm:ss");
+        const endDateTimeSql = dayjs(endDate)
+            .tz(tz)
+            .utc()
+            .format("YYYY-MM-DD HH:mm:ss");
+
+        const filterStr = filtersToSql(filters);
+
+        const query = `
+            SELECT SUM(_sample_interval) as count,
+                count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
+                ${ColumnMappings.newVisitor} as isVisitor,
+                ${ColumnMappings.bounce} as isBounce
+            FROM metricsDataset
+            WHERE timestamp >= toDateTime('${startDateTimeSql}') AND timestamp < toDateTime('${endDateTimeSql}')
+                AND ${PAGEVIEW_FILTER_SQL}
+                ${filterStr}
+            AND ${siteIdColumn} = ${sqlString(siteId)}
+            GROUP BY isVisitor, isBounce
+            ORDER BY isVisitor, isBounce ASC`;
+
+        type SelectionSet = {
+            count: number;
+            distinctVisitors?: number;
+            isVisitor: number;
+            isBounce: number;
+        };
+
+        const queryResult = this.query(query);
+
+        const returnPromise = new Promise<AnalyticsCountResult>(
+            (resolve, reject) =>
+                (async () => {
+                    const response = await queryResult;
+
+                    if (!response.ok) {
+                        reject(response.statusText);
+                    }
+
+                    const responseData =
+                        (await response.json()) as AnalyticsQueryResult<SelectionSet>;
+
+                    const counts: AnalyticsCountResult = {
+                        views: 0,
+                        visitors: 0,
+                        bounces: 0,
+                    };
+
+                    responseData.data.forEach((row) => {
+                        accumulateCountsFromRowResult(counts, row);
+                        if (row.isVisitor === -1) {
+                            counts.visitors += Number(
+                                row.distinctVisitors || 0,
+                            );
+                        }
+                    });
+                    resolve(counts);
+                })(),
+        );
+
+        return returnPromise;
+    }
+
     async getVisitorCountByColumn<T extends keyof typeof ColumnMappings>(
         siteId: string,
         column: T,

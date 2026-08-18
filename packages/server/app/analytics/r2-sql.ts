@@ -40,6 +40,32 @@ export interface SessionTimeBucket {
     end: Date;
 }
 
+export interface R2Pagination {
+    limit: number;
+    offset: number;
+}
+
+export type R2OrderField =
+    | "dimension"
+    | "visitors"
+    | "pageviews"
+    | "events"
+    | "visits"
+    | "views_per_visit"
+    | "bounce_rate"
+    | "visit_duration";
+
+export interface R2OrderClause {
+    field: R2OrderField;
+    direction: "asc" | "desc";
+}
+
+export interface R2BreakdownOptions {
+    orderBy?: R2OrderClause[];
+    pagination?: R2Pagination;
+    count?: boolean;
+}
+
 type R2SQLResponse<Row> = {
     success?: boolean;
     errors?: Array<{ code: number; message: string }>;
@@ -105,6 +131,59 @@ function filtersToPredicate(filters: SearchFilters | R2StatsFilter[]): string {
         .filter(Boolean)
         .join(" AND ");
     return predicates || "TRUE";
+}
+
+function basicOrderExpression(field: R2OrderField): string {
+    switch (field) {
+        case "dimension":
+            return "dimension";
+        case "visitors":
+            return "visitors";
+        case "pageviews":
+            return "views";
+        case "events":
+            return "events";
+        default:
+            throw new Error(
+                `Unsupported R2 order field for basic metrics: ${field}`,
+            );
+    }
+}
+
+function sessionOrderExpression(field: R2OrderField): string {
+    switch (field) {
+        case "dimension":
+            return "dimension";
+        case "visitors":
+            return "visitors";
+        case "pageviews":
+            return "views";
+        case "events":
+            return "events";
+        case "visits":
+            return "visits";
+        case "views_per_visit":
+            return "CASE WHEN visits > 0 THEN views / visits ELSE 0 END";
+        case "bounce_rate":
+            return "CASE WHEN visits > 0 THEN bounces / visits * 100 ELSE 0 END";
+        case "visit_duration":
+            return "COALESCE(average_visit_duration, 0)";
+    }
+}
+
+function buildOrderBy(
+    orderBy: R2OrderClause[] | undefined,
+    expression: (field: R2OrderField) => string,
+): string {
+    const clauses = (orderBy ?? []).map(
+        ({ field, direction }) =>
+            `${expression(field)} ${direction.toUpperCase()}`,
+    );
+    const lastField = orderBy?.[orderBy.length - 1]?.field;
+    if (lastField !== "dimension") {
+        clauses.push("dimension ASC");
+    }
+    return `ORDER BY ${clauses.join(", ")}`;
 }
 
 function getRows<Row>(payload: R2SQLResponse<Row>): Row[] {
@@ -318,7 +397,8 @@ export class R2SQLAPI {
         filters: SearchFilters | R2StatsFilter[] = {},
         dimension?: SessionDimension,
         timeBuckets?: SessionTimeBucket[],
-    ): Promise<BasicMetricsRow[]> {
+        options: R2BreakdownOptions = {},
+    ): Promise<{ rows: BasicMetricsRow[]; totalRows?: number }> {
         const start = sqlString(startDate.toISOString());
         const end = sqlString(endDate.toISOString());
         const filterPredicate = filtersToPredicate(filters);
@@ -333,8 +413,8 @@ export class R2SQLAPI {
                   ` THEN ${sqlString(bucket.label)}`,
               ).join(" ") || ""} ELSE NULL END`
             : undefined;
-        const query = `
-            WITH events AS (
+        const eventsCte = `
+            events AS (
                 SELECT
                     visitor_id,
                     event_type,
@@ -346,7 +426,8 @@ export class R2SQLAPI {
                     AND received_at >= ${start}
                     AND received_at < ${end}
                     AND ${filterPredicate}
-            )
+            )`;
+        const aggregateSelect = `
             SELECT
                 ${dimensionExpression ? `${dimensionExpression} AS dimension,` : ""}
                 COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) AS visitors,
@@ -355,25 +436,70 @@ export class R2SQLAPI {
             FROM events
             WHERE event_ts >= TRY_CAST(${start} AS TIMESTAMP)
                 AND event_ts < TRY_CAST(${end} AS TIMESTAMP)
-            ${dimensionExpression ? "GROUP BY dimension" : ""}
-            ${dimensionExpression ? "LIMIT 10001" : ""}`;
+            ${dimensionExpression ? "GROUP BY dimension" : ""}`;
+        const { orderBy, pagination, count } = options;
+        const usePagination = Boolean(dimensionExpression && pagination);
 
         type Row = {
             dimension?: string | null;
             views?: string | number | null;
             events?: string | number | null;
             visitors?: string | number | null;
+            total_rows?: string | number | null;
         };
-        const rows = await this.query<Row>(query);
-        if (rows.length > 10_000) {
-            throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
+
+        let rows: Row[];
+        if (!usePagination) {
+            rows = await this.query<Row>(
+                `WITH ${eventsCte}${aggregateSelect}${dimensionExpression ? " LIMIT 10001" : ""}`,
+            );
+            if (rows.length > 10_000) {
+                throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
+            }
+        } else {
+            const orderSql = buildOrderBy(orderBy, basicOrderExpression);
+            const totalSelect = count ? ", total_rows" : "";
+            const totalProject = count ? "COUNT(*) OVER () AS total_rows," : "";
+            rows = await this.query<Row>(`
+                WITH ${eventsCte},
+                grouped AS (${aggregateSelect}),
+                paged AS (
+                    SELECT *,
+                        ${totalProject}
+                        ROW_NUMBER() OVER (${orderSql}) AS row_num
+                    FROM grouped
+                )
+                SELECT ${dimensionExpression ? "dimension," : ""} visitors, views, events${totalSelect}
+                FROM paged
+                WHERE row_num > ${pagination!.offset}
+                    AND row_num <= ${pagination!.offset + pagination!.limit}
+                ORDER BY row_num`);
+            if (count && rows.length === 0) {
+                const [countRow = {}] = await this.query<{
+                    total?: string | number | null;
+                }>(`
+                    WITH ${eventsCte},
+                    grouped AS (${aggregateSelect})
+                    SELECT COUNT(*) AS total FROM grouped`);
+                return {
+                    rows: [],
+                    totalRows: Number(countRow.total || 0),
+                };
+            }
         }
-        return rows.map((row) => ({
+        const mapped = rows.map((row) => ({
             ...(dimension ? { dimension: String(row.dimension || "") } : {}),
             views: Number(row.views || 0),
             events: Number(row.events || 0),
             visitors: Number(row.visitors || 0),
         }));
+        return {
+            rows: mapped,
+            totalRows:
+                count && rows.length > 0
+                    ? Number(rows[0].total_rows || 0)
+                    : undefined,
+        };
     }
 
     async getSessionBreakdown(
@@ -383,7 +509,8 @@ export class R2SQLAPI {
         filters: SearchFilters | R2StatsFilter[],
         dimension: SessionDimension,
         timeBuckets?: SessionTimeBucket[],
-    ): Promise<SessionMetricsRow[]> {
+        options: R2BreakdownOptions = {},
+    ): Promise<{ rows: SessionMetricsRow[]; totalRows?: number }> {
         const lookbackDate = new Date(Date.UTC(
             startDate.getUTCFullYear(),
             startDate.getUTCMonth(),
@@ -414,7 +541,7 @@ export class R2SQLAPI {
             : `date_trunc(${sqlString(timeUnit || "day")}, ${column})`;
         const eventDimensionExpression = eventDimension || bucketExpression("event_ts");
         const sessionDimensionExpression = eventDimension || bucketExpression("visit_start");
-        const query = `
+        const ctes = `
             WITH all_events AS (
                 SELECT
                     event_id,
@@ -508,7 +635,8 @@ export class R2SQLAPI {
                     AND sessions.visit_start < TRY_CAST(${end} AS TIMESTAMP)
                     AND sessions.pageviews > 0
                 GROUP BY session_dimensions.dimension
-            )
+            )`;
+        const finalSelect = `
             SELECT
                 event_metrics.dimension,
                 event_metrics.views,
@@ -519,8 +647,8 @@ export class R2SQLAPI {
                 session_metrics.average_visit_duration
             FROM event_metrics
             LEFT JOIN session_metrics
-                ON event_metrics.dimension = session_metrics.dimension
-            LIMIT 10001`;
+                ON event_metrics.dimension = session_metrics.dimension`;
+        const { orderBy, pagination, count } = options;
 
         type Row = {
             dimension?: string | null;
@@ -530,12 +658,46 @@ export class R2SQLAPI {
             visits?: string | number | null;
             bounces?: string | number | null;
             average_visit_duration?: string | number | null;
+            total_rows?: string | number | null;
         };
-        const rows = await this.query<Row>(query);
-        if (rows.length > 10_000) {
-            throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
+        let rows: Row[];
+        if (!pagination) {
+            rows = await this.query<Row>(`${ctes}${finalSelect} LIMIT 10001`);
+            if (rows.length > 10_000) {
+                throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
+            }
+        } else {
+            const orderSql = buildOrderBy(orderBy, sessionOrderExpression);
+            const totalSelect = count ? ", total_rows" : "";
+            const totalProject = count ? "COUNT(*) OVER () AS total_rows," : "";
+            rows = await this.query<Row>(`
+                ${ctes},
+                grouped AS (${finalSelect}),
+                paged AS (
+                    SELECT *,
+                        ${totalProject}
+                        ROW_NUMBER() OVER (${orderSql}) AS row_num
+                    FROM grouped
+                )
+                SELECT dimension, views, events, visitors, visits, bounces, average_visit_duration${totalSelect}
+                FROM paged
+                WHERE row_num > ${pagination.offset}
+                    AND row_num <= ${pagination.offset + pagination.limit}
+                ORDER BY row_num`);
+            if (count && rows.length === 0) {
+                const [countRow = {}] = await this.query<{
+                    total?: string | number | null;
+                }>(`
+                    ${ctes},
+                    grouped AS (${finalSelect})
+                    SELECT COUNT(*) AS total FROM grouped`);
+                return {
+                    rows: [],
+                    totalRows: Number(countRow.total || 0),
+                };
+            }
         }
-        return rows.map((row) => ({
+        const mapped = rows.map((row) => ({
             dimension: String(row.dimension || ""),
             views: Number(row.views || 0),
             events: Number(row.events || 0),
@@ -546,5 +708,12 @@ export class R2SQLAPI {
                 ? null
                 : Number(row.average_visit_duration),
         }));
+        return {
+            rows: mapped,
+            totalRows:
+                count && rows.length > 0
+                    ? Number(rows[0].total_rows || 0)
+                    : undefined,
+        };
     }
 }

@@ -10,6 +10,19 @@ import {
 } from "vitest";
 
 import { AnalyticsEngineAPI, intervalToSql } from "../query";
+import { getDateTimeRange } from "~/lib/utils";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
+// Render a Date as Analytics Engine expects it: the same UTC instant string
+// that query.ts derives from the explicit interval boundary dates.
+function dayjsUtc(date: Date): string {
+    return dayjs(date).tz("UTC").utc().format("YYYY-MM-DD HH:mm:ss");
+}
 
 function createFetchResponse<T>(data: T) {
     return {
@@ -324,6 +337,79 @@ describe("AnalyticsEngineAPI", () => {
             });
             expect(fetch.mock.calls[0][1].body).toContain(
                 "count(DISTINCT blob18)",
+            );
+        });
+    });
+
+    describe("getCountsForRange", () => {
+        test("uses explicit half-open boundaries converted from the supplied dates", async () => {
+            vi.setSystemTime(new Date("2023-01-08T00:00:00Z").getTime());
+            fetch.mockResolvedValue(createFetchResponse({ data: [] }));
+
+            const startDate = new Date("2023-01-01T00:00:00Z");
+            const endDate = new Date("2023-01-08T00:00:00Z");
+
+            await api.getCountsForRange(
+                "example.com",
+                startDate,
+                endDate,
+                "UTC",
+            );
+
+            const query = fetch.mock.calls[0][1].body as string;
+            expect(query).toContain(
+                "timestamp >= toDateTime('2023-01-01 00:00:00')",
+            );
+            expect(query).toContain(
+                "timestamp < toDateTime('2023-01-08 00:00:00')",
+            );
+        });
+
+        test("matches the boundaries the R2 session path queries for the same interval", async () => {
+            vi.setSystemTime(new Date("2023-01-08T12:00:00Z").getTime());
+            fetch.mockResolvedValue(createFetchResponse({ data: [] }));
+
+            // The dashboard loader derives these exact dates via getDateTimeRange
+            // and passes them to BOTH R2 getSessionMetrics and the realtime
+            // fallback, so the AE query must not recompute its own boundaries.
+            const { startDate, endDate } = getDateTimeRange("7d", "UTC");
+            await api.getCountsForRange(
+                "example.com",
+                startDate,
+                endDate,
+                "UTC",
+            );
+
+            const query = fetch.mock.calls[0][1].body as string;
+            expect(query).toContain(
+                `timestamp >= toDateTime('${dayjsUtc(startDate)}')`,
+            );
+            expect(query).toContain(
+                `timestamp < toDateTime('${dayjsUtc(endDate)}')`,
+            );
+        });
+
+        test("converts non-UTC timezone instants to the same UTC boundaries as R2", async () => {
+            vi.setSystemTime(new Date("2023-07-01T00:00:00Z").getTime());
+            fetch.mockResolvedValue(createFetchResponse({ data: [] }));
+
+            const { startDate, endDate } = getDateTimeRange(
+                "7d",
+                "America/New_York",
+            );
+            await api.getCountsForRange(
+                "example.com",
+                startDate,
+                endDate,
+                "America/New_York",
+            );
+
+            const query = fetch.mock.calls[0][1].body as string;
+            expect(query).toContain(
+                `timestamp >= toDateTime('${dayjsUtc(startDate)}')`,
+            );
+            expect(query).toContain(
+                `timestamp < toDateTime('${dayjsUtc(endDate)}')`,
             );
         });
     });

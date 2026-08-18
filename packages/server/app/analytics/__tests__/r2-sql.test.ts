@@ -135,7 +135,7 @@ describe("R2SQLAPI", () => {
             new Date("2026-08-02T00:00:00.000Z"),
             { host: "example.com" },
             "event:page",
-        )).resolves.toEqual([{
+        )).resolves.toEqual({ rows: [{
             dimension: "/pricing",
             views: 8,
             events: 10,
@@ -143,7 +143,7 @@ describe("R2SQLAPI", () => {
             visits: 5,
             bounces: 2,
             averageVisitDuration: 35.5,
-        }]);
+        }] });
 
         const query = JSON.parse(String(
             (fetcher.mock.calls[0][1] as RequestInit).body,
@@ -178,12 +178,12 @@ describe("R2SQLAPI", () => {
             new Date("2026-08-01T12:05:00.750Z"),
             { host: "example.com" },
             "event:page",
-        )).resolves.toEqual([{
+        )).resolves.toEqual({ rows: [{
             dimension: "/pricing",
             visitors: 4,
             views: 8,
             events: 10,
-        }]);
+        }] });
 
         const query = JSON.parse(String(
             (fetcher.mock.calls[0][1] as RequestInit).body,
@@ -292,6 +292,218 @@ describe("R2SQLAPI", () => {
         );
         expect(query).toContain("THEN '2026-03-08'");
         expect(query).toContain("WHEN visit_start >= TRY_CAST");
+    });
+
+    test("renders server-side bounded pagination and count for basic metrics", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: {
+                rows: [
+                    { dimension: "/two", visitors: "5", views: "8", events: "9", total_rows: "3" },
+                ],
+            },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        const result = await api.getBasicMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { orderBy: [{ field: "visitors", direction: "desc" }], pagination: { limit: 1, offset: 1 }, count: true },
+        );
+
+        expect(result).toEqual({
+            rows: [{ dimension: "/two", visitors: 5, views: 8, events: 9 }],
+            totalRows: 3,
+        });
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toContain("ROW_NUMBER() OVER (ORDER BY visitors DESC, dimension ASC) AS row_num");
+        expect(query).toContain("COUNT(*) OVER () AS total_rows");
+        expect(query).toContain("WHERE row_num > 1");
+        expect(query).toContain("AND row_num <= 2");
+        expect(query).toContain("SELECT dimension, visitors, views, events, total_rows");
+        expect(query).not.toContain("LIMIT 10001");
+    });
+
+    test("renders server-side pagination with derived session metric ordering", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: {
+                rows: [{
+                    dimension: "/pricing",
+                    views: "8",
+                    events: "10",
+                    visitors: "4",
+                    visits: "5",
+                    bounces: "2",
+                    average_visit_duration: "35.5",
+                }],
+            },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        const result = await api.getSessionBreakdown(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { orderBy: [{ field: "bounce_rate", direction: "desc" }], pagination: { limit: 5, offset: 0 }, count: true },
+        );
+
+        expect(result.rows).toHaveLength(1);
+        expect(result.rows[0].dimension).toBe("/pricing");
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toContain(
+            "ORDER BY CASE WHEN visits > 0 THEN bounces / visits * 100 ELSE 0 END DESC, dimension ASC",
+        );
+        expect(query).toContain("COUNT(*) OVER () AS total_rows");
+        expect(query).toContain("WHERE row_num > 0");
+        expect(query).toContain("AND row_num <= 5");
+        expect(query).not.toContain("LIMIT 10001");
+    });
+
+    test("renders dimension ordering for paginated time breakdowns", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: { rows: [] },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getSessionBreakdown(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "time:day",
+            undefined,
+            { orderBy: [{ field: "dimension", direction: "asc" }], pagination: { limit: 10, offset: 0 } },
+        );
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toContain("ROW_NUMBER() OVER (ORDER BY dimension ASC) AS row_num");
+        expect(query).toContain("WHERE row_num > 0");
+        expect(query).toContain("AND row_num <= 10");
+    });
+
+    test("counts an empty deep page with a fallback count query", async () => {
+        const fetcher = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [] },
+            })))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [{ total: "3" }] },
+            })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        const result = await api.getSessionBreakdown(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { orderBy: [{ field: "visitors", direction: "desc" }], pagination: { limit: 5, offset: 100 }, count: true },
+        );
+
+        expect(result).toEqual({ rows: [], totalRows: 3 });
+        expect(fetcher).toHaveBeenCalledTimes(2);
+        const countQuery = JSON.parse(String(
+            (fetcher.mock.calls[1][1] as RequestInit).body,
+        )).query as string;
+        expect(countQuery).toContain("SELECT COUNT(*) AS total FROM grouped");
+        expect(countQuery).not.toContain("OFFSET");
+    });
+
+    test("counts an empty deep page for basic metrics with a fallback query", async () => {
+        const fetcher = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [] },
+            })))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [{ total: "7" }] },
+            })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        const result = await api.getBasicMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { orderBy: [{ field: "visitors", direction: "desc" }], pagination: { limit: 5, offset: 50 }, count: true },
+        );
+
+        expect(result).toEqual({ rows: [], totalRows: 7 });
+        expect(fetcher).toHaveBeenCalledTimes(2);
+    });
+
+    test("rejects unsupported order fields for basic metrics", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: { rows: [] },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await expect(api.getBasicMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { orderBy: [{ field: "visits", direction: "desc" }], pagination: { limit: 1, offset: 0 } },
+        )).rejects.toThrow("Unsupported R2 order field for basic metrics: visits");
     });
 
     test("surfaces R2 SQL errors", async () => {

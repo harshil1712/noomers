@@ -20,6 +20,8 @@ noomers is free, open source software made available under the MIT license. See:
 
 noomers is powered primarily by Cloudflare Workers and [Workers Analytics Engine](https://developers.cloudflare.com/analytics/analytics-engine/). As of February 2025, Workers Analytics Engine has _maximum 90 days retention_, which means noomers can only show the last 90 days of recorded data. We do, however, provide long term storage of your data in an R2 bucket using Apache Arrow files. This long term storage is enabled by default and can be disabled using the CLI.
 
+The default daily Arrow rollups are **archival and write-only today**: they store data for durability but there is no dashboard, query, or restore path that reads them. The dashboard and Stats API read realtime Analytics Engine data (the last 90 days) and, when configured, exact session history from R2 SQL. Successfully accepting an event through `/collect` or `/api/event` confirms the request passed validation (the site is active and the body/schema is accepted); it means realtime Analytics Engine and optional durable writes were **attempted**, not that the provider persisted them. Deleting a site tombstones it immediately, but durable data is not erased instantly: Analytics Engine data expires through its retention period, and daily rollup and Iceberg deletion remain incomplete. See the [Plausible feature parity](docs/plausible-feature-parity.md) and [implementation roadmap](docs/implementation-roadmap.md) documents for the exact supported baseline.
+
 noomers implements a subset of Plausible's APIs and product features. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline, remaining work, deferred features, and infrastructure-dependent gaps. See the [feature implementation roadmap](docs/implementation-roadmap.md) for sequencing, dependencies, and completion criteria.
 
 ## Installation
@@ -72,6 +74,37 @@ Once the script has finished, the server application should be deployed. Visit `
 The installer also creates a D1 database for goal definitions, applies its migrations, and configures a rotating, salted visitor identifier used for unique conversion rates. Raw IP addresses are never stored.
 
 NOTE: _If this is your first time deploying noomers, it may take take a few minutes before the Worker subdomain becomes live._
+
+### Validate a Deployment
+
+The CLI ships a read-only, operator-triggered live validation command:
+
+```bash
+NOOMERS_API_TOKEN='<the shared Stats/Sites API token>' \
+    npx @noomers/cli@latest validate \
+        --url https://{subdomain-emitted-during-deploy}.workers.dev \
+        --site example.com
+```
+
+Requirements and behavior:
+
+- `--url` is the deployment base URL. It must be HTTPS except for `localhost`/`127.0.0.1`, and it may not contain credentials, a query string, a fragment, or a path.
+- `--site` is the exact site domain that must already exist in the deployment's site registry.
+- The API token is read **only** from the `NOOMERS_API_TOKEN` environment variable. It is never accepted as a CLI option (to avoid process-list/history leakage) and never printed.
+- Pass `--skip-durable` to skip the exact-session-metric (`visits`, which exercises R2 SQL) check.
+
+What the command checks, in order:
+
+1. `GET /api/health` — reachability and a `200` with body `ok`.
+2. `GET /api/v1/sites/{site}` (bearer-authenticated, with the site URL-encoded) — confirms the configured token authenticates and that the exact `--site` exists by strictly matching the returned `domain`.
+3. `POST /api/v2/query` (bearer-authenticated) for `visitors`, `pageviews`, and `events` over `24h` — exercises the realtime Analytics Engine path.
+4. Unless `--skip-durable` is set, `POST /api/v2/query` for the exact session metric `visits` — exercises the R2 SQL durable session path.
+
+Important limitations (so validation is never mistaken for proof):
+
+- `/api/health` is **liveness-only**. It does not confirm that D1, Analytics Engine, R2 SQL, or Pipeline are healthy.
+- A successful read query validates the **configured query path** (that the endpoint is reachable, the token authenticates, and the response is well-formed). It does **not** prove durable delivery of events now or in the future.
+- The command is strictly **read-only**: it creates no sites, writes no events or resources, and never mutates the deployment.
 
 ### Start Recording Web Traffic from Your Website(s)
 
@@ -206,6 +239,8 @@ Create a Pipeline using `npx wrangler@latest pipelines setup`, load the schema f
 
 The binding is optional. Without it, collection continues to use Analytics Engine and the existing daily R2 rollups. New rollup objects use site-scoped keys under `sites/<site-id>/`; existing date-only objects are not rewritten.
 
+The daily Arrow rollups are write-only archival storage. There is no dashboard, query, or restore path that reads them today; long-term history is preserved for durability, not for retrieval. Queryable exact session history requires the Pipeline/Data Catalog/R2 SQL path described below, which can lag realtime collection because Pipeline batches events.
+
 To calculate exact 30-minute visits, bounce rate, and average visit duration from the Iceberg table, configure these Worker values:
 
 | Value           | Purpose                                                                        |
@@ -215,6 +250,8 @@ To calculate exact 30-minute visits, bounce rate, and average visit duration fro
 | `R2_SQL_TOKEN`  | Secret API token with R2 SQL read, R2 Data Catalog read, and R2 storage access |
 
 Set `R2_SQL_BUCKET` and `R2_SQL_TABLE` as Worker variables and set `R2_SQL_TOKEN` with `wrangler secret put R2_SQL_TOKEN`. When all three are present, dashboard summary metrics use R2 SQL sessionization. If they are absent or R2 SQL is temporarily unavailable, the dashboard falls back to Analytics Engine. The fallback counts Plausible visitors by distinct daily ID, but exact Plausible bounce and visit metrics require R2 SQL. Pipeline data is batched, so exact session metrics can lag realtime collection by several minutes.
+
+Note that accepting an event does not confirm durable delivery. The collector writes to Analytics Engine (a non-blocking write whose failures are swallowed) and, when the `EVENT_STREAM` binding is present, awaits a Pipeline send whose failures are caught and logged. A successful `/collect` or `/api/event` response confirms the request was accepted and validated; it does not prove that an Analytics Engine data point was persisted or that a durable Pipeline/Iceberg or R2 SQL record exists.
 
 Visitor identifiers follow Plausible's privacy model: they rotate each UTC day. Sessions and unique visitors are therefore isolated to one day and cannot be linked across day boundaries.
 
@@ -230,7 +267,7 @@ Both the documented Plausible Events API JSON fields and the compact payload emi
 
 Set the `STATS_API_TOKEN` Worker secret to enable Plausible-compatible queries at `POST /api/v2/query`, then send it as `Authorization: Bearer <token>`. Aggregate visitor, pageview, and event metrics work with Analytics Engine. Exact visits, views per visit, bounce rate, and visit duration require R2 SQL. The compatibility layer supports `day`, `24h`, `7d`, `28d`, `30d`, `91d`, `month`, `6mo`, `12mo`, `year`, and `all` ranges in each site's reporting timezone; custom date ranges; case-sensitive, multi-value `is`, `is_not`, `contains`, and `contains_not` filters on page and hostname; page breakdowns; basic-metric hostname breakdowns; and hour, day, week, month, or automatic time dimensions with optional time labels. Visit-scoped dimensions are rejected until they can be sessionized from the first pageview.
 
-Set the optional `SITES_API_TOKEN` Worker secret to use Plausible's site provisioning endpoints under `/api/v1/sites`. When it is omitted, `STATS_API_TOKEN` authenticates both APIs. The supported provisioning operations are listing, creating, reading, updating configuration, and deleting sites, plus listing, finding or creating, and deleting event or page goals. Provision each site before collecting or querying its statistics. Domain renames are rejected because Analytics Engine records are immutable. Deleting a site immediately tombstones it: Stats API access, new collection, and re-registration are blocked, D1 configuration is removed, and an internal deletion job is recorded. Analytics Engine data then expires through its fixed three-month retention.
+Set the optional `SITES_API_TOKEN` Worker secret to use Plausible's site provisioning endpoints under `/api/v1/sites`. When it is omitted, `STATS_API_TOKEN` authenticates both APIs. The supported provisioning operations are listing, creating, reading, updating configuration, and deleting sites, plus listing, finding or creating, and deleting event or page goals. Provision each site before collecting or querying its statistics. Domain renames are rejected because Analytics Engine records are immutable. Deleting a site immediately tombstones it: Stats API access, new collection, and re-registration are blocked, D1 configuration is removed, and an internal deletion job is recorded. Analytics Engine data then expires through its fixed three-month retention. Deleting a site does **not** erase durable data immediately: daily Arrow rollup and Iceberg deletion remain incomplete, and Analytics Engine erasure completes only after its retention period. Do not rely on deletion as immediate complete erasure.
 
 The installer uses a single deployment token for both `STATS_API_TOKEN` and `SITES_API_TOKEN`. This is intentional: the server uses a single shared token, so one value authorizes every registered site in the deployment. The token is never auto-generated, printed, or logged. On a fresh install the installer securely prompts you to **enter a strong token you have generated and saved** (for example in a password manager, such as `openssl rand -hex 32`) and writes that same value to both secrets. On an existing install it securely prompts for your existing token in memory only and never writes or rotates anything. To rotate the token, run `npx @noomers/cli env api-token`; it securely prompts for a new value and writes it to both secrets without printing it. Any client using the previous token must switch to the new value.
 

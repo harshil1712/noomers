@@ -21,9 +21,11 @@ import type { ArgumentsCamelCase } from "yargs";
 import {
     stageDeployConfig,
     readInitialServerConfig,
-    getWorkerAndDatasetName,
     persistDeployment,
     resolvePipelineName,
+    resolveDailyRollupsBucket,
+    resolveWorkerAndDataset,
+    readPersistedDeploymentConfig,
 } from "../lib/config.js";
 
 import { CloudflareClient } from "../lib/cloudflare.js";
@@ -172,6 +174,16 @@ export async function install(
     process.on("SIGINT", cleanup);
     process.on("SIGTERM", cleanup);
 
+    const initialDeployConfig = readInitialServerConfig();
+    const persistedConfig = readPersistedDeploymentConfig();
+
+    // Validate the effective Pipeline binding metadata before any Cloudflare
+    // call or staged deploy so a stale EVENTS_PIPELINE binding aborts the
+    // install before deployment.
+    const pipelineName = resolvePipelineName(
+        persistedConfig?.pipelines ?? initialDeployConfig.pipelines,
+    );
+
     const cloudflare = new CloudflareClient(tmpStagingConfigPath);
 
     const s = spinner();
@@ -221,13 +233,19 @@ export async function install(
         });
     }
 
-    const initialDeployConfig = readInitialServerConfig();
+    // Resolve the worker name and Analytics Engine dataset, preserving any
+    // custom values persisted by a previous install so a reinstall/upgrade
+    // never silently falls back to the server package defaults.
+    const {
+        workerName: defaultWorkerName,
+        analyticsDataset: defaultAnalyticsDataset,
+    } = resolveWorkerAndDataset(initialDeployConfig);
+    let workerName = defaultWorkerName;
+    let analyticsDataset = defaultAnalyticsDataset;
 
-    let { workerName, analyticsDataset } =
-        getWorkerAndDatasetName(initialDeployConfig);
-
-    // If --advanced is true, prompt the user for worker name and analytics dataset name.
-    // Otherwise, stick to the default values read from the server package.
+    // If --advanced is true, prompt the user for worker name and analytics
+    // dataset name. Otherwise, stick to the resolved (persisted or package)
+    // values.
     if (opts.advanced) {
         ({ workerName, analyticsDataset } = await promptProjectConfig(
             workerName,
@@ -250,15 +268,34 @@ export async function install(
         });
     }
 
+    const dailyRollups = resolveDailyRollupsBucket(workerName);
+
     await stageDeployConfig(
         tmpStagingConfigPath,
         initialDeployConfig,
         workerName,
         analyticsDataset,
         accountId,
+        undefined,
+        dailyRollups,
+        persistedConfig ?? undefined,
     );
 
+    // Read current secrets from the deployed worker. This is a read-only
+    // listing (no mutation); it determines which secrets must be written once
+    // the user confirms deployment.
     const secrets = await cloudflare.getCloudflareSecrets();
+
+    // If the user declines to deploy, abort with zero Cloudflare mutation. All
+    // secret writes, resource creation, migrations, and deployments happen only
+    // inside the confirmed branch below.
+    if (!(await promptDeploy(serverPkgJson.version))) {
+        outro(
+            "Install canceled. No changes were made to your Cloudflare account.",
+        );
+        cleanup();
+        return;
+    }
 
     // Retain the Cloudflare Account Analytics token in memory so it can be
     // reused for the upgrade backfill below without re-prompting.
@@ -402,217 +439,208 @@ Your token needs these permissions:
         process.exit(1);
     }
 
-    if (await promptDeploy(serverPkgJson.version)) {
-        let deployUrl: string | undefined;
-        let siteDomain = opts.domain as string | undefined;
-        let siteTimezone = opts.timezone as string | undefined;
+    let deployUrl: string | undefined;
+    let siteDomain = opts.domain as string | undefined;
+    let siteTimezone = opts.timezone as string | undefined;
 
-        // ---- Interactive input happens before the deploy spinner ----
-        // FND-001: accept/prompt for the initial site domain and IANA timezone.
-        // Both CLI-provided option values and prompted values are normalized and
-        // validated before any backfill or deploy so the canonical domain is used
-        // as the siteId everywhere.
-        if (siteDomain === undefined || siteTimezone === undefined) {
-            siteDomain = siteDomain ?? (await promptForDomain());
-            siteTimezone = siteTimezone ?? (await promptForTimezone());
-        }
-        siteDomain = normalizeDomain(siteDomain);
-        siteTimezone = normalizeTimezone(siteTimezone);
+    // ---- Interactive input happens before the deploy spinner ----
+    // FND-001: accept/prompt for the initial site domain and IANA timezone.
+    // Both CLI-provided option values and prompted values are normalized and
+    // validated before any backfill or deploy so the canonical domain is used
+    // as the siteId everywhere.
+    if (siteDomain === undefined || siteTimezone === undefined) {
+        siteDomain = siteDomain ?? (await promptForDomain());
+        siteTimezone = siteTimezone ?? (await promptForTimezone());
+    }
+    siteDomain = normalizeDomain(siteDomain);
+    siteTimezone = normalizeTimezone(siteTimezone);
 
-        // FND-002: discover and confirm the upgrade backfill before deploying.
-        // Uses the retained Cloudflare Account Analytics token (or a securely
-        // prompted one on existing installs, since it cannot be read back from
-        // wrangler secret list). Backfill is fail-closed: discovery errors, a
-        // malformed nonempty ID, an over-bounds result, a declined nonempty
-        // plan, or a failed D1 insert all abort the install. Discovered domains
-        // are historical candidates; the insert skips already-registered and
-        // permanently tombstoned domains.
-        let backfillPlan: Awaited<
-            ReturnType<typeof discoverHistoricalSites>
-        > | null = null;
-        {
-            const backfillToken = cfBearerToken ?? (await promptApiToken());
-            if (backfillToken) {
-                backfillPlan = await presentBackfill({
-                    discover: () =>
-                        discoverHistoricalSites(
-                            cloudflare,
-                            accountId,
-                            backfillToken,
-                            analyticsDataset,
-                            siteTimezone,
-                        ),
-                    confirm: () =>
-                        confirm({
-                            message:
-                                "Insert these historical candidate sites into the D1 registry now?",
-                            initialValue: true,
-                        }).then((value) => value === true),
-                    log: (msg) => log.info(msg),
-                });
-            }
-        }
-
-        const s = spinner();
-        s.start(`Deploying noomers ...`);
-
-        try {
-            const dailyRollupsBucket = initialDeployConfig.r2_buckets?.find(
-                (bucket: { binding?: string }) =>
-                    bucket.binding === "DAILY_ROLLUPS",
-            )?.bucket_name as string | undefined;
-            if (dailyRollupsBucket) {
-                const bucketStatus =
-                    await cloudflare.getOrCreateR2Bucket(dailyRollupsBucket);
-                log.info(
-                    `Daily R2 bucket: ${dailyRollupsBucket} (${bucketStatus})`,
-                );
-            }
-
-            const databaseName = `${workerName}-goals`;
-            const databaseId =
-                await cloudflare.getOrCreateD1Database(databaseName);
-            await stageDeployConfig(
-                tmpStagingConfigPath,
-                initialDeployConfig,
-                workerName,
-                analyticsDataset,
-                accountId,
-                { name: databaseName, id: databaseId },
-            );
-            await cloudflare.applyD1Migrations(databaseName);
-
-            // Apply the confirmed backfill now that D1 exists. This is a
-            // non-interactive, rerun-safe insert; any failure aborts.
-            if (backfillPlan) {
-                await applyBackfill(cloudflare, databaseName, backfillPlan);
-                log.info("Upgrade backfill applied (rerun-safe).");
-            }
-
-            if (opts.verbose) {
-                s.stop(`Deploying noomers ...`);
-            }
-
-            deployUrl = await cloudflare.deploy(
-                opts.verbose ? true : false,
-                serverPkgJson.version,
-            );
-
-            if (deployUrl === "<unknown>") {
-                throw new Error(
-                    "Deployment succeeded but its Workers subdomain could not be determined. Rerun noomers install to provision the initial site.",
-                );
-            }
-
-            const pipelineName = resolvePipelineName(
-                initialDeployConfig.pipelines,
-            );
-            persistDeployment(tmpStagingConfigPath, {
-                version: 1,
-                accountId,
-                workerName,
-                analyticsDataset,
-                d1Database: { name: databaseName, id: databaseId },
-                resources: {
-                    dailyRollupsBucket,
-                    pipelineName,
-                    dataCatalogBucket: initialDeployConfig.vars?.R2_SQL_BUCKET,
-                    dataCatalogTable: initialDeployConfig.vars?.R2_SQL_TABLE,
-                },
-            });
-
-            if (!opts.verbose) {
-                // Stop the spinner before the (retry-capable) post-deploy
-                // provisioning so its logs and backoff sleeps interleave cleanly.
-                s.stop("Deploying noomers ... deployed.");
-            }
-
-            // FND-001/FND-003: idempotently provision the initial site and
-            // verify that the deployment token authenticates against the Sites
-            // API. A successful install must not print a real snippet for a
-            // site that was never provisioned, so any failure here fails the
-            // install clearly (the deploy has happened; instruct rerun).
-            if (!noomersApiToken) {
-                throw new Error(
-                    "No deployment API token is available to provision the initial site. Rerun noomers install to remediate.",
-                );
-            }
-            if (!deployUrl) {
-                throw new Error(
-                    "No deployment URL is available to provision the initial site. Rerun noomers install to remediate.",
-                );
-            }
-            const provisionUrl = deployUrl;
-            // Provision with bounded retry/backoff to absorb fresh
-            // workers.dev propagation and transient network/5xx failures. Each
-            // attempt is GET-before-POST (idempotent). Deterministic 4xx/auth
-            // failures are not retried.
-            await provisionInitialSite({
-                provision: () =>
-                    provisionSiteIdempotently(
+    // FND-002: discover and confirm the upgrade backfill before deploying.
+    // Uses the retained Cloudflare Account Analytics token (or a securely
+    // prompted one on existing installs, since it cannot be read back from
+    // wrangler secret list). Backfill is fail-closed: discovery errors, a
+    // malformed nonempty ID, an over-bounds result, a declined nonempty
+    // plan, or a failed D1 insert all abort the install. Discovered domains
+    // are historical candidates; the insert skips already-registered and
+    // permanently tombstoned domains.
+    let backfillPlan: Awaited<
+        ReturnType<typeof discoverHistoricalSites>
+    > | null = null;
+    {
+        const backfillToken = cfBearerToken ?? (await promptApiToken());
+        if (backfillToken) {
+            backfillPlan = await presentBackfill({
+                discover: () =>
+                    discoverHistoricalSites(
                         cloudflare,
-                        provisionUrl,
-                        noomersApiToken,
-                        siteDomain,
+                        accountId,
+                        backfillToken,
+                        analyticsDataset,
                         siteTimezone,
                     ),
-                verifyAuth: () =>
-                    cloudflare.verifySitesApiAuth(
-                        provisionUrl,
-                        noomersApiToken,
-                    ),
-                log: (msg) =>
-                    log.info(
-                        `${msg} ${chalk
-                            .rgb(...CLI_COLORS.teal)
-                            .bold(siteDomain)}`,
-                    ),
-            });
-            log.info("Deployment complete.");
-        } catch (err) {
-            s.stop("Deploying noomers ... Failed!", 1);
-            throw err;
-        }
-
-        if (deployUrl) {
-            if (!initialDeployConfig.pipelines?.length) {
-                note(
-                    `Pipeline/Data Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest pipelines list\nSetup: npx wrangler@latest pipelines setup --name ${workerName}-events\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest r2 bucket catalog get <BUCKET>`,
-                    "Optional convergence storage",
-                );
-            }
-
-            await tick(() =>
-                note(
-                    "NOTE: If this is your first time deploying to this subdomain, you may have to wait a few minutes before the site is live.",
-                ),
-            );
-
-            await tick(() =>
-                outro(
-                    `⚡️ Visit your dashboard: ${chalk
-                        .rgb(...CLI_COLORS.tan)
-                        .underline(deployUrl)}`,
-                ),
-            );
-
-            const siteId = siteDomain;
-            await tick(() =>
-                console.log(
-                    `\nTo start capturing data for ${chalk
-                        .rgb(...CLI_COLORS.teal)
-                        .bold(
-                            siteId,
-                        )}, add the tracking script to your website: `,
-                ),
-            );
-            await tick(() => {
-                console.log(getScriptSnippet(deployUrl, "tracker", siteId));
-                console.log("\n\n" + chalk.dim("-- OR --") + "\n");
-                console.log(
-                    getPackageSnippet(deployUrl, serverPkgJson.version, siteId),
-                );
+                confirm: () =>
+                    confirm({
+                        message:
+                            "Insert these historical candidate sites into the D1 registry now?",
+                        initialValue: true,
+                    }).then((value) => value === true),
+                log: (msg) => log.info(msg),
             });
         }
+    }
+
+    const deploySpinner = spinner();
+    deploySpinner.start(`Deploying noomers ...`);
+
+    try {
+        if (dailyRollups.bucket) {
+            const bucketStatus = await cloudflare.getOrCreateR2Bucket(
+                dailyRollups.bucket,
+            );
+            log.info(
+                `Daily R2 bucket: ${dailyRollups.bucket} (${bucketStatus})`,
+            );
+        }
+
+        const databaseName = `${workerName}-goals`;
+        const databaseId = await cloudflare.getOrCreateD1Database(databaseName);
+        await stageDeployConfig(
+            tmpStagingConfigPath,
+            initialDeployConfig,
+            workerName,
+            analyticsDataset,
+            accountId,
+            { name: databaseName, id: databaseId },
+            dailyRollups,
+            persistedConfig ?? undefined,
+        );
+        await cloudflare.applyD1Migrations(databaseName);
+
+        // Apply the confirmed backfill now that D1 exists. This is a
+        // non-interactive, rerun-safe insert; any failure aborts.
+        if (backfillPlan) {
+            await applyBackfill(cloudflare, databaseName, backfillPlan);
+            log.info("Upgrade backfill applied (rerun-safe).");
+        }
+
+        if (opts.verbose) {
+            deploySpinner.stop(`Deploying noomers ...`);
+        }
+
+        deployUrl = await cloudflare.deploy(
+            opts.verbose ? true : false,
+            serverPkgJson.version,
+        );
+
+        if (deployUrl === "<unknown>") {
+            throw new Error(
+                "Deployment succeeded but its Workers subdomain could not be determined. Rerun noomers install to provision the initial site.",
+            );
+        }
+
+        persistDeployment(tmpStagingConfigPath, {
+            version: 1,
+            accountId,
+            workerName,
+            analyticsDataset,
+            d1Database: { name: databaseName, id: databaseId },
+            resources: {
+                dailyRollupsBucket: dailyRollups.bucket,
+                dailyRollupsPreviewBucket: dailyRollups.previewBucket,
+                pipelineName,
+                dataCatalogBucket:
+                    persistedConfig?.vars?.R2_SQL_BUCKET ??
+                    initialDeployConfig.vars?.R2_SQL_BUCKET,
+                dataCatalogTable:
+                    persistedConfig?.vars?.R2_SQL_TABLE ??
+                    initialDeployConfig.vars?.R2_SQL_TABLE,
+            },
+        });
+
+        if (!opts.verbose) {
+            // Stop the spinner before the (retry-capable) post-deploy
+            // provisioning so its logs and backoff sleeps interleave cleanly.
+            deploySpinner.stop("Deploying noomers ... deployed.");
+        }
+
+        // FND-001/FND-003: idempotently provision the initial site and
+        // verify that the deployment token authenticates against the Sites
+        // API. A successful install must not print a real snippet for a
+        // site that was never provisioned, so any failure here fails the
+        // install clearly (the deploy has happened; instruct rerun).
+        if (!noomersApiToken) {
+            throw new Error(
+                "No deployment API token is available to provision the initial site. Rerun noomers install to remediate.",
+            );
+        }
+        if (!deployUrl) {
+            throw new Error(
+                "No deployment URL is available to provision the initial site. Rerun noomers install to remediate.",
+            );
+        }
+        const provisionUrl = deployUrl;
+        // Provision with bounded retry/backoff to absorb fresh
+        // workers.dev propagation and transient network/5xx failures. Each
+        // attempt is GET-before-POST (idempotent). Deterministic 4xx/auth
+        // failures are not retried.
+        await provisionInitialSite({
+            provision: () =>
+                provisionSiteIdempotently(
+                    cloudflare,
+                    provisionUrl,
+                    noomersApiToken,
+                    siteDomain,
+                    siteTimezone,
+                ),
+            verifyAuth: () =>
+                cloudflare.verifySitesApiAuth(provisionUrl, noomersApiToken),
+            log: (msg) =>
+                log.info(
+                    `${msg} ${chalk.rgb(...CLI_COLORS.teal).bold(siteDomain)}`,
+                ),
+        });
+        log.info("Deployment complete.");
+    } catch (err) {
+        deploySpinner.stop("Deploying noomers ... Failed!", 1);
+        throw err;
+    }
+
+    if (deployUrl) {
+        if (!(persistedConfig?.pipelines ?? initialDeployConfig.pipelines)?.length) {
+            note(
+                `Pipeline/Data Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest pipelines list\nSetup: npx wrangler@latest pipelines setup --name ${workerName}-events\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest r2 bucket catalog get <BUCKET>`,
+                "Optional convergence storage",
+            );
+        }
+
+        await tick(() =>
+            note(
+                "NOTE: If this is your first time deploying to this subdomain, you may have to wait a few minutes before the site is live.",
+            ),
+        );
+
+        await tick(() =>
+            outro(
+                `⚡️ Visit your dashboard: ${chalk
+                    .rgb(...CLI_COLORS.tan)
+                    .underline(deployUrl)}`,
+            ),
+        );
+
+        const siteId = siteDomain;
+        await tick(() =>
+            console.log(
+                `\nTo start capturing data for ${chalk
+                    .rgb(...CLI_COLORS.teal)
+                    .bold(siteId)}, add the tracking script to your website: `,
+            ),
+        );
+        await tick(() => {
+            console.log(getScriptSnippet(deployUrl, "tracker", siteId));
+            console.log("\n\n" + chalk.dim("-- OR --") + "\n");
+            console.log(
+                getPackageSnippet(deployUrl, serverPkgJson.version, siteId),
+            );
+        });
     }
 }

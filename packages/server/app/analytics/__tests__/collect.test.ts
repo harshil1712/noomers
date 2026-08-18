@@ -756,4 +756,51 @@ describe("collectRequestHandler", () => {
         expect(response.status).toBe(400);
         expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
     });
+
+    test("logs a privacy-safe warning when Analytics Engine is unavailable", async () => {
+        const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const env = {
+            WEB_COUNTER_AE: undefined,
+            VISITOR_SALT: "test-secret",
+        } as unknown as Env;
+        const request = new Request("https://example.com/collect", {
+            method: "POST",
+            headers: {
+                "cf-connecting-ip": "203.0.113.10",
+                "user-agent": "Mozilla/5.0 Chrome/120.0.0.0",
+            },
+            body: new URLSearchParams({
+                sid: "example",
+                h: "example.com",
+                p: "/private/page",
+                r: "https://referrer.example/",
+                en: "Signup",
+                ep: JSON.stringify({ plan: "pro", email: "user@example.com" }),
+                us: "newsletter",
+            }),
+        });
+
+        const response = await collectRequestHandler(request, env, {
+            country: "US",
+        });
+
+        expect(response.status).toBe(200);
+        expect(consoleWarn).toHaveBeenCalledTimes(1);
+        const warning = consoleWarn.mock.calls[0][0] as string;
+        expect(warning).toContain("realtime analytics unavailable");
+        for (const sensitive of [
+            "example",
+            "example.com",
+            "/private/page",
+            "https://referrer.example/",
+            "Signup",
+            "pro",
+            "user@example.com",
+            "newsletter",
+            "203.0.113.10",
+        ]) {
+            expect(warning).not.toContain(sensitive);
+        }
+        consoleWarn.mockRestore();
+    });
 });

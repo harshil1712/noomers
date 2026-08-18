@@ -1,6 +1,6 @@
 import { ColumnMappings } from "./schema";
 import type { AnalyticsEngineAPI } from "./query";
-import type { R2SQLAPI, R2StatsFilter, SessionDimension, SessionMetrics, SessionTimeBucket } from "./r2-sql";
+import type { R2BreakdownOptions, R2OrderClause, R2OrderField, R2SQLAPI, R2StatsFilter, SessionDimension, SessionMetrics, SessionTimeBucket } from "./r2-sql";
 import type { SearchFilters } from "~/lib/types";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -218,6 +218,24 @@ function toR2Filters(filters: StatsQuery["filters"]): R2StatsFilter[] {
     }));
 }
 
+function r2BreakdownOptions(query: StatsQuery & { start: Date; end: Date; reportingTimezone: string }): R2BreakdownOptions {
+    const dimension = query.dimensions[0];
+    const isTimeDimension = dimension !== undefined && TIME_DIMENSIONS.includes(dimension as TimeDimension);
+    const orderBy = query.order_by[0] ?? [
+        isTimeDimension ? dimension : query.metrics[0],
+        isTimeDimension ? "asc" : "desc",
+    ];
+    const [field, direction] = orderBy as [Metric | Dimension, "asc" | "desc"];
+    const clause: R2OrderClause = field === dimension
+        ? { field: "dimension", direction }
+        : { field: field as R2OrderField, direction };
+    return {
+        orderBy: [clause],
+        pagination: query.pagination,
+        count: query.include.total_rows,
+    };
+}
+
 function aeFilterPredicate([operator, dimension, values]: StatsFilter): string {
     const column = SCALAR_DIMENSIONS[dimension].column;
     if (operator === "contains" || operator === "contains_not") {
@@ -400,15 +418,17 @@ export async function executeStatsQuery(analytics: AnalyticsEngineAPI, sessions:
                toR2Filters(query.filters),
               resolvedDimension as SessionDimension,
               timeBuckets,
+              r2BreakdownOptions(query),
            )
         : undefined;
     let basicResult: {
         rows: Array<{ dimension?: string; sessionMetrics?: SessionMetrics } & BasicMetrics>;
         totalRows: number;
+        serverPaged?: boolean;
     };
     if (sessionBreakdown) {
         basicResult = {
-            rows: sessionBreakdown.map((row) => ({
+            rows: sessionBreakdown.rows.map((row) => ({
                 ...row,
                 dimension: resolvedDimension?.startsWith("time:")
                     ? formatTimeLabel(
@@ -421,7 +441,8 @@ export async function executeStatsQuery(analytics: AnalyticsEngineAPI, sessions:
                 pageviews: row.views,
                 sessionMetrics: row,
             })),
-            totalRows: sessionBreakdown.length,
+            totalRows: sessionBreakdown.totalRows ?? sessionBreakdown.rows.length,
+            serverPaged: true,
         };
     } else if (sessionMetrics) {
         basicResult = {
@@ -429,23 +450,25 @@ export async function executeStatsQuery(analytics: AnalyticsEngineAPI, sessions:
             totalRows: 1,
         };
     } else if (sessions) {
-        const rows = await sessions.getBasicMetrics(
+        const breakdown = await sessions.getBasicMetrics(
             query.site_id,
             query.start,
             query.end,
             toR2Filters(query.filters),
             resolvedDimension as SessionDimension | undefined,
             timeBuckets,
+            r2BreakdownOptions(query),
         );
         basicResult = {
-            rows: rows.map((row) => ({
+            rows: breakdown.rows.map((row) => ({
                 ...row,
                 pageviews: row.views,
                 dimension: row.dimension && resolvedDimension?.startsWith("time:")
                     ? formatTimeLabel(row.dimension, resolvedDimension as TimeDimension, query.start, query.end)
                     : row.dimension,
             })),
-            totalRows: rows.length,
+            totalRows: breakdown.totalRows ?? breakdown.rows.length,
+            serverPaged: Boolean(resolvedDimension),
         };
     } else {
         basicResult = await getAEBasicMetrics(analytics, query);
@@ -464,17 +487,19 @@ export async function executeStatsQuery(analytics: AnalyticsEngineAPI, sessions:
     });
     const timeDimension = query.dimensions.find((dimension) => TIME_DIMENSIONS.includes(dimension as TimeDimension)) as TimeDimension | undefined;
     const orderBy = query.order_by[0] ?? [timeDimension || query.metrics[0], timeDimension ? "asc" : "desc"];
-    const fieldIndex = query.metrics.indexOf(orderBy[0] as Metric);
-    results.sort((a, b) => {
-        const left = fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0];
-        const right = fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0];
-        const comparison = left === right ? 0 : (left ?? 0) < (right ?? 0) ? -1 : 1;
-        if (comparison !== 0) return orderBy[1] === "asc" ? comparison : -comparison;
-        const leftDimension = String(a.dimensions[0] || "");
-        const rightDimension = String(b.dimensions[0] || "");
-        return leftDimension === rightDimension ? 0 : leftDimension < rightDimension ? -1 : 1;
-    });
-    results = results.slice(query.pagination.offset, query.pagination.offset + query.pagination.limit);
+    if (!basicResult.serverPaged) {
+        const fieldIndex = query.metrics.indexOf(orderBy[0] as Metric);
+        results.sort((a, b) => {
+            const left = fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0];
+            const right = fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0];
+            const comparison = left === right ? 0 : (left ?? 0) < (right ?? 0) ? -1 : 1;
+            if (comparison !== 0) return orderBy[1] === "asc" ? comparison : -comparison;
+            const leftDimension = String(a.dimensions[0] || "");
+            const rightDimension = String(b.dimensions[0] || "");
+            return leftDimension === rightDimension ? 0 : leftDimension < rightDimension ? -1 : 1;
+        });
+        results = results.slice(query.pagination.offset, query.pagination.offset + query.pagination.limit);
+    }
     const meta: { total_rows?: number; time_labels?: string[]; imports_included?: boolean } = {};
     if (query.include.imports) meta.imports_included = false;
     if (query.include.total_rows) meta.total_rows = basicResult.totalRows;

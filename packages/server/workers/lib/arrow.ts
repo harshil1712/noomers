@@ -2,6 +2,9 @@ import { AnalyticsEngineAPI } from "../../app/analytics/query";
 import { ColumnMappings } from "../../app/analytics/schema";
 import { tableFromJSON, tableToIPC } from "apache-arrow";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+
+dayjs.extend(utc);
 
 export async function extractAsArrow(
     { accountId, bearerToken }: { accountId: string; bearerToken: string },
@@ -9,10 +12,12 @@ export async function extractAsArrow(
 ) {
     const api = new AnalyticsEngineAPI(accountId, bearerToken);
 
-    // Get yesterday's date range
-    const yesterday = dayjs().subtract(1, "day");
-    const startDateTime = yesterday.startOf("day").toDate();
-    const endDateTime = yesterday.endOf("day").toDate();
+    // Extract the exact UTC half-open previous-day interval
+    // [UTC yesterday 00:00:00, UTC today 00:00:00)
+    const todayUtc = dayjs().utc().startOf("day");
+    const yesterdayUtc = todayUtc.subtract(1, "day");
+    const startDateTime = yesterdayUtc.toDate();
+    const endDateTime = todayUtc.toDate();
 
     // Get all columns we want to extract
     const columns = Object.keys(ColumnMappings).filter(
@@ -57,7 +62,7 @@ export async function extractAsArrow(
         Array.from(recordsBySite, async ([siteId, siteRecords]) => {
             const table = tableFromJSON(siteRecords);
             const arrowBuffer = new Uint8Array(tableToIPC(table, "file"));
-            const filename = `sites/${encodeURIComponent(siteId)}/analytics-${yesterday.format("YYYY-MM-DD")}.arrow`;
+            const filename = `sites/${encodeURIComponent(siteId)}/analytics-${yesterdayUtc.format("YYYY-MM-DD")}.arrow`;
             await bucket.put(filename, arrowBuffer);
             return filename;
         }),

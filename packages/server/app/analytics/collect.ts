@@ -673,9 +673,14 @@ export function writeDataPoint(
     }
 
     if (!analyticsEngine) {
-        // no-op
-        console.log("Can't save datapoint: Analytics unavailable");
-        console.dir(datapoint, { depth: null });
+        // no-op; do not log payload details (paths, referrers, properties, or
+        // visitor identifiers are privacy-sensitive)
+        console.warn(
+            JSON.stringify({
+                message: "realtime analytics unavailable; event not recorded",
+                eventType: data.eventType,
+            }),
+        );
         return;
     }
 

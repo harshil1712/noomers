@@ -47,7 +47,13 @@ export async function loader({ context, request }: LoaderFunctionArgs) {
     }
 
     const [counts, { earliestEvent, earliestBounce }] = await Promise.all([
-        analyticsEngine.getCounts(site, interval, tz, filters),
+        analyticsEngine.getCountsForRange(
+            site,
+            startDate,
+            endDate,
+            tz,
+            filters,
+        ),
         analyticsEngine.getEarliestEvents(site),
     ]);
 

@@ -30,7 +30,7 @@ describe("resources.stats loader", () => {
 
         const context = {
             analyticsEngine: {
-                getCounts: mockGetCounts,
+                getCountsForRange: mockGetCounts,
                 getEarliestEvents: mockGetEarliestEvents,
             },
             cloudflare: {
@@ -50,7 +50,8 @@ describe("resources.stats loader", () => {
 
         expect(mockGetCounts).toHaveBeenCalledWith(
             "test-site",
-            "24h",
+            expect.any(Date),
+            expect.any(Date),
             "UTC",
             expect.any(Object),
         );
@@ -74,7 +75,7 @@ describe("resources.stats loader", () => {
 
         const context = {
             analyticsEngine: {
-                getCounts: mockGetCounts,
+                getCountsForRange: mockGetCounts,
                 getEarliestEvents: mockGetEarliestEvents,
             },
             cloudflare: {
@@ -112,7 +113,7 @@ describe("resources.stats loader", () => {
 
         const context = {
             analyticsEngine: {
-                getCounts: mockGetCounts,
+                getCountsForRange: mockGetCounts,
                 getEarliestEvents: mockGetEarliestEvents,
             },
             cloudflare: {
@@ -150,7 +151,7 @@ describe("resources.stats loader", () => {
         });
         const context = {
             analyticsEngine: {
-                getCounts: vi
+                getCountsForRange: vi
                     .fn()
                     .mockRejectedValue(new Error("AE unavailable")),
                 getEarliestEvents: vi
@@ -177,7 +178,9 @@ describe("resources.stats loader", () => {
             expect.any(Date),
             expect.any(Object),
         );
-        expect(context.analyticsEngine.getCounts).not.toHaveBeenCalled();
+        expect(
+            context.analyticsEngine.getCountsForRange,
+        ).not.toHaveBeenCalled();
         expect(
             context.analyticsEngine.getEarliestEvents,
         ).not.toHaveBeenCalled();
@@ -198,7 +201,7 @@ describe("resources.stats loader", () => {
             .mockImplementation(() => {});
         const context = {
             analyticsEngine: {
-                getCounts: mockGetCounts,
+                getCountsForRange: mockGetCounts,
                 getEarliestEvents: vi.fn().mockResolvedValue({
                     earliestEvent: new Date("2023-01-01T00:00:00Z"),
                     earliestBounce: new Date("2023-01-01T00:00:00Z"),

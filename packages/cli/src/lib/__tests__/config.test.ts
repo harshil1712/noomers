@@ -11,6 +11,11 @@ import {
     DEPLOYMENT_CONFIG_PATH,
     DEPLOYMENT_METADATA_PATH,
     resolvePipelineName,
+    resolveDailyRollupsBucket,
+    deriveDailyRollupsBucket,
+    R2_BUCKET_MAX_LENGTH,
+    readPersistedDeploymentConfig,
+    resolveWorkerAndDataset,
 } from "../config.js";
 
 // Mock external dependencies
@@ -338,6 +343,229 @@ describe("CLI Functions", () => {
 
             expect(writtenConfig.account_id).toBeUndefined();
         });
+
+        it("should set the DAILY_ROLLUPS bucket and preview bucket names", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "old-name",
+                analytics_engine_datasets: [{ dataset: "old-dataset" }],
+                r2_buckets: [
+                    {
+                        binding: "DAILY_ROLLUPS",
+                        bucket_name: "hardcoded-bucket",
+                        preview_bucket_name: "hardcoded-bucket-dev",
+                    },
+                ],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "new-worker",
+                "new-dataset",
+                undefined,
+                undefined,
+                {
+                    bucket: "new-worker-daily-rollups",
+                    previewBucket: "new-worker-daily-rollups-dev",
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.r2_buckets[0].bucket_name).toBe(
+                "new-worker-daily-rollups",
+            );
+            expect(writtenConfig.r2_buckets[0].preview_bucket_name).toBe(
+                "new-worker-daily-rollups-dev",
+            );
+        });
+
+        it("should locate the DAILY_ROLLUPS binding via find, not position", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "old-name",
+                analytics_engine_datasets: [{ dataset: "old-dataset" }],
+                r2_buckets: [
+                    {
+                        binding: "ASSETS",
+                        bucket_name: "unrelated-bucket",
+                    },
+                    {
+                        binding: "DAILY_ROLLUPS",
+                        bucket_name: "hardcoded-bucket",
+                        preview_bucket_name: "hardcoded-bucket-dev",
+                    },
+                ],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "new-worker",
+                "new-dataset",
+                undefined,
+                undefined,
+                {
+                    bucket: "new-worker-daily-rollups",
+                    previewBucket: "new-worker-daily-rollups-dev",
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.r2_buckets[0].bucket_name).toBe(
+                "unrelated-bucket",
+            );
+            expect(writtenConfig.r2_buckets[1].bucket_name).toBe(
+                "new-worker-daily-rollups",
+            );
+            expect(writtenConfig.r2_buckets[1].preview_bucket_name).toBe(
+                "new-worker-daily-rollups-dev",
+            );
+        });
+
+        it("should not override a bucket when no DAILY_ROLLUPS binding exists", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "old-name",
+                analytics_engine_datasets: [{ dataset: "old-dataset" }],
+                r2_buckets: [{ binding: "OTHER", bucket_name: "other-bucket" }],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "new-worker",
+                "new-dataset",
+                undefined,
+                undefined,
+                {
+                    bucket: "new-worker-daily-rollups",
+                    previewBucket: "new-worker-daily-rollups-dev",
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.r2_buckets[0].bucket_name).toBe(
+                "other-bucket",
+            );
+        });
+
+        it("preserves the persisted EVENT_STREAM pipeline binding on reinstall", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "custom-worker",
+                "custom-dataset",
+                undefined,
+                undefined,
+                undefined,
+                {
+                    workerName: "custom-worker",
+                    analyticsDataset: "custom-dataset",
+                    pipelines: [
+                        { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                    ],
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.pipelines).toEqual([
+                { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+            ]);
+        });
+
+        it("preserves the persisted R2 SQL vars on reinstall", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "custom-worker",
+                "custom-dataset",
+                undefined,
+                undefined,
+                undefined,
+                {
+                    workerName: "custom-worker",
+                    analyticsDataset: "custom-dataset",
+                    vars: {
+                        R2_SQL_BUCKET: "custom-warehouse",
+                        R2_SQL_TABLE: "default.events",
+                    },
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.vars).toEqual({
+                R2_SQL_BUCKET: "custom-warehouse",
+                R2_SQL_TABLE: "default.events",
+            });
+        });
+
+        it("does not add pipelines or vars on a fresh install", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "new-worker",
+                "new-dataset",
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.pipelines).toBeUndefined();
+            expect(writtenConfig.vars).toBeUndefined();
+        });
     });
 
     describe("installed deployment", () => {
@@ -388,6 +616,360 @@ describe("CLI Functions", () => {
                 { mode: 0o600 },
             );
         });
+
+        it("persists the preview bucket alongside the main bucket in metadata", async () => {
+            const { readFileSync, writeFileSync } = await import("node:fs");
+            vi.mocked(readFileSync).mockReturnValue('{"name":"worker"}');
+            const metadata = {
+                version: 1 as const,
+                accountId: "account-id",
+                workerName: "worker",
+                analyticsDataset: "dataset",
+                d1Database: { name: "worker-goals", id: "database-id" },
+                resources: {
+                    dailyRollupsBucket: "daily-rollups",
+                    dailyRollupsPreviewBucket: "daily-rollups-dev",
+                },
+            };
+
+            persistDeployment("/tmp/wrangler.json", metadata);
+
+            expect(writeFileSync).toHaveBeenCalledWith(
+                DEPLOYMENT_METADATA_PATH,
+                JSON.stringify(metadata, null, 2),
+                { mode: 0o600 },
+            );
+        });
+    });
+
+    describe("readPersistedDeploymentConfig", () => {
+        it("returns null when no persisted config exists (fresh install)", async () => {
+            const { existsSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(false);
+
+            expect(readPersistedDeploymentConfig()).toBeNull();
+        });
+
+        it("returns null for a malformed persisted config", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue("{ not json");
+
+            expect(readPersistedDeploymentConfig()).toBeNull();
+        });
+
+        it("returns null when the persisted config lacks an analytics dataset", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue('{"name": "worker"}');
+
+            expect(readPersistedDeploymentConfig()).toBeNull();
+        });
+
+        it("returns null when the persisted config has no worker name", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    analytics_engine_datasets: [
+                        { dataset: "custom-dataset" },
+                    ],
+                }),
+            );
+
+            expect(readPersistedDeploymentConfig()).toBeNull();
+        });
+
+        it("returns null when the persisted config has an empty analytics dataset value", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    name: "custom-worker",
+                    analytics_engine_datasets: [
+                        { binding: "WEB_COUNTER_AE" },
+                    ],
+                }),
+            );
+
+            expect(readPersistedDeploymentConfig()).toBeNull();
+        });
+
+        it("returns null when the persisted config has a blank worker name", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    name: "   ",
+                    analytics_engine_datasets: [
+                        { dataset: "custom-dataset" },
+                    ],
+                }),
+            );
+
+            expect(readPersistedDeploymentConfig()).toBeNull();
+        });
+
+        it("reads the persisted worker name, dataset, EVENT_STREAM pipeline, and R2 SQL vars", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    name: "custom-worker",
+                    analytics_engine_datasets: [
+                        { dataset: "custom-dataset" },
+                    ],
+                    pipelines: [
+                        { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                    ],
+                    vars: {
+                        R2_SQL_BUCKET: "custom-warehouse",
+                        R2_SQL_TABLE: "default.events",
+                    },
+                }),
+            );
+
+            const result = readPersistedDeploymentConfig();
+
+            expect(result).toEqual({
+                workerName: "custom-worker",
+                analyticsDataset: "custom-dataset",
+                pipelines: [
+                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                ],
+                vars: {
+                    R2_SQL_BUCKET: "custom-warehouse",
+                    R2_SQL_TABLE: "default.events",
+                },
+            });
+        });
+
+        it("synthesizes the EVENT_STREAM pipeline binding from persisted metadata when the config lacks pipelines", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "custom-worker",
+                          analyticsDataset: "custom-dataset",
+                          d1Database: { name: "db", id: "id" },
+                          resources: {
+                              pipelineName: "noomers-events",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "custom-worker",
+                          analytics_engine_datasets: [
+                              { dataset: "custom-dataset" },
+                          ],
+                      }),
+            );
+
+            const result = readPersistedDeploymentConfig();
+
+            expect(result?.pipelines).toEqual([
+                { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+            ]);
+        });
+
+        it("fills R2_SQL vars from persisted metadata when the config lacks them", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "custom-worker",
+                          analyticsDataset: "custom-dataset",
+                          d1Database: { name: "db", id: "id" },
+                          resources: {
+                              dataCatalogBucket: "custom-warehouse",
+                              dataCatalogTable: "default.events",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "custom-worker",
+                          analytics_engine_datasets: [
+                              { dataset: "custom-dataset" },
+                          ],
+                      }),
+            );
+
+            const result = readPersistedDeploymentConfig();
+
+            expect(result?.vars).toEqual({
+                R2_SQL_BUCKET: "custom-warehouse",
+                R2_SQL_TABLE: "default.events",
+            });
+        });
+
+        it("never overrides an explicit config pipeline array or R2 SQL var with metadata", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "custom-worker",
+                          analyticsDataset: "custom-dataset",
+                          d1Database: { name: "db", id: "id" },
+                          resources: {
+                              pipelineName: "metadata-events",
+                              dataCatalogBucket: "metadata-bucket",
+                              dataCatalogTable: "metadata.events",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "custom-worker",
+                          analytics_engine_datasets: [
+                              { dataset: "custom-dataset" },
+                          ],
+                          pipelines: [
+                              { binding: "EVENT_STREAM", pipeline: "config-events" },
+                          ],
+                          vars: {
+                              R2_SQL_BUCKET: "config-bucket",
+                          },
+                      }),
+            );
+
+            const result = readPersistedDeploymentConfig();
+
+            expect(result?.pipelines).toEqual([
+                { binding: "EVENT_STREAM", pipeline: "config-events" },
+            ]);
+            // Explicit config value wins; the missing table key is filled.
+            expect(result?.vars).toEqual({
+                R2_SQL_BUCKET: "config-bucket",
+                R2_SQL_TABLE: "metadata.events",
+            });
+        });
+
+        it("keeps an explicit empty pipelines array over the metadata fallback", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "custom-worker",
+                          analyticsDataset: "custom-dataset",
+                          d1Database: { name: "db", id: "id" },
+                          resources: { pipelineName: "noomers-events" },
+                      })
+                    : JSON.stringify({
+                          name: "custom-worker",
+                          analytics_engine_datasets: [
+                              { dataset: "custom-dataset" },
+                          ],
+                          pipelines: [],
+                      }),
+            );
+
+            const result = readPersistedDeploymentConfig();
+
+            expect(result?.pipelines).toEqual([]);
+        });
+    });
+
+    describe("resolveWorkerAndDataset", () => {
+        it("uses package defaults on a fresh install", async () => {
+            const { existsSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(false);
+
+            const result = resolveWorkerAndDataset({
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            });
+
+            expect(result).toEqual({
+                workerName: "noomers",
+                analyticsDataset: "metricsDataset",
+                preserved: false,
+            });
+        });
+
+        it("prefers persisted deployment metadata over the persisted config and package defaults", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "metadata-worker",
+                          analyticsDataset: "metadata-dataset",
+                          d1Database: { name: "db", id: "id" },
+                      })
+                    : JSON.stringify({
+                          name: "config-worker",
+                          analytics_engine_datasets: [
+                              { dataset: "config-dataset" },
+                          ],
+                      }),
+            );
+
+            const result = resolveWorkerAndDataset({
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            });
+
+            expect(result).toEqual({
+                workerName: "metadata-worker",
+                analyticsDataset: "metadata-dataset",
+                preserved: true,
+            });
+        });
+
+        it("falls back to the persisted Wrangler config when no metadata exists", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockImplementation(
+                (p: unknown) => p !== DEPLOYMENT_METADATA_PATH,
+            );
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    name: "custom-worker",
+                    analytics_engine_datasets: [
+                        { dataset: "custom-dataset" },
+                    ],
+                }),
+            );
+
+            const result = resolveWorkerAndDataset({
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            });
+
+            expect(result).toEqual({
+                workerName: "custom-worker",
+                analyticsDataset: "custom-dataset",
+                preserved: true,
+            });
+        });
+
+        it("ignores a malformed persisted config and falls back to package defaults", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockImplementation(
+                (p: unknown) => p !== DEPLOYMENT_METADATA_PATH,
+            );
+            vi.mocked(readFileSync).mockReturnValue('{"not": "a deployment"}');
+
+            const result = resolveWorkerAndDataset({
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            });
+
+            expect(result).toEqual({
+                workerName: "noomers",
+                analyticsDataset: "metricsDataset",
+                preserved: false,
+            });
+        });
     });
 
     describe("resolvePipelineName (FND-004)", () => {
@@ -425,6 +1007,350 @@ describe("CLI Functions", () => {
                     { binding: "EVENT_STREAM", pipeline: "noomers-events" },
                 ]),
             ).toBe("noomers-events");
+        });
+    });
+
+    describe("resolveDailyRollupsBucket", () => {
+        it("derives a bucket from the worker name on a fresh install", async () => {
+            const { existsSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(false);
+
+            const result = resolveDailyRollupsBucket("my-worker");
+
+            expect(result).toEqual({
+                bucket: "my-worker-daily-rollups",
+                previewBucket: "my-worker-daily-rollups-dev",
+                preserved: false,
+            });
+        });
+
+        it("preserves the bucket from persisted deployment metadata", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    version: 1,
+                    accountId: "account",
+                    workerName: "old-worker",
+                    analyticsDataset: "dataset",
+                    d1Database: { name: "old-worker-goals", id: "id" },
+                    resources: { dailyRollupsBucket: "explicit-bucket" },
+                }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "explicit-bucket",
+                previewBucket: "explicit-bucket-dev",
+                preserved: true,
+            });
+        });
+
+        it("preserves an explicitly configured bucket from the persisted config", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            // deployment.json does not exist; ~/.noomers/wrangler.json does.
+            vi.mocked(existsSync).mockImplementation(
+                (p: unknown) => p !== DEPLOYMENT_METADATA_PATH,
+            );
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    name: "old-worker",
+                    r2_buckets: [
+                        {
+                            binding: "DAILY_ROLLUPS",
+                            bucket_name: "legacy-noomers-bucket",
+                        },
+                    ],
+                }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "legacy-noomers-bucket",
+                previewBucket: "legacy-noomers-bucket-dev",
+                preserved: true,
+            });
+        });
+
+        it("preserves an explicitly configured preview bucket name", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockImplementation(
+                (p: unknown) => p !== DEPLOYMENT_METADATA_PATH,
+            );
+            vi.mocked(readFileSync).mockReturnValue(
+                JSON.stringify({
+                    name: "old-worker",
+                    r2_buckets: [
+                        {
+                            binding: "DAILY_ROLLUPS",
+                            bucket_name: "legacy-noomers-bucket",
+                            preview_bucket_name: "custom-preview-bucket",
+                        },
+                    ],
+                }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "legacy-noomers-bucket",
+                previewBucket: "custom-preview-bucket",
+                preserved: true,
+            });
+        });
+
+        it("derives a fresh bucket when no persisted config or metadata exists", async () => {
+            const { existsSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(false);
+
+            const result = resolveDailyRollupsBucket("fresh-worker");
+
+            expect(result.bucket).toBe("fresh-worker-daily-rollups");
+            expect(result.previewBucket).toBe("fresh-worker-daily-rollups-dev");
+            expect(result.preserved).toBe(false);
+        });
+
+        it("prefers an explicit preview persisted in metadata over the config", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "old-worker",
+                          analyticsDataset: "dataset",
+                          d1Database: { name: "old-worker-goals", id: "id" },
+                          resources: {
+                              dailyRollupsBucket: "shared-bucket",
+                              dailyRollupsPreviewBucket:
+                                  "metadata-preview-bucket",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "old-worker",
+                          r2_buckets: [
+                              {
+                                  binding: "DAILY_ROLLUPS",
+                                  bucket_name: "shared-bucket",
+                                  preview_bucket_name: "config-preview-bucket",
+                              },
+                          ],
+                      }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "shared-bucket",
+                previewBucket: "metadata-preview-bucket",
+                preserved: true,
+            });
+        });
+
+        it("falls back to a matching config preview when metadata lacks one", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "old-worker",
+                          analyticsDataset: "dataset",
+                          d1Database: { name: "old-worker-goals", id: "id" },
+                          resources: {
+                              dailyRollupsBucket: "shared-bucket",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "old-worker",
+                          r2_buckets: [
+                              {
+                                  binding: "DAILY_ROLLUPS",
+                                  bucket_name: "shared-bucket",
+                                  preview_bucket_name: "config-preview-bucket",
+                              },
+                          ],
+                      }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "shared-bucket",
+                previewBucket: "config-preview-bucket",
+                preserved: true,
+            });
+        });
+
+        it("does not reuse a config preview for a different metadata bucket", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "old-worker",
+                          analyticsDataset: "dataset",
+                          d1Database: { name: "old-worker-goals", id: "id" },
+                          resources: {
+                              dailyRollupsBucket: "metadata-bucket",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "old-worker",
+                          r2_buckets: [
+                              {
+                                  binding: "DAILY_ROLLUPS",
+                                  bucket_name: "different-bucket",
+                                  preview_bucket_name: "config-preview-bucket",
+                              },
+                          ],
+                      }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "metadata-bucket",
+                previewBucket: "metadata-bucket-dev",
+                preserved: true,
+            });
+        });
+
+        it("synthesizes the preview when metadata lacks one and config has no explicit preview", async () => {
+            const { existsSync, readFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(readFileSync).mockImplementation((p: unknown) =>
+                p === DEPLOYMENT_METADATA_PATH
+                    ? JSON.stringify({
+                          version: 1,
+                          accountId: "account",
+                          workerName: "old-worker",
+                          analyticsDataset: "dataset",
+                          d1Database: { name: "old-worker-goals", id: "id" },
+                          resources: {
+                              dailyRollupsBucket: "shared-bucket",
+                          },
+                      })
+                    : JSON.stringify({
+                          name: "old-worker",
+                          r2_buckets: [
+                              {
+                                  binding: "DAILY_ROLLUPS",
+                                  bucket_name: "shared-bucket",
+                              },
+                          ],
+                      }),
+            );
+
+            const result = resolveDailyRollupsBucket("new-worker");
+
+            expect(result).toEqual({
+                bucket: "shared-bucket",
+                previewBucket: "shared-bucket-dev",
+                preserved: true,
+            });
+        });
+    });
+
+    describe("deriveDailyRollupsBucket", () => {
+        it("derives a bounded, valid main bucket name", () => {
+            const name = deriveDailyRollupsBucket("my-worker", "daily-rollups");
+            expect(name).toBe("my-worker-daily-rollups");
+            expect(name.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+        });
+
+        it("derives a bounded, valid preview bucket name", () => {
+            const name = deriveDailyRollupsBucket(
+                "my-worker",
+                "daily-rollups-dev",
+            );
+            expect(name).toBe("my-worker-daily-rollups-dev");
+            expect(name.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+        });
+
+        it("binds the length for a maximum-length worker name", () => {
+            const longWorker = "a".repeat(100);
+            const main = deriveDailyRollupsBucket(longWorker, "daily-rollups");
+            const preview = deriveDailyRollupsBucket(
+                longWorker,
+                "daily-rollups-dev",
+            );
+
+            expect(main.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+            expect(preview.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+            expect(main.endsWith("-daily-rollups")).toBe(true);
+            expect(preview.endsWith("-daily-rollups-dev")).toBe(true);
+        });
+
+        it("normalizes case and strips invalid characters", () => {
+            const name = deriveDailyRollupsBucket(
+                "My.Worker_Name!",
+                "daily-rollups",
+            );
+            expect(name).toBe("myworkername-daily-rollups");
+            expect(/^[a-z0-9-]+$/.test(name)).toBe(true);
+        });
+
+        it("does not begin or end with a hyphen", () => {
+            const name = deriveDailyRollupsBucket("-worker-", "daily-rollups");
+            expect(name.startsWith("-")).toBe(false);
+            expect(name.endsWith("-")).toBe(false);
+        });
+
+        it("uses a stable default prefix for an empty worker name", () => {
+            const name = deriveDailyRollupsBucket("!!!", "daily-rollups");
+            expect(name).toBe("noomers-daily-rollups");
+        });
+
+        it("never exceeds the 63-character R2 limit for arbitrary worker names", () => {
+            const main = deriveDailyRollupsBucket(
+                "a-".repeat(40) + "x",
+                "daily-rollups",
+            );
+            expect(main.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+        });
+
+        it("keeps derived names unchanged when no truncation is needed", () => {
+            const name = deriveDailyRollupsBucket(
+                "worker-that-fits",
+                "daily-rollups",
+            );
+            expect(name).toBe("worker-that-fits-daily-rollups");
+        });
+
+        it("produces distinct valid names for long workers sharing a truncated prefix", () => {
+            const shared = "a".repeat(40);
+            const longA = `${shared}apple`;
+            const longB = `${shared}banana`;
+
+            const nameA = deriveDailyRollupsBucket(longA, "daily-rollups");
+            const nameB = deriveDailyRollupsBucket(longB, "daily-rollups");
+
+            // Different full names must never collide after truncation.
+            expect(nameA).not.toBe(nameB);
+            // Both stay within the 63-character R2 limit and preserve the suffix.
+            expect(nameA.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+            expect(nameB.length).toBeLessThanOrEqual(R2_BUCKET_MAX_LENGTH);
+            expect(nameA.endsWith("-daily-rollups")).toBe(true);
+            expect(nameB.endsWith("-daily-rollups")).toBe(true);
+            expect(/^[a-z0-9-]+$/.test(nameA)).toBe(true);
+            expect(/^[a-z0-9-]+$/.test(nameB)).toBe(true);
+        });
+
+        it("is deterministic for the same long worker name", () => {
+            const longWorker = "a".repeat(50) + "consistent";
+            const first = deriveDailyRollupsBucket(longWorker, "daily-rollups");
+            const second = deriveDailyRollupsBucket(
+                longWorker,
+                "daily-rollups",
+            );
+            expect(first).toBe(second);
         });
     });
 });

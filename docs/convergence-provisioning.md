@@ -1,6 +1,6 @@
 # Convergence provisioning
 
-The installer safely provisions the configured daily R2 bucket and D1 database. It reuses resources with matching names on subsequent runs. After a successful deployment, it writes the deployed Wrangler configuration to `~/.noomers/wrangler.json` and resource metadata to `~/.noomers/deployment.json`. The `auth`, `env`, and `storage` commands use that installed configuration.
+The installer safely provisions the configured daily R2 bucket and D1 database. It reuses resources with matching names on subsequent runs. Reinstalls preserve the persisted Worker name, Analytics Engine dataset, `EVENT_STREAM` Pipeline binding, and R2 SQL variables instead of replacing them with package defaults. After a successful deployment, it writes the deployed Wrangler configuration to `~/.noomers/wrangler.json` and resource metadata to `~/.noomers/deployment.json`. The `auth`, `env`, and `storage` commands use that installed configuration.
 
 Pipeline and R2 Data Catalog setup is intentionally not automated. Current setup is interactive and requires an R2 API token with R2 and Data Catalog permissions.
 

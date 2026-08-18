@@ -167,15 +167,17 @@ describe("Plausible Stats API v2", () => {
     });
 
     test("uses R2 sessionization for dimension breakdowns", async () => {
-        const getSessionBreakdown = vi.fn().mockResolvedValue([{
-            dimension: "/pricing",
-            visitors: 4,
-            visits: 5,
-            views: 8,
-            events: 10,
-            bounces: 2,
-            averageVisitDuration: 35.5,
-        }]);
+        const getSessionBreakdown = vi.fn().mockResolvedValue({
+            rows: [{
+                dimension: "/pricing",
+                visitors: 4,
+                visits: 5,
+                views: 8,
+                events: 10,
+                bounces: 2,
+                averageVisitDuration: 35.5,
+            }],
+        });
         const appContext = context({ sessionAnalytics: { getSessionBreakdown } });
         const response = await action({
             request: request({
@@ -199,6 +201,61 @@ describe("Plausible Stats API v2", () => {
             [],
             "event:page",
             undefined,
+            expect.objectContaining({
+                orderBy: [{ field: "visitors", direction: "desc" }],
+                pagination: { limit: 10_000, offset: 0 },
+                count: undefined,
+            }),
+        );
+    });
+
+    test("server-side pages and counts R2 session breakdowns", async () => {
+        const getSessionBreakdown = vi.fn().mockResolvedValue({
+            rows: [{
+                dimension: "/two",
+                visitors: 5,
+                visits: 8,
+                views: 8,
+                events: 9,
+                bounces: 1,
+                averageVisitDuration: 10,
+            }],
+            totalRows: 3,
+        });
+        const response = await action({
+            request: request({
+                site_id: "example.com",
+                metrics: ["visitors", "visits"],
+                date_range: "24h",
+                dimensions: ["event:page"],
+                order_by: [["visitors", "desc"]],
+                include: { total_rows: true },
+                pagination: { limit: 1, offset: 1 },
+            }),
+            context: context({ sessionAnalytics: { getSessionBreakdown } }),
+        } as never);
+
+        expect(response.status).toBe(200);
+        const body = (await response.json()) as {
+            results: unknown[];
+            meta: unknown;
+        };
+        expect(body.results).toEqual([
+            { dimensions: ["/two"], metrics: [5, 8] },
+        ]);
+        expect(body.meta).toEqual({ total_rows: 3 });
+        expect(getSessionBreakdown).toHaveBeenCalledWith(
+            "example.com",
+            expect.any(Date),
+            expect.any(Date),
+            [],
+            "event:page",
+            undefined,
+            expect.objectContaining({
+                orderBy: [{ field: "visitors", direction: "desc" }],
+                pagination: { limit: 1, offset: 1 },
+                count: true,
+            }),
         );
     });
 
@@ -233,7 +290,7 @@ describe("Plausible Stats API v2", () => {
     });
 
     test("passes DST-aware site-timezone buckets to R2", async () => {
-        const getSessionBreakdown = vi.fn().mockResolvedValue([]);
+        const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -418,11 +475,13 @@ describe("Plausible Stats API v2", () => {
     });
 
     test("uses R2 aggregates for basic metrics when available", async () => {
-        const getBasicMetrics = vi.fn().mockResolvedValue([{
-            visitors: 7,
-            views: 11,
-            events: 13,
-        }]);
+        const getBasicMetrics = vi.fn().mockResolvedValue({
+            rows: [{
+                visitors: 7,
+                views: 11,
+                events: 13,
+            }],
+        });
         const appContext = context({ sessionAnalytics: { getBasicMetrics } });
         const response = await action({
             request: request({
@@ -439,6 +498,37 @@ describe("Plausible Stats API v2", () => {
         });
         expect(getBasicMetrics).toHaveBeenCalledOnce();
         expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
+    });
+
+    test("applies client-side offset to scalar R2 aggregates without a dimension", async () => {
+        const getBasicMetrics = vi.fn().mockResolvedValue({
+            rows: [{ visitors: 5, views: 8, events: 9 }],
+        });
+        const response = await action({
+            request: request({
+                site_id: "example.com",
+                metrics: ["visitors"],
+                date_range: "7d",
+                order_by: [["visitors", "desc"]],
+                pagination: { limit: 1, offset: 1 },
+            }),
+            context: context({ sessionAnalytics: { getBasicMetrics } }),
+        } as never);
+
+        expect(response.status).toBe(200);
+        const body = (await response.json()) as { results: unknown[] };
+        expect(body.results).toEqual([]);
+        expect(getBasicMetrics).toHaveBeenCalledWith(
+            "example.com",
+            expect.any(Date),
+            expect.any(Date),
+            [],
+            undefined,
+            undefined,
+            expect.objectContaining({
+                pagination: { limit: 1, offset: 1 },
+            }),
+        );
     });
 
     test("returns no-import metadata and echoes independent pagination", async () => {
