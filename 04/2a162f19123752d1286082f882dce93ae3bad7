@@ -1,0 +1,49 @@
+docs/implementation-roadmap.md
+  s_6fe1c5e48a3b95::t_2d236d0a40df38 15,30-39,55-66,127-136,191,193,211-220
+docs/plausible-feature-parity.md
+  s_e8104075bb98f9::t_2492220b14109a 14,46,162-171,235-261,267-268,301,359-375,381-387,389,391,399
+packages/cli/src/commands/validate.ts
+  s_6fe1c5e48a3b95::t_e5177df0947311 1-55
+packages/cli/src/lib/__tests__/validate.test.ts
+  s_6fe1c5e48a3b95::t_b78aa896426857 1-534
+packages/cli/src/lib/validate.ts
+  s_6fe1c5e48a3b95::t_0c4d11fc1d2344 1-338
+packages/server/app/analytics/__tests__/query.test.ts
+  s_bb63569a726012::t_130b0599d7df45 13-25,344-416
+packages/server/app/routes/__tests__/resources.stats.test.tsx
+  s_bb63569a726012::t_4ba5fbba7e63e6 33,53-54,78,116,154,181-183,204
+packages/server/workers/lib/__tests__/arrow.test.ts
+  s_6fe1c5e48a3b95::t_3e675fc1fab83d 1-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "042a162f19123752d1286082f882dce93ae3bad7",
+  "prompts": {},
+  "sessions": {
+    "s_6fe1c5e48a3b95": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02bc0b985ffebZd29Mm7o12u1f",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_bb63569a726012": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02baed40effeFosetKzSL3DauI",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_e8104075bb98f9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe93ddfbbffe4xB4AegsQ9uwFt",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
