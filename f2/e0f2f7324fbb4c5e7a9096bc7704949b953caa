@@ -1,0 +1,73 @@
+docs/implementation-roadmap.md
+  s_f9f2f4d4d3ce73::t_4502d34a9a7538 5,70-78
+docs/plausible-feature-parity.md
+  s_b23a5bc0da0ff2::t_9143073182af04 5,28,37-46,331-344
+packages/cli/src/lib/__tests__/cloudflare.test.ts
+  s_f9f2f4d4d3ce73::t_59db4d1ce2244b 191,236,408-416
+packages/server/app/deletion/__tests__/repository.test.ts
+  s_f9f2f4d4d3ce73::t_b868fd15a5b9f6 1-712
+packages/server/app/deletion/repository.ts
+  s_f9f2f4d4d3ce73::t_bea47799bcfddb 1-416
+packages/server/app/sites/repository.ts
+  s_02e784ea1b3790::t_195aaf496cb611 299-300,303-309
+packages/server/migrations/0006_deletion_job_expanded.sql
+  s_02e784ea1b3790::t_55235e607bbda3 1-97
+packages/server/migrations/__tests__/0006.test.ts
+  s_f9f2f4d4d3ce73::t_d87dcd2b070948 1-192
+packages/server/workers/app.ts
+  s_02e784ea1b3790::t_96d271cf924c5e 1,15,20,25-27
+packages/server/workers/lib/__tests__/deletion.test.ts
+  s_c93fe749ad96a4::t_cfe56e56b2b091 1-318
+packages/server/workers/lib/deletion.ts
+  s_23d05a5e113c38::t_a79743479ef50e 1-186
+packages/server/workers/lib/scheduled.ts
+  s_02e784ea1b3790::t_b77fc4a619db44 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f2e0f2f7324fbb4c5e7a9096bc7704949b953caa",
+  "prompts": {},
+  "sessions": {
+    "s_02e784ea1b3790": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe8f9d505ffejhTe2ibtYIuJQu",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_23d05a5e113c38": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe9081bbaffeTDa3Rfq2eeCadG",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_b23a5bc0da0ff2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe8f9d45affenLqGdEsLSNoDbI",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_c93fe749ad96a4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe8f9d4fbffeqIGiNsHuu3ZMKt",
+        "model": "@cf/deepseek-ai/deepseek-v4-flash-0731"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_f9f2f4d4d3ce73": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe8fe5450ffem0cdkhNSff60VL",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
