@@ -296,11 +296,17 @@ export class SitesRepository {
                 .prepare(
                     `INSERT OR IGNORE INTO site_deletion_jobs
                         (id, site_id, requested_at, analytics_engine_status,
-                         analytics_engine_expires_at, iceberg_status)
-                     SELECT ?, domain, ?, 'pending_expiry', ?, 'pending'
+                         analytics_engine_expires_at, iceberg_status, next_attempt_at)
+                     SELECT ?, domain, ?, 'pending_expiry', ?, 'pending', ?
                      FROM sites WHERE domain = ?`,
                 )
-                .bind(jobId, requestedAt, expiresAt.toISOString(), normalized),
+                .bind(
+                    jobId,
+                    requestedAt,
+                    expiresAt.toISOString(),
+                    requestedAt,
+                    normalized,
+                ),
             this.database.prepare("DELETE FROM goals WHERE site_id = ?").bind(normalized),
             this.database
                 .prepare("DELETE FROM custom_properties WHERE site_id = ?")

@@ -1,4 +1,4 @@
-import type { 
+import type {
     ExecutionContext,
     ExportedHandler,
     ScheduledController,
@@ -12,30 +12,19 @@ import { createRequestHandler, type ServerBuild } from "react-router";
  */
 import { getLoadContext } from "../app/load-context";
 import * as build from "../build/server";
-import { extractAsArrow } from "./lib/arrow";
+import { runScheduledJobs } from "./lib/scheduled";
 
 const requestHandler = createRequestHandler(build as unknown as ServerBuild);
 
 export default {
-        async scheduled(
+    async scheduled(
         _controller: ScheduledController,
         env: Env,
         ctx: ExecutionContext,
     ) {
-        if (env.CF_STORAGE_ENABLED === "false") return
-        try {
-            ctx.waitUntil(
-                extractAsArrow(
-                    {
-                        accountId: env.CF_ACCOUNT_ID,
-                        bearerToken: env.CF_BEARER_TOKEN,
-                    },
-                    env.DAILY_ROLLUPS,
-                ),
-            );
-        } catch (error) {
-            console.error(error);
-        }
+        // Deletion processing always runs; the Arrow rollup retains its
+        // CF_STORAGE_ENABLED gate inside runScheduledJobs.
+        ctx.waitUntil(runScheduledJobs(env));
     },
     // @ts-expect-error TODO figure out types here
     async fetch(request: any, env: any, ctx: any) {

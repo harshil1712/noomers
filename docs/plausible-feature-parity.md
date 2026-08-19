@@ -2,7 +2,7 @@
 
 This document tracks the remaining work required for noomers to behave like Plausible Analytics. It covers the hosted product and its public APIs, not Plausible's billing, support, or internal administration systems.
 
-Last reviewed: 2026-08-04.
+Last reviewed: 2026-08-19.
 
 ## Status definitions
 
@@ -25,7 +25,7 @@ noomers currently has:
 - Partial Sites API provisioning, goals, and custom-property registration.
 - A noomers dashboard with summary, time-series, page, referrer, event, goal, browser, country, device, and UTM reports.
 - Optional canonical event storage through Cloudflare Pipelines, Data Catalog, and R2 SQL.
-- A D1 site registry, permanent deletion tombstones, and deletion-job records.
+- A D1 site registry, permanent deletion tombstones, and deletion-job records tracking Analytics Engine expiry, daily-rollup deletion, and Iceberg maintenance state (including explicit `blocked`).
 - A single shared-password dashboard and deployment-wide API tokens.
 
 This is not yet a drop-in replacement for the full Plausible product.
@@ -34,16 +34,16 @@ This is not yet a drop-in replacement for the full Plausible product.
 
 P0 items block safe installation, correct core analytics, or complete deletion. P1 items expand compatibility after that baseline is reliable.
 
-| Priority | Feature                                         | Why it matters                                                                                                                                |
-| -------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| P0       | Initial site provisioning and upgrade migration | Collection rejects unknown sites; the installer now creates a site and backfills existing Analytics Engine site IDs, pending live validation. |
-| P0       | Session-correct visit dimensions                | Source, campaign, geography, technology, entry, and exit reports require first-page session attribution rather than event-row grouping.       |
-| P0       | Complete deletion execution                     | Iceberg rows and daily Arrow rollups are not automatically erased when a site is deleted.                                                     |
-| P1       | Automated durable-event provisioning            | Exact session metrics require Pipeline, Data Catalog, and R2 SQL resources that are currently configured manually.                            |
-| P1       | Goal and revenue reporting                      | Revenue and goal definitions exist, but Stats API and dashboard reporting remain incomplete.                                                  |
-| P1       | Historical imports                              | There is no Plausible, Google Analytics, or CSV migration path.                                                                               |
-| P1       | Broader Stats API query model                   | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                            |
-| P1       | Scalable R2 query pagination                    | Dimension queries use a ROW_NUMBER CTE with `row_num` range filters for deterministic server-side ordering and bounded pagination.            |
+| Priority | Feature                                         | Why it matters                                                                                                                                                                                                                                                             |
+| -------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | Initial site provisioning and upgrade migration | Collection rejects unknown sites; the installer now creates a site and backfills existing Analytics Engine site IDs, pending live validation.                                                                                                                              |
+| P0       | Session-correct visit dimensions                | Source, campaign, geography, technology, entry, and exit reports require first-page session attribution rather than event-row grouping.                                                                                                                                    |
+| P0       | Complete deletion execution                     | Site deletion records a per-layer deletion job that a scheduled processor claims, leases, retries, and advances to Iceberg `blocked`, but Iceberg rows and daily Arrow rollups are not automatically erased and the Analytics Engine expiry transition is not implemented. |
+| P1       | Automated durable-event provisioning            | Exact session metrics require Pipeline, Data Catalog, and R2 SQL resources that are currently configured manually.                                                                                                                                                         |
+| P1       | Goal and revenue reporting                      | Revenue and goal definitions exist, but Stats API and dashboard reporting remain incomplete.                                                                                                                                                                               |
+| P1       | Historical imports                              | There is no Plausible, Google Analytics, or CSV migration path.                                                                                                                                                                                                            |
+| P1       | Broader Stats API query model                   | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                                                                                                                                                         |
+| P1       | Scalable R2 query pagination                    | Dimension queries use a ROW_NUMBER CTE with `row_num` range filters for deterministic server-side ordering and bounded pagination.                                                                                                                                         |
 
 ## Events API and tracking
 
@@ -328,20 +328,20 @@ noomers intentionally uses a single-organization, shared-password model. Individ
 
 ### Remaining parity and operations
 
-| Feature                        | Status  | Remaining work                                                                                                |
-| ------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------- |
-| Complete site data erasure     | Partial | Collection stops immediately, but Analytics Engine waits for expiry and durable stores need external cleanup. |
-| Iceberg row deletion           | Blocked | Execute row-level deletion through a writable Iceberg engine, then expire snapshots and remove orphan files.  |
-| Daily Arrow rollup deletion    | Missing | Enumerate and delete `sites/<site-id>/` objects as part of the deletion workflow.                             |
-| Deletion-job processor         | Missing | Claim jobs, retry safely, record errors, and mark each storage layer complete.                                |
-| Analytics Engine expiry status | Missing | Advance deletion-job state after the fixed retention period.                                                  |
-| User-visible deletion status   | Missing | Expose progress without leaking internal infrastructure details.                                              |
-| Configurable retention         | Missing | Add per-deployment or per-site durable-data policies.                                                         |
-| Deletion SLA                   | Missing | Monitor and alert on overdue jobs.                                                                            |
-| Traffic shields                | Missing | Add future-traffic exclusions by country, hostname, IP, and page.                                             |
-| Data residency controls        | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                     |
-| Export/data-subject workflow   | Missing | Add a documented administrative export and deletion process.                                                  |
-| Broader bot filtering          | Partial | The implementation does not match Plausible's full UA, referrer, data-center, and behavioral filtering.       |
+| Feature                        | Status  | Remaining work                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Complete site data erasure     | Partial | Collection stops immediately and a scheduled processor advances a per-layer deletion job (recording Iceberg as `blocked`), but Analytics Engine waits for physical expiry, daily-rollup objects and Iceberg rows are not deleted, and jobs cannot reach terminal completion.                                                                                          |
+| Iceberg row deletion           | Blocked | Execute row-level deletion through a writable Iceberg engine, then expire snapshots and remove orphan files; the processor records the explicit `blocked` state with the reason until such an engine exists.                                                                                                                                                          |
+| Daily Arrow rollup deletion    | Missing | Enumerate and delete `sites/<site-id>/` objects as part of the deletion workflow; the job tracks a `pending` daily-rollup state.                                                                                                                                                                                                                                      |
+| Deletion-job processor         | Partial | Claims due jobs atomically with row-scoped lease tokens (preventing concurrent runs), records attempts and errors, applies bounded exponential backoff, reschedules interrupted jobs, and records explicit blocked Iceberg state; it does not yet delete daily-rollup objects (DEL-002), delete Iceberg rows (DEL-003), or advance Analytics Engine expiry (DEL-004). |
+| Analytics Engine expiry status | Missing | The job records `analytics_engine_expires_at` and starts `pending_expiry`, but no path advances it to `expired` after the fixed retention period (DEL-004).                                                                                                                                                                                                           |
+| User-visible deletion status   | Missing | Expose progress without leaking internal infrastructure details.                                                                                                                                                                                                                                                                                                      |
+| Configurable retention         | Missing | Add per-deployment or per-site durable-data policies.                                                                                                                                                                                                                                                                                                                 |
+| Deletion SLA                   | Missing | Monitor and alert on overdue jobs.                                                                                                                                                                                                                                                                                                                                    |
+| Traffic shields                | Missing | Add future-traffic exclusions by country, hostname, IP, and page.                                                                                                                                                                                                                                                                                                     |
+| Data residency controls        | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                                                                                                                                                                                                                                                                             |
+| Export/data-subject workflow   | Missing | Add a documented administrative export and deletion process.                                                                                                                                                                                                                                                                                                          |
+| Broader bot filtering          | Partial | The implementation does not match Plausible's full UA, referrer, data-center, and behavioral filtering.                                                                                                                                                                                                                                                               |
 
 ## Deployment and operations
 

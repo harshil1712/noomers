@@ -188,9 +188,7 @@ describe("CloudflareClient", () => {
     describe("R2", () => {
         it("reuses an existing daily bucket from JSON output", async () => {
             vi.mocked($).mockReturnValueOnce({
-                stdout: JSON.stringify([
-                    { name: "noomers-daily-rollups" },
-                ]),
+                stdout: JSON.stringify([{ name: "noomers-daily-rollups" }]),
             } as any);
 
             await expect(
@@ -235,9 +233,7 @@ describe("CloudflareClient", () => {
                 .mockReturnValueOnce({ stdout: "[]" } as any)
                 .mockRejectedValueOnce(new Error("Bucket already exists"))
                 .mockReturnValueOnce({
-                    stdout: JSON.stringify([
-                        { name: "noomers-daily-rollups" },
-                    ]),
+                    stdout: JSON.stringify([{ name: "noomers-daily-rollups" }]),
                 } as any);
 
             await expect(
@@ -409,6 +405,15 @@ Getting User settings...
 
             expect(id).toBe("22222222-2222-2222-2222-222222222222");
             expect($).toHaveBeenCalledTimes(3);
+            expect(vi.mocked($).mock.calls[2]).toEqual([
+                [
+                    "npx wrangler d1 migrations apply ",
+                    " --remote --config ",
+                    "",
+                ],
+                "goals",
+                mockConfigPath,
+            ]);
         });
     });
 
