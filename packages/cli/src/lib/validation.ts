@@ -42,6 +42,32 @@ export function normalizeTimezone(value?: string): string {
     return timezone;
 }
 
+/**
+ * Character set allowed in an Analytics Engine dataset identifier. Quoting
+ * characters are intentionally excluded because the identifier is quoted with
+ * double quotes when building SQL.
+ */
+const DATASET_IDENTIFIER_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Validate a dataset identifier before interpolating it into Analytics Engine
+ * SQL or a Wrangler configuration. The validated value is then quoted with
+ * double quotes, so only a restricted character set is
+ * permitted.
+ */
+export function validateDatasetIdentifier(dataset: string): string {
+    const value = dataset.trim();
+    if (!value) {
+        throw new Error("Analytics dataset is required.");
+    }
+    if (!DATASET_IDENTIFIER_RE.test(value)) {
+        throw new Error(
+            "Analytics dataset may contain only letters, digits, underscores, and dashes.",
+        );
+    }
+    return value;
+}
+
 export function isValidDomain(value: string): boolean {
     try {
         normalizeDomain(value);

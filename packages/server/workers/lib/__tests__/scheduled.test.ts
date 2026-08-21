@@ -60,14 +60,18 @@ describe("runScheduledJobs", () => {
     test("runs deletion and Arrow rollup when storage is enabled", async () => {
         runDeletionJobs.mockResolvedValue(EMPTY_RUN);
         extractAsArrow.mockResolvedValue({ filenames: ["f"], recordCount: 1 });
-        const env = createEnv();
+        const env = createEnv({ ANALYTICS_DATASET: "custom-dataset" });
 
         const result = await runScheduledJobs(env);
 
         expect(runDeletionJobs).toHaveBeenCalledTimes(1);
         expect(extractAsArrow).toHaveBeenCalledTimes(1);
         expect(extractAsArrow).toHaveBeenCalledWith(
-            { accountId: "acct-123", bearerToken: "token-456" },
+            {
+                accountId: "acct-123",
+                bearerToken: "token-456",
+                dataset: "custom-dataset",
+            },
             env.DAILY_ROLLUPS,
         );
         expect(result.deletion.ok).toBe(true);
@@ -75,6 +79,18 @@ describe("runScheduledJobs", () => {
             ok: true,
             result: { filenames: ["f"], recordCount: 1 },
         });
+    });
+
+    test("defaults to metricsDataset when ANALYTICS_DATASET is not set", async () => {
+        runDeletionJobs.mockResolvedValue(EMPTY_RUN);
+        const env = createEnv();
+
+        await runScheduledJobs(env);
+
+        expect(extractAsArrow).toHaveBeenCalledWith(
+            expect.objectContaining({ dataset: "metricsDataset" }),
+            env.DAILY_ROLLUPS,
+        );
     });
 
     test("keeps the Arrow rollup running when the storage flag is unset", async () => {

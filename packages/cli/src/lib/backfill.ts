@@ -1,4 +1,6 @@
-import { normalizeDomain } from "./validation.js";
+import { normalizeDomain, validateDatasetIdentifier } from "./validation.js";
+
+export { validateDatasetIdentifier };
 
 /**
  * Safe upgrade backfill for existing noomers deployments.
@@ -31,42 +33,16 @@ export const BACKFILL_LIMIT_SENTINEL = BACKFILL_LIMIT + 1;
 export const BACKFILL_BATCH_SIZE = 100;
 
 /**
- * Character set allowed in a dataset identifier. Backticks are intentionally
- * excluded because we quote the identifier with backticks when building the
- * query; allowing a backtick would let a value break out of the quoted
- * identifier.
- */
-const DATASET_IDENTIFIER_RE = /^[A-Za-z0-9_-]+$/;
-
-/**
- * Validate a dataset identifier before interpolating it into the Analytics
- * Engine query. The validated value is then quoted with backticks, so only a
- * restricted character set (and never a backtick) is permitted.
- */
-export function validateDatasetIdentifier(dataset: string): string {
-    const value = dataset.trim();
-    if (!value) {
-        throw new Error("Analytics dataset is required.");
-    }
-    if (!DATASET_IDENTIFIER_RE.test(value)) {
-        throw new Error(
-            "Analytics dataset may contain only letters, digits, underscores, and dashes.",
-        );
-    }
-    return value;
-}
-
-/**
  * Build the Analytics Engine SQL query that returns distinct historical site
  * IDs (blob8) from the configured dataset, bounded by BACKFILL_LIMIT_SENTINEL.
- * The dataset identifier is validated and quoted with backticks before
+ * The dataset identifier is validated and quoted with double quotes before
  * interpolation.
  */
 export function buildHistoricalSiteIdsQuery(dataset: string): string {
     const safeDataset = validateDatasetIdentifier(dataset);
     return [
         "SELECT blob8 AS siteId",
-        `FROM \`${safeDataset}\``,
+        `FROM "${safeDataset}"`,
         "GROUP BY blob8",
         `LIMIT ${BACKFILL_LIMIT_SENTINEL}`,
     ].join(" ");

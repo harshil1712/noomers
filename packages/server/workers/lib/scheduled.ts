@@ -50,6 +50,7 @@ async function runArrow(env: Env): Promise<ArrowOutcome> {
             {
                 accountId: env.CF_ACCOUNT_ID,
                 bearerToken: env.CF_BEARER_TOKEN,
+                dataset: env.ANALYTICS_DATASET ?? "metricsDataset",
             },
             env.DAILY_ROLLUPS,
         );

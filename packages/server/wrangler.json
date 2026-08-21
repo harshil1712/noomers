@@ -28,6 +28,9 @@
             "migrations_dir": "./migrations"
         }
     ],
+    "vars": {
+        "ANALYTICS_DATASET": "metricsDataset"
+    },
     "triggers": {
         "crons": ["0 2 * * *"]
     }

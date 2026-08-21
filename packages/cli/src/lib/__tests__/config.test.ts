@@ -577,10 +577,11 @@ describe("CLI Functions", () => {
             expect(writtenConfig.vars).toEqual({
                 R2_SQL_BUCKET: "custom-warehouse",
                 R2_SQL_TABLE: "default.events",
+                ANALYTICS_DATASET: "custom-dataset",
             });
         });
 
-        it("does not add pipelines or vars on a fresh install", async () => {
+        it("sets the runtime ANALYTICS_DATASET var on a fresh install", async () => {
             const { existsSync, writeFileSync } = await import("node:fs");
             vi.mocked(existsSync).mockReturnValue(true);
             vi.mocked(writeFileSync);
@@ -602,7 +603,48 @@ describe("CLI Functions", () => {
             );
 
             expect(writtenConfig.pipelines).toBeUndefined();
-            expect(writtenConfig.vars).toBeUndefined();
+            expect(writtenConfig.vars).toEqual({
+                ANALYTICS_DATASET: "new-dataset",
+            });
+        });
+
+        it("merges ANALYTICS_DATASET with preserved vars on reinstall", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "custom-worker",
+                "custom-dataset",
+                undefined,
+                undefined,
+                undefined,
+                {
+                    workerName: "custom-worker",
+                    analyticsDataset: "custom-dataset",
+                    vars: {
+                        R2_SQL_BUCKET: "custom-warehouse",
+                        R2_SQL_TABLE: "default.events",
+                    },
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.vars).toEqual({
+                R2_SQL_BUCKET: "custom-warehouse",
+                R2_SQL_TABLE: "default.events",
+                ANALYTICS_DATASET: "custom-dataset",
+            });
         });
     });
 

@@ -40,6 +40,7 @@ function context(
                     data: [{ visitors: 12, pageviews: 20, events: 24 }],
                 }),
             ),
+            fromClause: 'FROM "metricsDataset"',
         },
         ...overrides,
     };
@@ -91,6 +92,30 @@ describe("Plausible Stats API v2", () => {
             },
         });
         expect(appContext.analyticsEngine.query).toHaveBeenCalledOnce();
+    });
+
+    test("targets the configured Analytics Engine dataset", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-08-02T12:00:00.000Z"));
+        const query = vi.fn().mockResolvedValue(
+            Response.json({ data: [{ visitors: 12, pageviews: 20, events: 24 }] }),
+        );
+        const response = await action({
+            request: request({
+                site_id: "example.com",
+                metrics: ["visitors", "pageviews"],
+                date_range: "7d",
+            }),
+            context: context({
+                analyticsEngine: {
+                    query,
+                    fromClause: 'FROM "custom-dataset"',
+                },
+            }),
+        } as never);
+
+        expect(response.status).toBe(200);
+        expect(query.mock.calls[0][0]).toContain('FROM "custom-dataset"');
     });
 
     test("rejects sites outside the registry", async () => {

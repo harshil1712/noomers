@@ -7,10 +7,14 @@ import utc from "dayjs/plugin/utc";
 dayjs.extend(utc);
 
 export async function extractAsArrow(
-    { accountId, bearerToken }: { accountId: string; bearerToken: string },
+    {
+        accountId,
+        bearerToken,
+        dataset,
+    }: { accountId: string; bearerToken: string; dataset: string },
     bucket: R2Bucket,
 ) {
-    const api = new AnalyticsEngineAPI(accountId, bearerToken);
+    const api = new AnalyticsEngineAPI(accountId, bearerToken, dataset);
 
     // Extract the exact UTC half-open previous-day interval
     // [UTC yesterday 00:00:00, UTC today 00:00:00)
@@ -57,7 +61,9 @@ export async function extractAsArrow(
         records.push(record);
     });
 
-    const recordsBySite = Map.groupBy(records, (record) => String(record.siteId));
+    const recordsBySite = Map.groupBy(records, (record) =>
+        String(record.siteId),
+    );
     const filenames = await Promise.all(
         Array.from(recordsBySite, async ([siteId, siteRecords]) => {
             const table = tableFromJSON(siteRecords);
@@ -141,6 +147,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         // Get credentials from environment variables
         const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
         const bearerToken = process.env.CLOUDFLARE_API_TOKEN;
+        const dataset = process.env.ANALYTICS_DATASET ?? "metricsDataset";
 
         if (!accountId || !bearerToken) {
             console.error(
@@ -151,7 +158,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
         try {
             const result = await extractAsArrow(
-                { accountId, bearerToken },
+                { accountId, bearerToken, dataset },
                 mockBucket,
             );
             console.log("Success:", result);

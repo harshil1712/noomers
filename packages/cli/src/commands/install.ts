@@ -50,7 +50,11 @@ import {
     provisionSiteIdempotently,
     resolveNoomersApiToken,
 } from "../lib/provision.js";
-import { normalizeDomain, normalizeTimezone } from "../lib/validation.js";
+import {
+    normalizeDomain,
+    normalizeTimezone,
+    validateDatasetIdentifier,
+} from "../lib/validation.js";
 
 export function bail() {
     cancel("Operation canceled.");
@@ -121,7 +125,7 @@ export async function promptProjectConfig(
         bail();
     }
 
-    const analyticsDataset = (await text({
+    let analyticsDataset = (await text({
         message:
             `What do you want to name your analytics dataset? ` +
             chalk.dim(`[default: ${defaultAnalyticsDataset}]`),
@@ -130,6 +134,26 @@ export async function promptProjectConfig(
 
     if (isCancel(analyticsDataset)) {
         bail();
+    }
+
+    while (true) {
+        try {
+            analyticsDataset = validateDatasetIdentifier(analyticsDataset);
+            break;
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : "Invalid dataset name";
+            log.error(message);
+            analyticsDataset = (await text({
+                message:
+                    `What do you want to name your analytics dataset? ` +
+                    chalk.dim(`[default: ${defaultAnalyticsDataset}]`),
+                initialValue: defaultAnalyticsDataset,
+            })) as string;
+            if (isCancel(analyticsDataset)) {
+                bail();
+            }
+        }
     }
 
     return { workerName, analyticsDataset };

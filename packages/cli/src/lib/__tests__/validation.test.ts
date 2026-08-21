@@ -4,6 +4,7 @@ import {
     normalizeTimezone,
     isValidDomain,
     isValidTimezone,
+    validateDatasetIdentifier,
 } from "../validation.js";
 
 describe("normalizeDomain", () => {
@@ -49,6 +50,36 @@ describe("normalizeTimezone", () => {
         expect(() => normalizeTimezone("Not/AZone")).toThrow(
             "A valid IANA timezone is required",
         );
+    });
+});
+
+describe("validateDatasetIdentifier", () => {
+    it("accepts a normal dataset identifier", () => {
+        expect(validateDatasetIdentifier("metricsDataset")).toBe(
+            "metricsDataset",
+        );
+        expect(validateDatasetIdentifier("  my-dataset_1  ")).toBe(
+            "my-dataset_1",
+        );
+    });
+
+    it("rejects empty dataset identifiers", () => {
+        expect(() => validateDatasetIdentifier("")).toThrow(
+            "Analytics dataset is required",
+        );
+        expect(() => validateDatasetIdentifier("   ")).toThrow();
+    });
+
+    it("rejects unsafe identifiers and quoting characters", () => {
+        expect(() =>
+            validateDatasetIdentifier("metrics; DROP TABLE x"),
+        ).toThrow();
+        expect(() => validateDatasetIdentifier("metrics' OR '1'='1")).toThrow();
+        expect(() => validateDatasetIdentifier("a b")).toThrow();
+        expect(() => validateDatasetIdentifier("`metrics`")).toThrow();
+        expect(() => validateDatasetIdentifier("a`b")).toThrow();
+        expect(() => validateDatasetIdentifier('"metrics"')).toThrow();
+        expect(() => validateDatasetIdentifier('a"b')).toThrow();
     });
 });
 

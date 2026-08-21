@@ -75,6 +75,75 @@ describe("AnalyticsEngineAPI", () => {
         });
     });
 
+    describe("constructor", () => {
+        test("defaults to the metricsDataset identifier", () => {
+            const defaultApi = new AnalyticsEngineAPI(
+                "test_account_id",
+                "test_api_token",
+            );
+            expect(defaultApi.datasetName).toBe("metricsDataset");
+            expect(defaultApi.fromClause).toBe('FROM "metricsDataset"');
+        });
+
+        test("accepts and quotes a custom dataset identifier", () => {
+            const customApi = new AnalyticsEngineAPI(
+                "test_account_id",
+                "test_api_token",
+                "custom-metrics-dataset",
+            );
+            expect(customApi.datasetName).toBe("custom-metrics-dataset");
+            expect(customApi.fromClause).toBe('FROM "custom-metrics-dataset"');
+        });
+
+        test("trims whitespace from the dataset identifier", () => {
+            const trimmedApi = new AnalyticsEngineAPI(
+                "test_account_id",
+                "test_api_token",
+                "  custom-dataset  ",
+            );
+            expect(trimmedApi.datasetName).toBe("custom-dataset");
+        });
+
+        test("rejects unsafe dataset identifiers", () => {
+            expect(
+                () =>
+                    new AnalyticsEngineAPI(
+                        "test_account_id",
+                        "test_api_token",
+                        "dataset; DROP TABLE",
+                    ),
+            ).toThrow();
+            expect(
+                () =>
+                    new AnalyticsEngineAPI(
+                        "test_account_id",
+                        "test_api_token",
+                        "dataset`name",
+                    ),
+            ).toThrow();
+            expect(
+                () =>
+                    new AnalyticsEngineAPI(
+                        "test_account_id",
+                        "test_api_token",
+                        'dataset"name',
+                    ),
+            ).toThrow();
+        });
+
+        test("uses the custom dataset in generated SQL", async () => {
+            fetch.mockResolvedValue(createFetchResponse({ data: [] }));
+            const customApi = new AnalyticsEngineAPI(
+                "test_account_id",
+                "test_api_token",
+                "custom-dataset",
+            );
+            await customApi.getCounts("example.com", "7d");
+            const query = fetch.mock.calls[0][1].body as string;
+            expect(query).toContain('FROM "custom-dataset"');
+        });
+    });
+
     describe("getViewsGroupedByInterval", () => {
         test("should return an array of [timestamp, count] tuples grouped by day", async () => {
             expect(process.env.TZ).toBe("EST");

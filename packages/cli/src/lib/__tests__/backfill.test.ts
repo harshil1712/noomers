@@ -41,10 +41,10 @@ describe("validateDatasetIdentifier", () => {
 });
 
 describe("buildHistoricalSiteIdsQuery", () => {
-    it("builds a bounded query against blob8 with a sentinel and backtick-quoted dataset", () => {
+    it("builds a bounded query against blob8 with a sentinel and double-quoted dataset", () => {
         const sql = buildHistoricalSiteIdsQuery("metrics-dataset");
         expect(sql).toContain("SELECT blob8 AS siteId");
-        expect(sql).toContain("FROM `metrics-dataset`");
+        expect(sql).toContain('FROM "metrics-dataset"');
         expect(sql).toContain("GROUP BY blob8");
         expect(sql).toContain(`LIMIT ${BACKFILL_LIMIT + 1}`);
     });
@@ -52,6 +52,7 @@ describe("buildHistoricalSiteIdsQuery", () => {
     it("validates the dataset identifier before interpolation", () => {
         expect(() => buildHistoricalSiteIdsQuery("bad; DROP")).toThrow();
         expect(() => buildHistoricalSiteIdsQuery("bad`name")).toThrow();
+        expect(() => buildHistoricalSiteIdsQuery('bad"name')).toThrow();
     });
 });
 

@@ -4,3 +4,4 @@ coverage
 public/build
 package-lock.json
 pnpm-lock.yaml
+packages/server/worker-configuration.d.ts

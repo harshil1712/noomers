@@ -27,6 +27,7 @@ export const getLoadContext: GetLoadContext = ({ context }) => {
     const analyticsEngine = new AnalyticsEngineAPI(
         context.cloudflare.env.CF_ACCOUNT_ID,
         context.cloudflare.env.CF_BEARER_TOKEN,
+        context.cloudflare.env.ANALYTICS_DATASET ?? "metricsDataset",
     );
     const { R2_SQL_BUCKET, R2_SQL_TABLE, R2_SQL_TOKEN } =
         context.cloudflare.env;

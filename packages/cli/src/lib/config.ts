@@ -653,9 +653,15 @@ export async function stageDeployConfig(
             preservedConfig.pipelines,
         );
     }
-    if (preservedConfig?.vars) {
-        outDeployConfig.vars = preservedConfig.vars;
-    }
+
+    // Synchronize the runtime dataset name with the Analytics Engine binding.
+    // Always write this var so the server's SQL builders know which dataset
+    // the WEB_COUNTER_AE binding points to. Merge with preserved vars so R2 SQL
+    // configuration is never overwritten.
+    outDeployConfig.vars = {
+        ...(preservedConfig?.vars ?? {}),
+        ANALYTICS_DATASET: analyticsDataset,
+    };
 
     writeFileSync(targetPath, JSON.stringify(outDeployConfig, null, 2));
 }

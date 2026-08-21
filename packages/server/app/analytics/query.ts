@@ -173,9 +173,26 @@ function sqlString(value?: string): string {
  *       See: https://developers.cloudflare.com/analytics/analytics-engine/sql-reference/
  */
 
+const DATASET_IDENTIFIER_RE = /^[A-Za-z0-9_-]+$/;
+
+function validateDatasetIdentifier(dataset: string): string {
+    const value = dataset.trim();
+    if (!value) {
+        throw new Error("Analytics dataset is required.");
+    }
+    if (!DATASET_IDENTIFIER_RE.test(value)) {
+        throw new Error(
+            "Analytics dataset may contain only letters, digits, underscores, and dashes.",
+        );
+    }
+    return value;
+}
+
 export class AnalyticsEngineAPI {
     cfApiToken: string;
     cfAccountId: string;
+    datasetName: string;
+    fromClause: string;
     defaultHeaders: {
         "content-type": string;
         "X-Source": string;
@@ -183,9 +200,15 @@ export class AnalyticsEngineAPI {
     };
     defaultUrl: string;
 
-    constructor(cfAccountId: string, cfApiToken: string) {
+    constructor(
+        cfAccountId: string,
+        cfApiToken: string,
+        dataset = "metricsDataset",
+    ) {
         this.cfAccountId = cfAccountId;
         this.cfApiToken = cfApiToken;
+        this.datasetName = validateDatasetIdentifier(dataset);
+        this.fromClause = `FROM "${this.datasetName}"`;
 
         this.defaultUrl = `https://api.cloudflare.com/client/v4/accounts/${this.cfAccountId}/analytics_engine/sql`;
         this.defaultHeaders = {
@@ -254,7 +277,7 @@ export class AnalyticsEngineAPI {
 
             /* output as UTC */
             toDateTime(_bucket, 'Etc/UTC') as bucket
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= toDateTime('${localStartTime.format("YYYY-MM-DD HH:mm:ss")}')
 								AND timestamp < toDateTime('${localEndTime.format("YYYY-MM-DD HH:mm:ss")}')
                 AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
@@ -367,7 +390,7 @@ export class AnalyticsEngineAPI {
                 count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
                 ${ColumnMappings.newVisitor} as isVisitor,
                 ${ColumnMappings.bounce} as isBounce
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
@@ -448,7 +471,7 @@ export class AnalyticsEngineAPI {
                 count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
                 ${ColumnMappings.newVisitor} as isVisitor,
                 ${ColumnMappings.bounce} as isBounce
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= toDateTime('${startDateTimeSql}') AND timestamp < toDateTime('${endDateTimeSql}')
                 AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
@@ -521,7 +544,7 @@ export class AnalyticsEngineAPI {
                 count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
                 countIf(${ColumnMappings.visitorId} = '') as missingVisitorIds,
                 sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) as legacyVisitors
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
                 AND ${PAGEVIEW_FILTER_SQL}
@@ -596,7 +619,7 @@ export class AnalyticsEngineAPI {
                 SUM(${ColumnMappings.bounce} * _sample_interval) as bounces,
                 ${ColumnMappings.siteId} as siteId, 
                 ${columnsStrWithAliases}
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= toDateTime('${startDateTimeSql}') AND timestamp < toDateTime('${endDateTimeSql}')
             GROUP BY date,
                 ${ColumnMappings.siteId}, 
@@ -700,7 +723,7 @@ export class AnalyticsEngineAPI {
         const query = `
             SELECT ${_column},
                 SUM(_sample_interval) as count
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
                 AND ${PAGEVIEW_FILTER_SQL}
@@ -800,7 +823,7 @@ export class AnalyticsEngineAPI {
         const query = `
             SELECT ${eventNameColumn} as eventName,
                 SUM(_sample_interval) as count
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
                 AND ${eventNameColumn} != ''
@@ -839,7 +862,7 @@ export class AnalyticsEngineAPI {
                 : `${PAGEVIEW_FILTER_SQL} AND ${ColumnMappings.path} = ${sqlString(goal.value)}`;
         const query = `
             SELECT count(DISTINCT ${ColumnMappings.visitorId}) as conversions
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
                 AND ${ColumnMappings.visitorId} != ''
@@ -1061,7 +1084,7 @@ export class AnalyticsEngineAPI {
         const query = `
             SELECT SUM(_sample_interval) as count,
                 ${ColumnMappings.siteId} as siteId
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${PAGEVIEW_FILTER_SQL}
             GROUP BY siteId
@@ -1109,7 +1132,7 @@ export class AnalyticsEngineAPI {
             SELECT
                 MIN(timestamp) as earliestEvent,
                 ${ColumnMappings.bounce} as isBounce
-            FROM metricsDataset
+            ${this.fromClause}
             WHERE ${ColumnMappings.siteId} = ${sqlString(siteId)}
                 AND ${PAGEVIEW_FILTER_SQL}
             GROUP by isBounce

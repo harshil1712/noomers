@@ -54,7 +54,11 @@ describe("extractAsArrow", () => {
         const bucket = createBucket();
 
         await extractAsArrow(
-            { accountId: "acct", bearerToken: "token" },
+            {
+                accountId: "acct",
+                bearerToken: "token",
+                dataset: "custom-dataset",
+            },
             bucket as never,
         );
 
@@ -66,6 +70,11 @@ describe("extractAsArrow", () => {
         expect(columns).not.toContain("siteId");
         expect(columns).not.toContain("visitorId");
         expect(columns).not.toContain("eventProperties");
+        expect(AnalyticsEngineAPI).toHaveBeenCalledWith(
+            "acct",
+            "token",
+            "custom-dataset",
+        );
     });
 
     test("writes files named for the UTC previous day", async () => {
@@ -80,7 +89,11 @@ describe("extractAsArrow", () => {
         const bucket = createBucket();
 
         const result = await extractAsArrow(
-            { accountId: "acct", bearerToken: "token" },
+            {
+                accountId: "acct",
+                bearerToken: "token",
+                dataset: "custom-dataset",
+            },
             bucket as never,
         );
 

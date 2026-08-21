@@ -340,7 +340,7 @@ async function getAEBasicMetrics(analytics: AnalyticsEngineAPI, query: StatsQuer
             count(DISTINCT ${ColumnMappings.visitorId}) - (countIf(${ColumnMappings.visitorId} = '') > 0) + sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) AS visitors,
             sumIf(_sample_interval, ${ColumnMappings.eventName} = '') AS pageviews,
             SUM(_sample_interval) AS events
-        FROM metricsDataset
+        ${analytics.fromClause}
         WHERE timestamp >= toDateTime64(${sqlString(sqlDate(query.start))}, 3)
             AND timestamp < toDateTime64(${sqlString(sqlDate(query.end))}, 3)
             AND ${ColumnMappings.siteId} = ${sqlString(query.site_id)}
@@ -350,7 +350,7 @@ async function getAEBasicMetrics(analytics: AnalyticsEngineAPI, query: StatsQuer
         LIMIT ${limit}`;
     const countSql = dimensionColumn && query.include.total_rows ? `
         SELECT count(DISTINCT ${dimensionColumn}) AS totalRows
-        FROM metricsDataset
+        ${analytics.fromClause}
         WHERE timestamp >= toDateTime64(${sqlString(sqlDate(query.start))}, 3)
             AND timestamp < toDateTime64(${sqlString(sqlDate(query.end))}, 3)
             AND ${ColumnMappings.siteId} = ${sqlString(query.site_id)}

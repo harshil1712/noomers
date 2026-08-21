@@ -262,7 +262,7 @@ describe("install flow safety", () => {
             "metricsDataset",
         );
         expect(staged.pipelines).toBeUndefined();
-        expect(staged.vars).toBeUndefined();
+        expect(staged.vars).toEqual({ ANALYTICS_DATASET: "metricsDataset" });
     });
 
     it("preserves the persisted custom worker, dataset, EVENT_STREAM pipeline, and R2 SQL vars without Cloudflare mutation", async () => {
@@ -295,6 +295,7 @@ describe("install flow safety", () => {
         expect(staged.vars).toEqual({
             R2_SQL_BUCKET: "custom-warehouse",
             R2_SQL_TABLE: "default.events",
+            ANALYTICS_DATASET: "custom-dataset",
         });
 
         const client = clientInstance;
@@ -424,7 +425,7 @@ describe("install flow safety", () => {
         // the server package default.
         expect(client!.queryAnalyticsEngine).toHaveBeenCalled();
         for (const call of client!.queryAnalyticsEngine.mock.calls) {
-            expect(call[2]).toContain("FROM `custom-dataset`");
+            expect(call[2]).toContain('FROM "custom-dataset"');
         }
 
         // The deployed Wrangler config keeps the custom name, dataset,
@@ -444,6 +445,7 @@ describe("install flow safety", () => {
         expect(deployedConfig.vars).toEqual({
             R2_SQL_BUCKET: "custom-warehouse",
             R2_SQL_TABLE: "default.events",
+            ANALYTICS_DATASET: "custom-dataset",
         });
 
         // Deployment metadata records the preserved pipeline and R2 SQL values.
