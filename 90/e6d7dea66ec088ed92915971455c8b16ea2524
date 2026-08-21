@@ -1,0 +1,45 @@
+docs/implementation-roadmap.md
+  s_a48f5d58e37807::t_386d0bde4ee379 211-221
+packages/cli/src/commands/__tests__/install-flow.test.ts
+  s_80d15b39dbb982::t_80db565739b4f4 5-8,58-60,67-71,106-125,160,256-258,284-286,293,335-364,442,461
+packages/cli/src/commands/install.ts
+  s_80d15b39dbb982::t_37e2501d3715c1 29,610-613,615
+packages/cli/src/lib/__tests__/config.test.ts
+  s_80d15b39dbb982::t_b6185b354cca5c 8,12,483-518,541,712,725,738,751,753,768,803,862-865,876,970,1010,1020,1026-1045,1058,1064-1115
+packages/cli/src/lib/config.ts
+  s_80d15b39dbb982::t_c5fb8ec41f19d3 43,45-49,52-58,65-67,82-129,161-166,210-211,213,218,294-295,648-650,652-654
+packages/server/pipelines/events.schema.json
+  s_45bd857df2d4c4::t_267c79599882bc 14,25-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "90e6d7dea66ec088ed92915971455c8b16ea2524",
+  "prompts": {},
+  "sessions": {
+    "s_45bd857df2d4c4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdffd4444ffenhwbnM9IXX8xOW",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_80d15b39dbb982": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fd9c6d489ffeasS99JOG8OtSWd",
+        "model": "@cf/moonshotai/kimi-k2.7-code"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    },
+    "s_a48f5d58e37807": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdfebf513ffeoZ9hts1FDU8c8C",
+        "model": "@cf/moonshotai/kimi-k2.7-code"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
