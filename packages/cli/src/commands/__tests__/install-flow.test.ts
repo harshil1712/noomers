@@ -2,7 +2,10 @@ process.env.NODE_ENV = "test";
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-import { DEPLOYMENT_CONFIG_PATH, DEPLOYMENT_METADATA_PATH } from "../../lib/config.js";
+import {
+    DEPLOYMENT_CONFIG_PATH,
+    DEPLOYMENT_METADATA_PATH,
+} from "../../lib/config.js";
 
 /**
  * Mutable state shared between the install flow and the `node:fs` mock. Lets
@@ -52,15 +55,20 @@ vi.mock("../../lib/cloudflare.js", () => {
             queryAnalyticsEngine: vi
                 .fn()
                 .mockImplementation(async () => clientState.queryData),
-            deploy: vi.fn().mockImplementation(async () => clientState.deployUrl),
+            deploy: vi
+                .fn()
+                .mockImplementation(async () => clientState.deployUrl),
             getSiteByDomain: vi.fn().mockResolvedValue(null),
             createSite: vi.fn().mockResolvedValue({}),
             verifySitesApiAuth: vi.fn().mockResolvedValue(true),
         };
         return clientInstance;
     });
-    (CloudflareClient as unknown as { validateToken: ReturnType<typeof vi.fn> })
-        .validateToken = vi.fn().mockResolvedValue({ valid: true });
+    (
+        CloudflareClient as unknown as {
+            validateToken: ReturnType<typeof vi.fn>;
+        }
+    ).validateToken = vi.fn().mockResolvedValue({ valid: true });
     return { CloudflareClient };
 });
 
@@ -95,21 +103,26 @@ vi.mock("node:fs", async (importOriginal) => {
                 ...args,
             );
         }),
-        writeFileSync: vi.fn((p: unknown, content: unknown, ...args: unknown[]) => {
-            fsState.writtenFiles.push({
-                path: p as string,
-                content: content as string,
-            });
-            // Never touch a real ~/.noomers deployment from a test.
-            if (p === DEPLOYMENT_CONFIG_PATH || p === DEPLOYMENT_METADATA_PATH) {
-                return;
-            }
-            return (actual.writeFileSync as (...a: unknown[]) => unknown)(
-                p,
-                content,
-                ...args,
-            );
-        }),
+        writeFileSync: vi.fn(
+            (p: unknown, content: unknown, ...args: unknown[]) => {
+                fsState.writtenFiles.push({
+                    path: p as string,
+                    content: content as string,
+                });
+                // Never touch a real ~/.noomers deployment from a test.
+                if (
+                    p === DEPLOYMENT_CONFIG_PATH ||
+                    p === DEPLOYMENT_METADATA_PATH
+                ) {
+                    return;
+                }
+                return (actual.writeFileSync as (...a: unknown[]) => unknown)(
+                    p,
+                    content,
+                    ...args,
+                );
+            },
+        ),
         mkdirSync: vi.fn(() => undefined),
     };
 });
@@ -144,7 +157,7 @@ const CUSTOM_PERSISTED_CONFIG = {
     analytics_engine_datasets: [
         { binding: "WEB_COUNTER_AE", dataset: "custom-dataset" },
     ],
-    pipelines: [{ binding: "EVENT_STREAM", pipeline: "noomers-events" }],
+    pipelines: [{ binding: "EVENT_STREAM", stream: "noomers-events" }],
     vars: {
         R2_SQL_BUCKET: "custom-warehouse",
         R2_SQL_TABLE: "default.events",
@@ -240,7 +253,9 @@ describe("install flow safety", () => {
 
         const stagedWrites = stagedConfigWrites();
         expect(stagedWrites.length).toBeGreaterThan(0);
-        const staged = JSON.parse(stagedWrites[stagedWrites.length - 1].content);
+        const staged = JSON.parse(
+            stagedWrites[stagedWrites.length - 1].content,
+        );
 
         expect(staged.name).toBe("noomers");
         expect(staged.analytics_engine_datasets[0].dataset).toBe(
@@ -266,14 +281,16 @@ describe("install flow safety", () => {
 
         const stagedWrites = stagedConfigWrites();
         expect(stagedWrites.length).toBeGreaterThan(0);
-        const staged = JSON.parse(stagedWrites[stagedWrites.length - 1].content);
+        const staged = JSON.parse(
+            stagedWrites[stagedWrites.length - 1].content,
+        );
 
         expect(staged.name).toBe("custom-worker");
         expect(staged.analytics_engine_datasets[0].dataset).toBe(
             "custom-dataset",
         );
         expect(staged.pipelines).toEqual([
-            { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+            { binding: "EVENT_STREAM", stream: "noomers-events" },
         ]);
         expect(staged.vars).toEqual({
             R2_SQL_BUCKET: "custom-warehouse",
@@ -313,6 +330,36 @@ describe("install flow safety", () => {
         // and no staged config was written.
         expect(clientInstance).toBeUndefined();
         expect(stagedConfigWrites()).toHaveLength(0);
+    });
+
+    it("migrates a legacy `pipeline` field to `stream` on reinstall", async () => {
+        fsState.persistedConfig = JSON.stringify({
+            ...CUSTOM_PERSISTED_CONFIG,
+            pipelines: [
+                { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+            ],
+        });
+        fsState.persistedMetadata = JSON.stringify(CUSTOM_PERSISTED_METADATA);
+        (isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+            false,
+        );
+        (confirm as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(
+            false,
+        );
+
+        await install({ advanced: false, verbose: false }, "/some/server/dir", {
+            version: "1.0.0",
+        });
+
+        const stagedWrites = stagedConfigWrites();
+        expect(stagedWrites.length).toBeGreaterThan(0);
+        const staged = JSON.parse(
+            stagedWrites[stagedWrites.length - 1].content,
+        );
+
+        expect(staged.pipelines).toEqual([
+            { binding: "EVENT_STREAM", stream: "noomers-events" },
+        ]);
     });
 
     it("uses the preserved worker and dataset as advanced prompt defaults", async () => {
@@ -392,7 +439,7 @@ describe("install flow safety", () => {
             "custom-dataset",
         );
         expect(deployedConfig.pipelines).toEqual([
-            { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+            { binding: "EVENT_STREAM", stream: "noomers-events" },
         ]);
         expect(deployedConfig.vars).toEqual({
             R2_SQL_BUCKET: "custom-warehouse",

@@ -22,7 +22,7 @@ noomers is powered primarily by Cloudflare Workers and [Workers Analytics Engine
 
 The default daily Arrow rollups are **archival and write-only today**: they store data for durability but there is no dashboard, query, or restore path that reads them. The dashboard and Stats API read realtime Analytics Engine data (the last 90 days) and, when configured, exact session history from R2 SQL. Successfully accepting an event through `/collect` or `/api/event` confirms the request passed validation (the site is active and the body/schema is accepted); it means realtime Analytics Engine and optional durable writes were **attempted**, not that the provider persisted them. Deleting a site tombstones it immediately and records an internal deletion job that a scheduled processor safely claims, leases, retries, and advances as far as the current roadmap allows: it records explicit per-layer state — Analytics Engine expiry (`pending_expiry` with a calculated `analytics_engine_expires_at`), daily-rollup deletion (`pending`/`completed`/`failed`), and Iceberg maintenance (`pending`/`blocked`/`completed`/`failed`, with an error and updated-at timestamp) — and marks Iceberg as `blocked` because no writable Iceberg engine is provisioned. Daily rollup deletion (DEL-002) and the Analytics Engine expiry transition (DEL-004) are not yet implemented, so a job never reaches terminal completion and deletion is not immediate complete erasure; Analytics Engine data physically expires through its retention period. See the [Plausible feature parity](docs/plausible-feature-parity.md) and [implementation roadmap](docs/implementation-roadmap.md) documents for the exact supported baseline.
 
-noomers implements a subset of Plausible's APIs and product features. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline, remaining work, deferred features, and infrastructure-dependent gaps. See the [feature implementation roadmap](docs/implementation-roadmap.md) for sequencing, dependencies, and completion criteria.
+noomers implements a subset of Plausible's APIs and product features. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline, remaining work, deferred features, and infrastructure-dependent gaps. See the [feature implementation roadmap](docs/implementation-roadmap.md) for sequencing, dependencies, and completion criteria. See [production readiness](docs/production-readiness.md) for the supported initial production scope and the gates between a pilot deployment and general production.
 
 ## Installation
 
@@ -224,14 +224,14 @@ Use the **Goals** card in the dashboard to create either an event goal (for exam
 
 noomers can optionally send a canonical copy of each event to a Cloudflare Pipeline for storage as an R2 Iceberg table. Analytics Engine remains the realtime data source. The durable record contains parsed browser and device fields plus a rotating visitor hash; it does not contain raw IP addresses or user-agent strings.
 
-Create a Pipeline using `npx wrangler@latest pipelines setup`, load the schema from `packages/server/pipelines/events.schema.json`, and choose simple ingestion into an R2 Data Catalog sink. Then add the Pipeline name to the Worker configuration used for deployment:
+Create a Pipeline using `npx wrangler@latest pipelines setup`, load the schema from `packages/server/pipelines/events.schema.json`, and choose simple ingestion into an R2 Data Catalog sink. Then add the emitted stream ID to the Worker configuration used for deployment:
 
 ```json
 {
     "pipelines": [
         {
             "binding": "EVENT_STREAM",
-            "pipeline": "<PIPELINE_NAME>"
+            "stream": "<STREAM_ID>"
         }
     ]
 }

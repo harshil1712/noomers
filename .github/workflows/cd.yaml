@@ -7,9 +7,13 @@ on:
 
 jobs:
     deploy:
+        if: github.event.workflow_run.conclusion == 'success'
         runs-on: ubuntu-latest
+        environment: production
         steps:
             - uses: actions/checkout@v4
+              with:
+                  ref: ${{ github.event.workflow_run.head_sha }}
             - uses: actions/setup-node@v4
               with:
                   node-version-file: "package.json"
@@ -21,4 +25,4 @@ jobs:
                   apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   workingDirectory: "packages/server"
                   command: |
-                      deploy --var VERSION:${{ github.sha }}
+                      deploy --var VERSION:${{ github.event.workflow_run.head_sha }}

@@ -49,6 +49,7 @@ import SearchFilterBadges from "~/components/SearchFilterBadges";
 import { TimeSeriesCard } from "./resources.timeseries";
 import { StatsCard } from "./resources.stats";
 import { requireAuth } from "~/lib/auth";
+import { SitesRepository } from "~/sites/repository";
 
 export const meta: MetaFunction = () => {
     return [
@@ -74,6 +75,11 @@ export const loader = async ({ context, request }: LoaderFunctionArgs) => {
         });
     }
     const { analyticsEngine } = context;
+    const registeredSites = new SitesRepository(
+        context.cloudflare.env.GOALS_DB,
+    )
+        .list({ limit: 100 })
+        .then(({ sites }) => sites.map(({ domain }) => domain));
 
     const url = new URL(request.url);
 
@@ -87,11 +93,13 @@ export const loader = async ({ context, request }: LoaderFunctionArgs) => {
     // if no siteId is set, redirect to the site with the most hits
     // during the default interval (e.g. 7d)
     if (url.searchParams.has("site") === false) {
-        const sitesByHits =
-            await analyticsEngine.getSitesOrderedByHits(interval);
+        const [sitesByHits, sites] = await Promise.all([
+            analyticsEngine.getSitesOrderedByHits(interval),
+            registeredSites,
+        ]);
 
         // if at least one result
-        const redirectSite = sitesByHits[0]?.[0] || "";
+        const redirectSite = sitesByHits[0]?.[0] || sites[0] || "";
         const redirectUrl = new URL(request.url);
         redirectUrl.searchParams.set("site", redirectSite);
         throw redirect(redirectUrl.toString());
@@ -119,9 +127,14 @@ export const loader = async ({ context, request }: LoaderFunctionArgs) => {
     try {
         out = {
             siteId: actualSiteId,
-            sites: (await sitesByHits).map(
-                ([site, _]: [string, number]) => site,
-            ),
+            sites: [
+                ...new Set([
+                    ...(await sitesByHits).map(
+                        ([site, _]: [string, number]) => site,
+                    ),
+                    ...(await registeredSites),
+                ]),
+            ],
             intervalType,
             interval,
             filters,

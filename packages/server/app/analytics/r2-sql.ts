@@ -218,7 +218,7 @@ export class R2SQLAPI {
     }
 
     async query<Row>(query: string): Promise<Row[]> {
-        const response = await this.fetcher(this.endpoint, {
+        const response = await this.fetcher.call(globalThis, this.endpoint, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${this.apiToken}`,

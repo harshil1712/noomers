@@ -26,6 +26,7 @@ import {
     resolveDailyRollupsBucket,
     resolveWorkerAndDataset,
     readPersistedDeploymentConfig,
+    suggestPipelineName,
 } from "../lib/config.js";
 
 import { CloudflareClient } from "../lib/cloudflare.js";
@@ -606,9 +607,12 @@ Your token needs these permissions:
     }
 
     if (deployUrl) {
-        if (!(persistedConfig?.pipelines ?? initialDeployConfig.pipelines)?.length) {
+        if (
+            !(persistedConfig?.pipelines ?? initialDeployConfig.pipelines)
+                ?.length
+        ) {
             note(
-                `Pipeline/Data Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest pipelines list\nSetup: npx wrangler@latest pipelines setup --name ${workerName}-events\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest r2 bucket catalog get <BUCKET>`,
+                `Pipeline/Data Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest pipelines list\nSetup: npx wrangler@latest pipelines setup --name ${suggestPipelineName(workerName)}\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest r2 bucket catalog get <BUCKET>`,
                 "Optional convergence storage",
             );
         }

@@ -447,8 +447,26 @@ describe("AnalyticsEngineAPI", () => {
                 ["GB", 1],
             ]);
             expect(fetch.mock.calls[0][1].body).toContain(
-                "ORDER BY visitors DESC",
+                "ORDER BY distinctVisitors + legacyVisitors - ceil(missingVisitorIds / (missingVisitorIds + 1)) DESC",
             );
+        });
+
+        test("it excludes the empty visitor ID used by legacy events", async () => {
+            mockQueryResponses({
+                data: [
+                    {
+                        blob4: "US",
+                        count: 5,
+                        distinctVisitors: 3,
+                        missingVisitorIds: 2,
+                        legacyVisitors: 2,
+                    },
+                ],
+            });
+
+            await expect(
+                api.getVisitorCountByColumn("example.com", "country", "7d"),
+            ).resolves.toEqual([["US", 4]]);
         });
     });
 

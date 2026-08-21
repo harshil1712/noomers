@@ -73,6 +73,47 @@ describe("R2SQLAPI", () => {
         expect(query).toContain("matching_events > 0");
     });
 
+    test("calls the injected fetcher with the global receiver, not the R2SQLAPI instance", async () => {
+        const fetcher = vi.fn(function (
+            _url: string | Request | URL,
+            _init?: RequestInit,
+        ) {
+            return Promise.resolve(
+                new Response(
+                    JSON.stringify({ success: true, result: { rows: [] } }),
+                    { status: 200 },
+                ),
+            );
+        });
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.query("SELECT 1");
+
+        expect(fetcher.mock.contexts[0]).not.toBeInstanceOf(R2SQLAPI);
+        expect(fetcher).toHaveBeenCalledWith(
+            "https://api.sql.cloudflarestorage.com/api/v1/accounts/account/r2-sql/query/bucket",
+            expect.objectContaining({
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer token",
+                    "Content-Type": "application/json",
+                },
+            }),
+        );
+        const request = fetcher.mock.calls[0][1] as RequestInit;
+        const requestBody = JSON.parse(String(request.body));
+        expect(requestBody).toEqual({
+            warehouse: "account_bucket",
+            query: "SELECT 1",
+        });
+    });
+
     test("returns zeroes when the query has no rows", async () => {
         const fetcher = vi
             .fn()

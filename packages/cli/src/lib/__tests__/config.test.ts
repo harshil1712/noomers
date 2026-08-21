@@ -5,9 +5,11 @@ import {
     getWorkerAndDatasetName,
     getDeploymentConfigPath,
     makePathsAbsolute,
+    normalizePipelines,
     persistDeployment,
     readInitialServerConfig,
     stageDeployConfig,
+    suggestPipelineName,
     DEPLOYMENT_CONFIG_PATH,
     DEPLOYMENT_METADATA_PATH,
     resolvePipelineName,
@@ -490,6 +492,42 @@ describe("CLI Functions", () => {
                     workerName: "custom-worker",
                     analyticsDataset: "custom-dataset",
                     pipelines: [
+                        { binding: "EVENT_STREAM", stream: "noomers-events" },
+                    ],
+                },
+            );
+
+            const writtenConfig = JSON.parse(
+                vi.mocked(writeFileSync).mock.calls[0][1] as string,
+            );
+
+            expect(writtenConfig.pipelines).toEqual([
+                { binding: "EVENT_STREAM", stream: "noomers-events" },
+            ]);
+        });
+
+        it("normalizes a legacy `pipeline` field to `stream` on reinstall", async () => {
+            const { existsSync, writeFileSync } = await import("node:fs");
+            vi.mocked(existsSync).mockReturnValue(true);
+            vi.mocked(writeFileSync);
+
+            const initialConfig = {
+                name: "noomers",
+                analytics_engine_datasets: [{ dataset: "metricsDataset" }],
+            };
+
+            await stageDeployConfig(
+                "/target/wrangler.json",
+                initialConfig,
+                "custom-worker",
+                "custom-dataset",
+                undefined,
+                undefined,
+                undefined,
+                {
+                    workerName: "custom-worker",
+                    analyticsDataset: "custom-dataset",
+                    pipelines: [
                         { binding: "EVENT_STREAM", pipeline: "noomers-events" },
                     ],
                 },
@@ -500,7 +538,7 @@ describe("CLI Functions", () => {
             );
 
             expect(writtenConfig.pipelines).toEqual([
-                { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                { binding: "EVENT_STREAM", stream: "noomers-events" },
             ]);
         });
 
@@ -671,9 +709,7 @@ describe("CLI Functions", () => {
             vi.mocked(existsSync).mockReturnValue(true);
             vi.mocked(readFileSync).mockReturnValue(
                 JSON.stringify({
-                    analytics_engine_datasets: [
-                        { dataset: "custom-dataset" },
-                    ],
+                    analytics_engine_datasets: [{ dataset: "custom-dataset" }],
                 }),
             );
 
@@ -686,9 +722,7 @@ describe("CLI Functions", () => {
             vi.mocked(readFileSync).mockReturnValue(
                 JSON.stringify({
                     name: "custom-worker",
-                    analytics_engine_datasets: [
-                        { binding: "WEB_COUNTER_AE" },
-                    ],
+                    analytics_engine_datasets: [{ binding: "WEB_COUNTER_AE" }],
                 }),
             );
 
@@ -701,9 +735,7 @@ describe("CLI Functions", () => {
             vi.mocked(readFileSync).mockReturnValue(
                 JSON.stringify({
                     name: "   ",
-                    analytics_engine_datasets: [
-                        { dataset: "custom-dataset" },
-                    ],
+                    analytics_engine_datasets: [{ dataset: "custom-dataset" }],
                 }),
             );
 
@@ -716,11 +748,9 @@ describe("CLI Functions", () => {
             vi.mocked(readFileSync).mockReturnValue(
                 JSON.stringify({
                     name: "custom-worker",
-                    analytics_engine_datasets: [
-                        { dataset: "custom-dataset" },
-                    ],
+                    analytics_engine_datasets: [{ dataset: "custom-dataset" }],
                     pipelines: [
-                        { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                        { binding: "EVENT_STREAM", stream: "noomers-events" },
                     ],
                     vars: {
                         R2_SQL_BUCKET: "custom-warehouse",
@@ -735,7 +765,7 @@ describe("CLI Functions", () => {
                 workerName: "custom-worker",
                 analyticsDataset: "custom-dataset",
                 pipelines: [
-                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                    { binding: "EVENT_STREAM", stream: "noomers-events" },
                 ],
                 vars: {
                     R2_SQL_BUCKET: "custom-warehouse",
@@ -770,7 +800,7 @@ describe("CLI Functions", () => {
             const result = readPersistedDeploymentConfig();
 
             expect(result?.pipelines).toEqual([
-                { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                { binding: "EVENT_STREAM", stream: "noomers-events" },
             ]);
         });
 
@@ -829,7 +859,10 @@ describe("CLI Functions", () => {
                               { dataset: "custom-dataset" },
                           ],
                           pipelines: [
-                              { binding: "EVENT_STREAM", pipeline: "config-events" },
+                              {
+                                  binding: "EVENT_STREAM",
+                                  stream: "config-events",
+                              },
                           ],
                           vars: {
                               R2_SQL_BUCKET: "config-bucket",
@@ -840,7 +873,7 @@ describe("CLI Functions", () => {
             const result = readPersistedDeploymentConfig();
 
             expect(result?.pipelines).toEqual([
-                { binding: "EVENT_STREAM", pipeline: "config-events" },
+                { binding: "EVENT_STREAM", stream: "config-events" },
             ]);
             // Explicit config value wins; the missing table key is filled.
             expect(result?.vars).toEqual({
@@ -934,9 +967,7 @@ describe("CLI Functions", () => {
             vi.mocked(readFileSync).mockReturnValue(
                 JSON.stringify({
                     name: "custom-worker",
-                    analytics_engine_datasets: [
-                        { dataset: "custom-dataset" },
-                    ],
+                    analytics_engine_datasets: [{ dataset: "custom-dataset" }],
                 }),
             );
 
@@ -976,7 +1007,7 @@ describe("CLI Functions", () => {
         it("resolves the pipeline from the EVENT_STREAM binding", () => {
             expect(
                 resolvePipelineName([
-                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                    { binding: "EVENT_STREAM", stream: "noomers-events" },
                 ]),
             ).toBe("noomers-events");
         });
@@ -986,10 +1017,30 @@ describe("CLI Functions", () => {
             expect(resolvePipelineName([])).toBeUndefined();
         });
 
-        it("returns undefined for an EVENT_STREAM binding with no pipeline name", () => {
+        it("returns undefined for an EVENT_STREAM binding with no stream identifier", () => {
             expect(
                 resolvePipelineName([{ binding: "EVENT_STREAM" }]),
             ).toBeUndefined();
+        });
+
+        it("resolves the legacy `pipeline` field on the EVENT_STREAM binding", () => {
+            expect(
+                resolvePipelineName([
+                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                ]),
+            ).toBe("noomers-events");
+        });
+
+        it("prefers the current `stream` field over the legacy `pipeline` field", () => {
+            expect(
+                resolvePipelineName([
+                    {
+                        binding: "EVENT_STREAM",
+                        stream: "current-events",
+                        pipeline: "legacy-events",
+                    },
+                ]),
+            ).toBe("current-events");
         });
 
         it("rejects stale EVENTS_PIPELINE metadata instead of silently using it", () => {
@@ -1004,9 +1055,61 @@ describe("CLI Functions", () => {
             expect(
                 resolvePipelineName([
                     { binding: "EVENTS_PIPELINE", pipeline: "stale" },
-                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                    { binding: "EVENT_STREAM", stream: "noomers-events" },
                 ]),
             ).toBe("noomers-events");
+        });
+    });
+
+    describe("normalizePipelines", () => {
+        it("keeps current-format EVENT_STREAM entries unchanged", () => {
+            expect(
+                normalizePipelines([
+                    { binding: "EVENT_STREAM", stream: "noomers-events" },
+                ]),
+            ).toEqual([{ binding: "EVENT_STREAM", stream: "noomers-events" }]);
+        });
+
+        it("migrates a legacy `pipeline` field to `stream`", () => {
+            expect(
+                normalizePipelines([
+                    { binding: "EVENT_STREAM", pipeline: "noomers-events" },
+                ]),
+            ).toEqual([{ binding: "EVENT_STREAM", stream: "noomers-events" }]);
+        });
+
+        it("prefers `stream` when both fields are present", () => {
+            expect(
+                normalizePipelines([
+                    {
+                        binding: "EVENT_STREAM",
+                        stream: "current-events",
+                        pipeline: "legacy-events",
+                    },
+                ]),
+            ).toEqual([{ binding: "EVENT_STREAM", stream: "current-events" }]);
+        });
+
+        it("leaves non-canonical bindings untouched", () => {
+            expect(
+                normalizePipelines([
+                    { binding: "EVENTS_PIPELINE", pipeline: "stale" },
+                ]),
+            ).toEqual([{ binding: "EVENTS_PIPELINE", pipeline: "stale" }]);
+        });
+    });
+
+    describe("suggestPipelineName", () => {
+        it("derives a Pipelines-compatible name from a worker name", () => {
+            expect(suggestPipelineName("noomers")).toBe("noomers_events");
+        });
+
+        it("replaces hyphens with underscores", () => {
+            expect(suggestPipelineName("my-worker")).toBe("my_worker_events");
+        });
+
+        it("replaces other non-identifier characters with underscores", () => {
+            expect(suggestPipelineName("my.worker")).toBe("my_worker_events");
         });
     });
 

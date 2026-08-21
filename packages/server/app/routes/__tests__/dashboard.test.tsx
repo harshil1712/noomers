@@ -21,6 +21,16 @@ import { AnalyticsEngineAPI } from "~/analytics/query";
 import { createFetchResponse, getDefaultContext } from "./testutils";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 
+const { listSites } = vi.hoisted(() => ({
+    listSites: vi.fn(),
+}));
+
+vi.mock("~/sites/repository", () => ({
+    SitesRepository: vi.fn(function () {
+        return { list: listSites };
+    }),
+}));
+
 vi.mock("~/lib/auth", () => ({
     requireAuth: vi.fn(),
 }));
@@ -36,6 +46,7 @@ describe("Dashboard route", () => {
     beforeEach(() => {
         fetch = global.fetch = vi.fn();
         vi.mocked(requireAuth).mockResolvedValue({} as any);
+        listSites.mockResolvedValue({ sites: [] });
     });
 
     afterEach(() => {
@@ -122,13 +133,16 @@ describe("Dashboard route", () => {
             }
         });
 
-        test("redirects to ?site= if no siteId is provided via query string / no site data", async () => {
+        test("redirects to a registered site when it has no Analytics Engine data", async () => {
             // response for getSitesByOrderedHits
             fetch.mockResolvedValueOnce(
                 createFetchResponse({
                     data: [],
                 }),
             );
+            listSites.mockResolvedValueOnce({
+                sites: [{ domain: "registered.example" }],
+            });
 
             try {
                 await loader({
@@ -145,7 +159,7 @@ describe("Dashboard route", () => {
                 // expect redirect
                 expect(response.status).toBe(302);
                 expect(response.headers.get("Location")).toBe(
-                    "http://localhost:3000/dashboard?site=",
+                    "http://localhost:3000/dashboard?site=registered.example",
                 );
             }
         });
@@ -157,6 +171,9 @@ describe("Dashboard route", () => {
                     data: [{ siteId: "test-siteid", count: 1 }],
                 }),
             );
+            listSites.mockResolvedValueOnce({
+                sites: [{ domain: "registered.example" }],
+            });
 
             vi.setSystemTime(new Date("2024-01-18T09:33:02").getTime());
 
@@ -173,7 +190,7 @@ describe("Dashboard route", () => {
             expect(json).toEqual({
                 filters: {},
                 siteId: "test-siteid",
-                sites: ["test-siteid"],
+                sites: ["test-siteid", "registered.example"],
                 intervalType: "DAY",
                 interval: "7d",
             });

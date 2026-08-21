@@ -11,7 +11,7 @@
         { "name": "hostname", "type": "string", "required": true },
         { "name": "pathname", "type": "string", "required": true },
         { "name": "referrer", "type": "string", "required": true },
-        { "name": "interactive", "type": "boolean", "required": true },
+        { "name": "interactive", "type": "bool", "required": true },
         { "name": "revenue_amount", "type": "string", "required": true },
         { "name": "revenue_currency", "type": "string", "required": true },
         { "name": "engagement_time", "type": "float64", "required": true },
@@ -22,7 +22,11 @@
         { "name": "browser", "type": "string", "required": true },
         { "name": "browser_version", "type": "string", "required": true },
         { "name": "operating_system", "type": "string", "required": true },
-        { "name": "operating_system_version", "type": "string", "required": true },
+        {
+            "name": "operating_system_version",
+            "type": "string",
+            "required": true
+        },
         { "name": "device_type", "type": "string", "required": true },
         { "name": "device_model", "type": "string", "required": true },
         { "name": "utm_source", "type": "string", "required": true },

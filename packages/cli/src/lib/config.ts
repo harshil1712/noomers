@@ -40,20 +40,31 @@ export const EVENT_STREAM_BINDING = "EVENT_STREAM";
 export const LEGACY_PIPELINE_BINDINGS = ["EVENTS_PIPELINE"];
 
 /**
- * Resolve the pipeline name from a deployed Wrangler configuration's
+ * Resolve the stream identifier from a deployed Wrangler configuration's
  * `pipelines` array, honoring only the canonical `EVENT_STREAM` binding.
- * Returns undefined when no canonical binding is present. Throws when a stale
- * `EVENTS_PIPELINE` binding is the only one present, so the installer surfaces
- * the migration decision instead of silently using stale metadata.
+ * Accepts both the current `stream` field and the legacy `pipeline` field so
+ * persisted configs migrate forward. Returns undefined when no canonical
+ * binding is present. Throws when a stale `EVENTS_PIPELINE` binding is the
+ * only one present, so the installer surfaces the migration decision instead of
+ * silently using stale metadata.
  */
 export function resolvePipelineName(
-    pipelines: Array<{ binding?: string; pipeline?: string }> | undefined,
+    pipelines:
+        | Array<{
+              binding?: string;
+              pipeline?: string;
+              stream?: string;
+          }>
+        | undefined,
 ): string | undefined {
     if (!Array.isArray(pipelines) || pipelines.length === 0) {
         return undefined;
     }
 
     const stream = pipelines.find((p) => p.binding === EVENT_STREAM_BINDING);
+    // Prefer the current `stream` field; fall back to the legacy `pipeline`
+    // field for backward-compatible migration.
+    if (stream?.stream) return stream.stream;
     if (stream?.pipeline) return stream.pipeline;
 
     const stale = pipelines.find((p) =>
@@ -66,6 +77,54 @@ export function resolvePipelineName(
     }
 
     return undefined;
+}
+
+/**
+ * Derive a Cloudflare Pipelines-compatible name from a worker name. Pipeline
+ * names may contain only letters, numbers, and underscores, while worker names
+ * may contain hyphens, so any character outside [A-Za-z0-9_] is replaced with
+ * an underscore.
+ */
+export function suggestPipelineName(workerName: string): string {
+    return `${workerName.replace(/[^a-zA-Z0-9_]/g, "_")}_events`;
+}
+
+/**
+ * Normalize a `pipelines` array to the current Cloudflare Pipelines binding
+ * contract. Each canonical `EVENT_STREAM` entry keeps its `stream` field when
+ * present and migrates a legacy `pipeline` field to `stream`. Non-canonical
+ * bindings and unrelated fields are left untouched so validation can still
+ * reject stale bindings upstream.
+ */
+export function normalizePipelines(
+    pipelines: Array<{
+        binding?: string;
+        pipeline?: string;
+        stream?: string;
+        [key: string]: unknown;
+    }>,
+): Array<{
+    binding?: string;
+    stream?: string;
+    pipeline?: string;
+    [key: string]: unknown;
+}> {
+    return pipelines.map((entry) => {
+        if (entry.binding !== EVENT_STREAM_BINDING) {
+            return entry;
+        }
+        const normalized: {
+            binding?: string;
+            stream?: string;
+            [key: string]: unknown;
+        } = { binding: entry.binding };
+        if (entry.stream) {
+            normalized.stream = entry.stream;
+        } else if (entry.pipeline) {
+            normalized.stream = entry.pipeline;
+        }
+        return normalized;
+    });
 }
 
 /**
@@ -99,7 +158,12 @@ export function readPersistedDeploymentMetadata(): DeploymentMetadata | null {
 export interface PreservedDeploymentConfig {
     workerName: string;
     analyticsDataset: string;
-    pipelines?: Array<{ binding?: string; pipeline?: string }>;
+    pipelines?: Array<{
+        binding?: string;
+        // Legacy field accepted for migration; current-format configs use `stream`.
+        pipeline?: string;
+        stream?: string;
+    }>;
     vars?: Record<string, string>;
 }
 
@@ -143,14 +207,15 @@ export function readPersistedDeploymentConfig(): PreservedDeploymentConfig | nul
     // array (even an empty one); fall back to the persisted metadata's
     // pipeline name only when the config carries no binding at all. A stale
     // EVENTS_PIPELINE binding is still surfaced for validation rather than
-    // silently bypassed by the metadata fallback.
+    // silently bypassed by the metadata fallback. Legacy entries that use the
+    // `pipeline` field are normalized to the current `stream` field.
     const pipelines = Array.isArray(parsed.pipelines)
-        ? parsed.pipelines
+        ? normalizePipelines(parsed.pipelines)
         : metadata?.resources?.pipelineName
           ? [
                 {
                     binding: EVENT_STREAM_BINDING,
-                    pipeline: metadata.resources.pipelineName,
+                    stream: metadata.resources.pipelineName,
                 },
             ]
           : undefined;
@@ -226,9 +291,8 @@ export function resolveWorkerAndDataset(
         };
     }
 
-    const { workerName, analyticsDataset } = getWorkerAndDatasetName(
-        initialConfig,
-    );
+    const { workerName, analyticsDataset } =
+        getWorkerAndDatasetName(initialConfig);
     return { workerName, analyticsDataset, preserved: false };
 }
 
@@ -581,9 +645,13 @@ export async function stageDeployConfig(
     // Carry over deployment-specific binding metadata and vars from a previous
     // install (the EVENT_STREAM Pipeline binding and the R2 SQL Worker vars)
     // so a reinstall/upgrade does not drop them. The package default config has
-    // neither, so only preserved values are ever applied here.
+    // neither, so only preserved values are ever applied here. Normalize to the
+    // current `stream` field so reinstalls write deployable current-format
+    // config even when the persisted binding used the legacy `pipeline` field.
     if (preservedConfig?.pipelines) {
-        outDeployConfig.pipelines = preservedConfig.pipelines;
+        outDeployConfig.pipelines = normalizePipelines(
+            preservedConfig.pipelines,
+        );
     }
     if (preservedConfig?.vars) {
         outDeployConfig.vars = preservedConfig.vars;

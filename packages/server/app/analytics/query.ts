@@ -520,15 +520,14 @@ export class AnalyticsEngineAPI {
                 SUM(_sample_interval) as count,
                 count(DISTINCT ${ColumnMappings.visitorId}) as distinctVisitors,
                 countIf(${ColumnMappings.visitorId} = '') as missingVisitorIds,
-                sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) as legacyVisitors,
-                distinctVisitors + legacyVisitors - (missingVisitorIds > 0) as visitors
+                sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) as legacyVisitors
             FROM metricsDataset
             WHERE timestamp >= ${startIntervalSql} AND timestamp < ${endIntervalSql}
                 AND ${ColumnMappings.siteId} = ${sqlString(siteId)}
                 AND ${PAGEVIEW_FILTER_SQL}
                 ${filterStr}
             GROUP BY ${_column}
-            ORDER BY visitors DESC
+            ORDER BY distinctVisitors + legacyVisitors - ceil(missingVisitorIds / (missingVisitorIds + 1)) DESC
             LIMIT ${limit * page}`;
 
         type SelectionSet = {
