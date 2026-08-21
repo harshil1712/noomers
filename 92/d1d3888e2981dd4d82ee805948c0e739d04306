@@ -1,0 +1,25 @@
+packages/server/app/analytics/__tests__/query.test.ts
+  s_45bd857df2d4c4::t_73f0789b1cdb35 78-146
+packages/server/worker-configuration.d.ts
+  s_45bd857df2d4c4::t_4e502b2f25a8e6 2,6
+packages/server/workers/lib/__tests__/arrow.test.ts
+  s_45bd857df2d4c4::t_967e03cfa9ba1d 57-61,73-77,92-96
+packages/server/workers/lib/arrow.ts
+  s_45bd857df2d4c4::t_4b961cc78a4679 10-14,17,64-66,150,161
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "92d1d3888e2981dd4d82ee805948c0e739d04306",
+  "prompts": {},
+  "sessions": {
+    "s_45bd857df2d4c4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdffd4444ffenhwbnM9IXX8xOW",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
