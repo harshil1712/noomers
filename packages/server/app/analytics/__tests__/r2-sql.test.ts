@@ -587,6 +587,211 @@ describe("R2SQLAPI", () => {
         );
     });
 
+    test("deduplicates canonical event IDs before session metrics aggregation", async () => {
+        const fetcher = vi.fn().mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    success: true,
+                    result: {
+                        rows: [{
+                            views: "1",
+                            events: "1",
+                            visitors: "1",
+                            visits: "1",
+                            bounces: "0",
+                            average_visit_duration: "8",
+                        }],
+                    },
+                }),
+                { status: 200 },
+            ),
+        );
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getSessionMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+        );
+
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toMatch(/ROW_NUMBER\(\)\s*OVER\s*\(\s*PARTITION BY COALESCE\(event_id, ''\)/);
+        expect(query).toContain("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)");
+        expect(query.indexOf("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)"))
+            .toBeLessThan(query.indexOf("sessions AS ("));
+        expect(query).toContain("ORDER BY received_at, visitor_id, event_type, event_id");
+    });
+
+    test("deduplicates canonical event IDs before basic metrics aggregation", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: { rows: [] },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getBasicMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+        );
+
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toMatch(/ROW_NUMBER\(\)\s*OVER\s*\(\s*PARTITION BY COALESCE\(event_id, ''\)/);
+        expect(query).toContain("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)");
+        expect(query.indexOf("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)"))
+            .toBeLessThan(query.indexOf("GROUP BY dimension"));
+    });
+
+    test("deduplicates canonical event IDs before session breakdown sessionization", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: { rows: [] },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getSessionBreakdown(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+        );
+
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toMatch(/ROW_NUMBER\(\)\s*OVER\s*\(\s*PARTITION BY COALESCE\(event_id, ''\)/);
+        expect(query).toContain("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)");
+        const dedupeFilterIndex = query.indexOf("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)");
+        expect(dedupeFilterIndex).toBeLessThan(query.indexOf("sessions AS ("));
+        expect(dedupeFilterIndex).toBeLessThan(query.indexOf("event_metrics AS ("));
+    });
+
+    test("preserves empty and missing event IDs during deduplication", async () => {
+        const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+            success: true,
+            result: { rows: [] },
+        })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getBasicMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+        );
+
+        const query = JSON.parse(String(
+            (fetcher.mock.calls[0][1] as RequestInit).body,
+        )).query as string;
+        expect(query).toContain("COALESCE(event_id, '')");
+        expect(query).toContain("= '' OR duplicate_rank = 1)");
+        expect(query).not.toContain("PARTITION BY event_id");
+    });
+
+    test("applies deduplication in paginated session breakdown count fallback", async () => {
+        const fetcher = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [] },
+            })))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [{ total: "0" }] },
+            })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getSessionBreakdown(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { pagination: { limit: 5, offset: 10 }, count: true },
+        );
+
+        expect(fetcher).toHaveBeenCalledTimes(2);
+        const countQuery = JSON.parse(String(
+            (fetcher.mock.calls[1][1] as RequestInit).body,
+        )).query as string;
+        expect(countQuery).toMatch(/ROW_NUMBER\(\)\s*OVER\s*\(\s*PARTITION BY COALESCE\(event_id, ''\)/);
+        expect(countQuery).toContain("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)");
+    });
+
+    test("applies deduplication in paginated basic metrics count fallback", async () => {
+        const fetcher = vi.fn()
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [] },
+            })))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                success: true,
+                result: { rows: [{ total: "0" }] },
+            })));
+        const api = new R2SQLAPI(
+            "account",
+            "bucket",
+            "token",
+            "analytics.events",
+            fetcher as typeof fetch,
+        );
+
+        await api.getBasicMetrics(
+            "example.com",
+            new Date("2026-08-01T00:00:00.000Z"),
+            new Date("2026-08-02T00:00:00.000Z"),
+            {},
+            "event:page",
+            undefined,
+            { pagination: { limit: 5, offset: 10 }, count: true },
+        );
+
+        expect(fetcher).toHaveBeenCalledTimes(2);
+        const countQuery = JSON.parse(String(
+            (fetcher.mock.calls[1][1] as RequestInit).body,
+        )).query as string;
+        expect(countQuery).toMatch(/ROW_NUMBER\(\)\s*OVER\s*\(\s*PARTITION BY COALESCE\(event_id, ''\)/);
+        expect(countQuery).toContain("(COALESCE(event_id, '') = '' OR duplicate_rank = 1)");
+    });
+
     test("rejects unsafe table names", () => {
         expect(
             () =>

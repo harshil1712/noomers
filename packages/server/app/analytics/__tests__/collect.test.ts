@@ -996,20 +996,146 @@ describe("collectRequestHandler", () => {
         expect(writeDataPoint.mock.calls[0][0].blobs[15]).toBe("engagement");
     });
 
+    test("accepts scroll-only engagement with e=0 and sd 1..100", async () => {
+        const send = vi.fn().mockResolvedValue(undefined);
+        const env = {
+            WEB_COUNTER_AE: {
+                writeDataPoint: vi.fn(),
+            } as AnalyticsEngineDataset,
+            EVENT_STREAM: { send },
+        };
+        const request = new Request("https://example.com/collect", {
+            method: "POST",
+            headers: { "user-agent": defaultBrowserUserAgent },
+            body: new URLSearchParams({
+                sid: "example",
+                h: "example.com",
+                p: "/article",
+                r: "",
+                et: "engagement",
+                e: "0",
+                sd: "50",
+            }),
+        });
+
+        const response = await collectRequestHandler(request, env);
+
+        expect(response.status).toBe(200);
+        expect(send).toHaveBeenCalledWith([
+            expect.objectContaining({
+                event_type: "engagement",
+                engagement_time: 0,
+                scroll_depth: 50,
+                interactive: false,
+            }),
+        ]);
+    });
+
+    test("accepts sd=0 when paired with a positive engagement time", async () => {
+        const send = vi.fn().mockResolvedValue(undefined);
+        const env = {
+            WEB_COUNTER_AE: {
+                writeDataPoint: vi.fn(),
+            } as AnalyticsEngineDataset,
+            EVENT_STREAM: { send },
+        };
+        const request = new Request("https://example.com/collect", {
+            method: "POST",
+            headers: { "user-agent": defaultBrowserUserAgent },
+            body: new URLSearchParams({
+                sid: "example",
+                h: "example.com",
+                p: "/article",
+                r: "",
+                et: "engagement",
+                e: "1000",
+                sd: "0",
+            }),
+        });
+
+        const response = await collectRequestHandler(request, env);
+
+        expect(response.status).toBe(200);
+        expect(send).toHaveBeenCalledWith([
+            expect.objectContaining({
+                engagement_time: 1000,
+                scroll_depth: 0,
+            }),
+        ]);
+    });
+
+    test.each([
+        ["e=1000", "1000", undefined],
+        ["e=max", String(30 * 24 * 60 * 60 * 1000), undefined],
+        ["sd=100 with e=0", "0", "100"],
+        ["sd=1 with e=0", "0", "1"],
+    ])(
+        "accepts engagement with %s",
+        async (_, engagementTime, scrollDepth) => {
+            const send = vi.fn().mockResolvedValue(undefined);
+            const env = {
+                WEB_COUNTER_AE: {
+                    writeDataPoint: vi.fn(),
+                } as AnalyticsEngineDataset,
+                EVENT_STREAM: { send },
+            };
+            const params: Record<string, string> = {
+                sid: "example",
+                h: "example.com",
+                p: "/article",
+                r: "",
+                et: "engagement",
+                e: engagementTime,
+            };
+            if (scrollDepth !== undefined) {
+                params.sd = scrollDepth;
+            }
+            const request = new Request("https://example.com/collect", {
+                method: "POST",
+                headers: { "user-agent": defaultBrowserUserAgent },
+                body: new URLSearchParams(params),
+            });
+
+            const response = await collectRequestHandler(request, env);
+
+            expect(response.status).toBe(200);
+            expect(send).toHaveBeenCalled();
+        },
+    );
+
     test.each([
         ["missing e", { et: "engagement" }],
         ["e below minimum", { et: "engagement", e: "500" }],
         ["e above maximum", { et: "engagement", e: "99999999999" }],
         ["non-integer e", { et: "engagement", e: "1500.5" }],
+        ["hex e", { et: "engagement", e: "0x3e8", sd: "50" }],
+        ["scientific e", { et: "engagement", e: "1e3", sd: "50" }],
+        ["signed e", { et: "engagement", e: "-1000", sd: "50" }],
+        ["whitespace e", { et: "engagement", e: " 1000", sd: "50" }],
+        ["empty e", { et: "engagement", e: "", sd: "50" }],
         ["invalid sd", { et: "engagement", e: "5000", sd: "150" }],
+        ["hex sd", { et: "engagement", e: "1000", sd: "0x32" }],
+        ["scientific sd", { et: "engagement", e: "1000", sd: "1e1" }],
+        ["signed sd", { et: "engagement", e: "1000", sd: "-50" }],
+        ["whitespace sd", { et: "engagement", e: "1000", sd: "50 " }],
+        ["empty sd", { et: "engagement", e: "1000", sd: "" }],
         ["with custom event name", { et: "engagement", e: "5000", en: "x" }],
+        ["with event name engagement", { et: "engagement", en: "engagement", e: "1000" }],
         ["with properties", { et: "engagement", e: "5000", ep: "{}" }],
         ["with hit type", { et: "engagement", e: "5000", ht: "1" }],
         ["e without et", { e: "5000" }],
         ["sd without et", { sd: "50" }],
+        ["sd=1 without e", { et: "engagement", sd: "1" }],
+        ["sd=100 without e", { et: "engagement", sd: "100" }],
         ["e with custom event name engagement", { en: "engagement", e: "5000" }],
         ["sd with custom event name engagement", { en: "engagement", sd: "50" }],
         ["GET request", null],
+        ["e=0 without sd", { et: "engagement", e: "0" }],
+        ["e=0 with sd=0", { et: "engagement", e: "0", sd: "0" }],
+        ["sd=0 as only signal", { et: "engagement", sd: "0" }],
+        ["sd=1 with e=0 but fractional", { et: "engagement", e: "0", sd: "1.5" }],
+        ["e=999", { et: "engagement", e: "999" }],
+        ["e=max+1", { et: "engagement", e: String(30 * 24 * 60 * 60 * 1000 + 1) }],
     ])(
         "rejects engagement with %s",
         async (_, engagementParams) => {

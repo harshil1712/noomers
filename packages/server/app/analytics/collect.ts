@@ -567,6 +567,9 @@ function parseEngagement(
         return { error: "Engagement events must use POST" };
     }
 
+    // Native engagement events do not support a custom event name. A request
+    // with custom event name "engagement" remains a custom event only when et
+    // is absent and neither e nor sd is present.
     if (
         params.en !== undefined ||
         params.ep !== undefined ||
@@ -575,18 +578,39 @@ function parseEngagement(
         return { error: "Invalid engagement parameters" };
     }
 
+    // Native engagement requires an explicit engagement time. Duration events
+    // use e>=1000; scroll-only events must explicitly use e=0 with sd 1..100.
+    if (params.e === undefined) {
+        return { error: "Invalid engagement parameters" };
+    }
+
+    if (!isUnsignedDecimalString(params.e)) {
+        return { error: "Invalid engagement time" };
+    }
+
     const engagementTime = Number(params.e);
+    const hasSd = params.sd !== undefined;
+
+    if (hasSd && !isUnsignedDecimalString(params.sd)) {
+        return { error: "Invalid scroll depth" };
+    }
+    const scrollDepth = hasSd ? Number(params.sd) : 0;
+
     if (
         !Number.isInteger(engagementTime) ||
-        engagementTime < MIN_ENGAGEMENT_TIME_MS ||
+        engagementTime < 0 ||
         engagementTime > MAX_ENGAGEMENT_TIME_MS
     ) {
         return { error: "Invalid engagement time" };
     }
 
-    let scrollDepth = 0;
-    if (params.sd !== undefined) {
-        scrollDepth = Number(params.sd);
+    // Positive engagement time must meet the 1s floor; e=0 is reserved for
+    // scroll-only events paired with sd 1..100.
+    if (engagementTime > 0 && engagementTime < MIN_ENGAGEMENT_TIME_MS) {
+        return { error: "Invalid engagement time" };
+    }
+
+    if (hasSd) {
         if (
             !Number.isInteger(scrollDepth) ||
             scrollDepth < 0 ||
@@ -596,7 +620,16 @@ function parseEngagement(
         }
     }
 
+    // e=0 is valid only when a meaningful scroll depth is present.
+    if (engagementTime === 0 && (!hasSd || scrollDepth < 1)) {
+        return { error: "Invalid engagement parameters" };
+    }
+
     return { engagementTime, scrollDepth };
+}
+
+function isUnsignedDecimalString(value: string): boolean {
+    return /^[0-9]+$/.test(value);
 }
 
 export async function collectRequestHandler(

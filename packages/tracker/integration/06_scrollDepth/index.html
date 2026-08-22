@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+    <head>
+        <title>06 Scroll Depth</title>
+
+        <script
+            id="noomers-script"
+            data-site-id="your-unique-site-id"
+            data-report-localhost
+            src="http://localhost:3004/tracker.js"
+        ></script>
+        <style>
+            .tall {
+                height: 400vh;
+                background: linear-gradient(to bottom, #fff, #000);
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Scroll depth fixture</h1>
+        <button
+            onClick="history.pushState({page: 2}, '', '/06_scrollDepth/part_2')"
+        >
+            Part 2
+        </button>
+        <div class="tall"></div>
+    </body>
+</html>

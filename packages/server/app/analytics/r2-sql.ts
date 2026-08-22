@@ -90,6 +90,39 @@ const FILTER_COLUMNS: Partial<Record<keyof SearchFilters, string>> = {
     utmContent: "utm_content",
 };
 
+const FILTER_COLUMN_LIST = Object.values(FILTER_COLUMNS);
+
+const KEEP_DEDUPLICATED_ROW = "(COALESCE(event_id, '') = '' OR duplicate_rank = 1)";
+
+function deduplicatedEventsCte(
+    table: string,
+    siteId: string,
+    start: string,
+    end: string,
+    columns: readonly string[],
+    cteName = "deduplicated_events",
+): string {
+    const coreColumns = ["event_id", "received_at", "visitor_id", "event_type"];
+    const selectColumns = [...coreColumns];
+    for (const column of columns) {
+        if (!selectColumns.includes(column)) {
+            selectColumns.push(column);
+        }
+    }
+    return `
+        ${cteName} AS (
+            SELECT ${selectColumns.join(", ")},
+                ROW_NUMBER() OVER (
+                    PARTITION BY COALESCE(event_id, '')
+                    ORDER BY received_at, visitor_id, event_type, event_id
+                ) AS duplicate_rank
+            FROM ${table}
+            WHERE site_id = ${sqlString(siteId)}
+                AND received_at >= ${start}
+                AND received_at < ${end}
+        )`;
+}
+
 function sqlString(value: string): string {
     return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
 }
@@ -273,7 +306,14 @@ export class R2SQLAPI {
         const lookahead = sqlString(lookaheadDate.toISOString());
         const filterPredicate = filtersToPredicate(filters);
         const query = `
-            WITH all_events AS (
+            WITH ${deduplicatedEventsCte(
+                this.table,
+                siteId,
+                lookback,
+                lookahead,
+                ["interactive", "engagement_time", ...FILTER_COLUMN_LIST],
+            )},
+            all_events AS (
                 SELECT
                     event_id,
                     visitor_id,
@@ -285,10 +325,8 @@ export class R2SQLAPI {
                         AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)
                         THEN 1 ELSE 0 END AS matches_filter,
                     TRY_CAST(received_at AS TIMESTAMP) AS event_ts
-                FROM ${this.table}
-                WHERE site_id = ${sqlString(siteId)}
-                    AND received_at >= ${lookback}
-                    AND received_at < ${lookahead}
+                FROM deduplicated_events
+                WHERE ${KEEP_DEDUPLICATED_ROW}
             ),
             session_events AS (
                 SELECT *
@@ -414,6 +452,13 @@ export class R2SQLAPI {
               ).join(" ") || ""} ELSE NULL END`
             : undefined;
         const eventsCte = `
+            ${deduplicatedEventsCte(
+                this.table,
+                siteId,
+                start,
+                end,
+                ["pathname", "hostname"],
+            )},
             events AS (
                 SELECT
                     visitor_id,
@@ -421,10 +466,8 @@ export class R2SQLAPI {
                     pathname,
                     hostname,
                     TRY_CAST(received_at AS TIMESTAMP) AS event_ts
-                FROM ${this.table}
-                WHERE site_id = ${sqlString(siteId)}
-                    AND received_at >= ${start}
-                    AND received_at < ${end}
+                FROM deduplicated_events
+                WHERE ${KEEP_DEDUPLICATED_ROW}
                     AND ${filterPredicate}
             )`;
         const aggregateSelect = `
@@ -542,7 +585,14 @@ export class R2SQLAPI {
         const eventDimensionExpression = eventDimension || bucketExpression("event_ts");
         const sessionDimensionExpression = eventDimension || bucketExpression("visit_start");
         const ctes = `
-            WITH all_events AS (
+            WITH ${deduplicatedEventsCte(
+                this.table,
+                siteId,
+                sqlString(lookbackDate.toISOString()),
+                sqlString(lookaheadDate.toISOString()),
+                ["interactive", "engagement_time", "pathname", "hostname", ...FILTER_COLUMN_LIST],
+            )},
+            all_events AS (
                 SELECT
                     event_id,
                     visitor_id,
@@ -556,10 +606,8 @@ export class R2SQLAPI {
                         AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)
                         THEN 1 ELSE 0 END AS matches_filter,
                     TRY_CAST(received_at AS TIMESTAMP) AS event_ts
-                FROM ${this.table}
-                WHERE site_id = ${sqlString(siteId)}
-                    AND received_at >= ${sqlString(lookbackDate.toISOString())}
-                    AND received_at < ${sqlString(lookaheadDate.toISOString())}
+                FROM deduplicated_events
+                WHERE ${KEEP_DEDUPLICATED_ROW}
             ),
             session_events AS (
                 SELECT * FROM all_events
