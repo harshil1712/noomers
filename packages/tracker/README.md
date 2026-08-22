@@ -25,6 +25,8 @@ noomers.init({
 
 That's it! Your page views will automatically be tracked and reported to noomers.
 
+Page engagement is measured automatically using the Page Visibility API. Active time is paused while the page is hidden and resumed when it becomes visible again. Engagement deltas are sent on `visibilitychange` to hidden, `pagehide`, and before resetting context during SPA navigation. R2 SQL sums these durable deltas to compute average visit duration when Pipeline and R2 SQL are configured.
+
 ## Advanced
 
 ### Manually Track Pageviews

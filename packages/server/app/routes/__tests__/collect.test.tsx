@@ -1,6 +1,10 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { collectRequestHandler } from "../../analytics/collect";
 
+const browserUserAgent =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
 const originalTZ = process.env.TZ;
 
 describe("collect endpoint", () => {
@@ -32,7 +36,7 @@ describe("collect endpoint", () => {
         // Create a request with ht parameter
         const requestWithHt = new Request(
             "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
-            { headers: new Headers() },
+            { headers: { "user-agent": browserUserAgent } },
         );
 
         const response = await collectRequestHandler(requestWithHt, mockEnv);
@@ -51,7 +55,7 @@ describe("collect endpoint", () => {
         // Create a request with invalid ht parameter
         const requestWithInvalidHt = new Request(
             "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=invalid",
-            { headers: new Headers() },
+            { headers: { "user-agent": browserUserAgent } },
         );
 
         const response = await collectRequestHandler(
@@ -73,6 +77,7 @@ describe("collect endpoint", () => {
 
         // Create a request without v and b parameters but with If-Modified-Since header
         const headers = new Headers();
+        headers.set("user-agent", browserUserAgent);
         headers.set("If-Modified-Since", initialDateString);
 
         const requestWithoutVB = new Request(
@@ -99,5 +104,90 @@ describe("collect endpoint", () => {
 
         // Also verify it's a future date from our initial date
         expect(returnedDate.getTime()).toBeGreaterThan(initialDate.getTime());
+    });
+
+    test("drops a bot user agent with a tracking pixel and a dropped marker", async () => {
+        const request = new Request(
+            "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=",
+            {
+                headers: { "user-agent": "agent-browser" },
+            },
+        );
+
+        const response = await collectRequestHandler(request, mockEnv);
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Content-Type")).toBe("image/gif");
+        expect(response.headers.get("x-noomers-dropped")).toBe("1");
+        expect(response.headers.get("Last-Modified")).toBeNull();
+        expect(mockEnv.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+    });
+
+    test("preserves the first-party server tracker UA", async () => {
+        const request = new Request(
+            "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=",
+            {
+                headers: { "user-agent": "noomers-tracker-server/3.4.1" },
+            },
+        );
+
+        const response = await collectRequestHandler(request, mockEnv);
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("x-noomers-dropped")).toBeNull();
+        expect(mockEnv.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalledOnce();
+    });
+
+    test("accepts native engagement events without Analytics Engine or cache mutation", async () => {
+        const send = vi.fn().mockResolvedValue(undefined);
+        const env = {
+            ...mockEnv,
+            EVENT_STREAM: { send },
+        };
+        const request = new Request("https://example.com/collect", {
+            method: "POST",
+            headers: { "user-agent": browserUserAgent },
+            body: new URLSearchParams({
+                sid: "test-site",
+                h: "example.com",
+                p: "/article",
+                r: "",
+                et: "engagement",
+                e: "5000",
+            }),
+        });
+
+        const response = await collectRequestHandler(request, env);
+
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Content-Type")).toBe("image/gif");
+        expect(response.headers.get("Last-Modified")).toBeNull();
+        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(send).toHaveBeenCalledWith([
+            expect.objectContaining({
+                event_type: "engagement",
+                engagement_time: 5000,
+            }),
+        ]);
+    });
+
+    test("rejects native engagement with invalid time", async () => {
+        const request = new Request("https://example.com/collect", {
+            method: "POST",
+            headers: { "user-agent": browserUserAgent },
+            body: new URLSearchParams({
+                sid: "test-site",
+                h: "example.com",
+                p: "/article",
+                r: "",
+                et: "engagement",
+                e: "500",
+            }),
+        });
+
+        const response = await collectRequestHandler(request, mockEnv);
+
+        expect(response.status).toBe(400);
+        expect(mockEnv.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
     });
 });

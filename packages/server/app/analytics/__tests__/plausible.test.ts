@@ -35,7 +35,9 @@ describe("Plausible Events API", () => {
             bind: vi.fn().mockReturnThis(),
             first: vi.fn().mockResolvedValue({ status: "deleted" }),
         };
-        env.GOALS_DB = { prepare: vi.fn(() => statement) } as unknown as D1Database;
+        env.GOALS_DB = {
+            prepare: vi.fn(() => statement),
+        } as unknown as D1Database;
         const request = new Request("https://analytics.example/api/event", {
             method: "POST",
             headers: {
@@ -60,35 +62,43 @@ describe("Plausible Events API", () => {
     test.each([
         ["unprovisioned sites", { status: "unknown" }, 404],
         ["D1 failures", new Error("D1 unavailable"), 503],
-    ])("rejects %s before recording an event", async (_, result, expectedStatus) => {
-        const env = createEnv();
-        const first =
-            result instanceof Error
-                ? vi.fn().mockRejectedValue(result)
-                : vi.fn().mockResolvedValue(result);
-        env.GOALS_DB = {
-            prepare: vi.fn(() => ({ bind: vi.fn().mockReturnThis(), first })),
-        } as unknown as D1Database;
-        const request = new Request("https://analytics.example/api/event", {
-            method: "POST",
-            headers: {
-                "content-type": "application/json",
-                "user-agent": browserUserAgent,
-            },
-            body: JSON.stringify({
-                name: "pageview",
-                url: "https://example.com/",
-                domain: "example.com",
-            }),
-        });
+    ])(
+        "rejects %s before recording an event",
+        async (_, result, expectedStatus) => {
+            const env = createEnv();
+            const first =
+                result instanceof Error
+                    ? vi.fn().mockRejectedValue(result)
+                    : vi.fn().mockResolvedValue(result);
+            env.GOALS_DB = {
+                prepare: vi.fn(() => ({
+                    bind: vi.fn().mockReturnThis(),
+                    first,
+                })),
+            } as unknown as D1Database;
+            const request = new Request("https://analytics.example/api/event", {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "user-agent": browserUserAgent,
+                },
+                body: JSON.stringify({
+                    name: "pageview",
+                    url: "https://example.com/",
+                    domain: "example.com",
+                }),
+            });
 
-        const response = await plausibleEventRequestHandler(request, env);
+            const response = await plausibleEventRequestHandler(request, env);
 
-        expect(response.status).toBe(expectedStatus);
-        expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
-    });
+            expect(response.status).toBe(expectedStatus);
+            expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
+                "*",
+            );
+            expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+            expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+        },
+    );
 
     test("returns 503 when the site registry binding is missing", async () => {
         const env = { ...createEnv(), GOALS_DB: undefined };
@@ -409,6 +419,28 @@ describe("Plausible Events API", () => {
         expect(response.headers.get("x-plausible-dropped")).toBe("1");
         expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
         expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+    });
+
+    test("exempts the first-party server tracker UA prefix", async () => {
+        const env = createEnv();
+        const request = new Request("https://analytics.example/api/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                "user-agent": "noomers-tracker-server/3.4.1",
+            },
+            body: JSON.stringify({
+                name: "pageview",
+                url: "https://example.com/",
+                domain: "example.com",
+            }),
+        });
+
+        const response = await plausibleEventRequestHandler(request, env);
+
+        expect(response.status).toBe(202);
+        expect(response.headers.get("x-plausible-dropped")).toBeNull();
+        expect(env.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalledOnce();
     });
 
     test("returns the selected client IP for debug requests", async () => {

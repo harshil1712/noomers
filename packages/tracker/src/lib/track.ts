@@ -1,6 +1,7 @@
 import type { Client } from "./client";
 import { instrumentHistoryBuiltIns } from "./instrument";
 import { makeRequest, checkCacheStatus } from "./request";
+import { startEngagement } from "./engagement";
 import {
     getHostnameAndPath,
     getReferrer,
@@ -98,6 +99,11 @@ export async function trackPageview(
     const { hostname, path } = getHostnameAndPath(url, true);
     const referrer = getBrowserReferrer(hostname, opts.referrer || "");
     const utmParams = getUtmParamsFromBrowserUrl(url);
+
+    // Start (or reset) the engagement context for this pageview. If the path
+    // changed from a previous context, the previous page's delta is flushed
+    // first so attribution stays with the page where the time was spent.
+    startEngagement(client, hostname, path, referrer);
 
     let hitType: string | undefined;
     try {

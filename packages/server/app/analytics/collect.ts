@@ -1,10 +1,8 @@
 import type { AnalyticsEngineDataset } from "@cloudflare/workers-types";
 import { IDevice, UAParser } from "ua-parser-js";
+import { shouldDropBot } from "./bot";
 import { maskBrowserVersion } from "~/lib/utils";
-import {
-    SitesRepository,
-    type SiteCollectionStatus,
-} from "~/sites/repository";
+import { SitesRepository, type SiteCollectionStatus } from "~/sites/repository";
 
 export type CollectEnv = Pick<Env, "WEB_COUNTER_AE"> &
     Partial<Pick<Env, "VISITOR_SALT" | "GOALS_DB">> & {
@@ -181,6 +179,8 @@ function getDeviceTypeFromDevice(device: IDevice): string {
 const MAX_EVENT_NAME_LENGTH = 64;
 const MAX_EVENT_PROPERTIES_LENGTH = 2048;
 const MAX_COLLECT_BODY_BYTES = 32 * 1024;
+const MIN_ENGAGEMENT_TIME_MS = 1000;
+const MAX_ENGAGEMENT_TIME_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface DurableEvent {
     schema_version: 2;
@@ -465,6 +465,48 @@ export async function recordNormalizedEvent(
     }
 }
 
+const TRACKING_PIXEL_GIF =
+    "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+
+function encodeTrackingPixel(): ArrayBuffer {
+    const gifData = atob(TRACKING_PIXEL_GIF);
+    const buffer = new ArrayBuffer(gifData.length);
+    const view = new Uint8Array(buffer);
+    for (let i = 0; i < gifData.length; i++) {
+        view[i] = gifData.charCodeAt(i);
+    }
+    return buffer;
+}
+
+const TRACKING_PIXEL_BUFFER = encodeTrackingPixel();
+
+function trackingPixelResponse({
+    dropped,
+    nextLastModifiedDate,
+}: {
+    dropped?: boolean;
+    nextLastModifiedDate?: Date;
+} = {}): Response {
+    const headers: HeadersInit = {
+        "Access-Control-Allow-Origin": "*",
+        "Content-Type": "image/gif",
+        Expires: "Mon, 01 Jan 1990 00:00:00 GMT",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        Tk: "N",
+    };
+
+    if (dropped) {
+        headers["x-noomers-dropped"] = "1";
+    }
+
+    if (nextLastModifiedDate) {
+        headers["Last-Modified"] = nextLastModifiedDate.toUTCString();
+    }
+
+    return new Response(TRACKING_PIXEL_BUFFER, { headers, status: 200 });
+}
+
 function parseEvent(params: Record<string, string>): {
     eventName?: string;
     eventProperties?: string;
@@ -505,6 +547,58 @@ function parseEvent(params: Record<string, string>): {
     }
 }
 
+function parseEngagement(
+    params: Record<string, string>,
+    method: string,
+): {
+    engagementTime?: number;
+    scrollDepth?: number;
+    error?: string;
+} {
+    if (params.et === undefined) {
+        return {};
+    }
+
+    if (params.et !== "engagement") {
+        return { error: "Invalid event type" };
+    }
+
+    if (method !== "POST") {
+        return { error: "Engagement events must use POST" };
+    }
+
+    if (
+        params.en !== undefined ||
+        params.ep !== undefined ||
+        params.ht !== undefined
+    ) {
+        return { error: "Invalid engagement parameters" };
+    }
+
+    const engagementTime = Number(params.e);
+    if (
+        !Number.isInteger(engagementTime) ||
+        engagementTime < MIN_ENGAGEMENT_TIME_MS ||
+        engagementTime > MAX_ENGAGEMENT_TIME_MS
+    ) {
+        return { error: "Invalid engagement time" };
+    }
+
+    let scrollDepth = 0;
+    if (params.sd !== undefined) {
+        scrollDepth = Number(params.sd);
+        if (
+            !Number.isInteger(scrollDepth) ||
+            scrollDepth < 0 ||
+            scrollDepth > 100
+        ) {
+            return { error: "Invalid scroll depth" };
+        }
+    }
+
+    return { engagementTime, scrollDepth };
+}
+
 export async function collectRequestHandler(
     request: Request,
     env: CollectEnv,
@@ -530,9 +624,67 @@ export async function collectRequestHandler(
     );
     if (statusResponse) return statusResponse;
 
+    if (shouldDropBot(request)) {
+        return trackingPixelResponse({ dropped: true });
+    }
+
     const event = parseEvent(params);
     if (event.error) {
         return new Response(event.error, { status: 400 });
+    }
+
+    const engagement = parseEngagement(params, request.method);
+    if (engagement.error) {
+        return new Response(engagement.error, { status: 400 });
+    }
+
+    // Engagement deltas/depth are only meaningful with et=engagement.
+    if (
+        engagement.engagementTime === undefined &&
+        (params.e !== undefined || params.sd !== undefined)
+    ) {
+        return new Response("Invalid engagement parameters", { status: 400 });
+    }
+
+    if (engagement.engagementTime !== undefined) {
+        const normalizedEvent = await normalizeEvent(
+            request,
+            env,
+            {
+                siteId,
+                eventType: "engagement",
+                eventName: "engagement",
+                eventProperties: "",
+                host: params.h,
+                path: params.p,
+                referrer: params.r,
+                interactive: false,
+                engagementTime: engagement.engagementTime,
+                scrollDepth: engagement.scrollDepth,
+                suppliedIp:
+                    request.method === "POST" &&
+                    params.ip &&
+                    params.ip.length <= 45 &&
+                    /^[0-9a-f:.]+$/i.test(params.ip)
+                        ? params.ip
+                        : undefined,
+                newVisitor: 0,
+                bounce: 0,
+                utmSource: params.us,
+                utmMedium: params.um,
+                utmCampaign: params.uc,
+                utmTerm: params.ut,
+                utmContent: params.uco,
+            },
+            extra,
+        );
+
+        await recordNormalizedEvent(env, normalizedEvent);
+
+        // Engagement events must not mutate the cache state or trigger an
+        // Analytics Engine write; recordNormalizedEvent already skips AE for
+        // engagement events and routes only to the durable EVENT_STREAM.
+        return trackingPixelResponse();
     }
 
     // Check if hit type parameter is provided in the request
@@ -596,33 +748,7 @@ export async function collectRequestHandler(
 
     await recordNormalizedEvent(env, normalizedEvent);
 
-    // encode 1x1 transparent gif
-    const gif = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-    const gifData = atob(gif);
-    const gifLength = gifData.length;
-    const arrayBuffer = new ArrayBuffer(gifLength);
-    const uintArray = new Uint8Array(arrayBuffer);
-    for (let i = 0; i < gifLength; i++) {
-        uintArray[i] = gifData.charCodeAt(i);
-    }
-
-    const headers: HeadersInit = {
-        "Access-Control-Allow-Origin": "*",
-        "Content-Type": "image/gif",
-        Expires: "Mon, 01 Jan 1990 00:00:00 GMT",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-        Tk: "N", // not tracking
-    };
-
-    if (nextLastModifiedDate) {
-        headers["Last-Modified"] = nextLastModifiedDate.toUTCString();
-    }
-
-    return new Response(arrayBuffer, {
-        headers,
-        status: 200,
-    });
+    return trackingPixelResponse({ nextLastModifiedDate });
 }
 
 // NOTE: Cloudflare Analytics Engine has limits on total number of bytes, number of fields, etc.

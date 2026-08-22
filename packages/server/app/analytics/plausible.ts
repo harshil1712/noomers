@@ -1,4 +1,3 @@
-import { isbot } from "isbot";
 import {
     normalizeEvent,
     readCollectBody,
@@ -8,6 +7,7 @@ import {
     type CollectEnv,
     type EventInput,
 } from "./collect";
+import { shouldDropBot } from "./bot";
 
 const CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -318,8 +318,7 @@ export async function plausibleEventRequestHandler(
     );
     if (statusResponse) return statusResponse;
 
-    const userAgent = request.headers.get("user-agent");
-    if (!userAgent || isbot(userAgent)) {
+    if (shouldDropBot(request)) {
         return new Response("ok", {
             status: 202,
             headers: {

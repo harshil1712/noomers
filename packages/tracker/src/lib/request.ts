@@ -62,7 +62,7 @@ export function checkCacheStatus(
  */
 export function makeRequest(url: string, params: CollectRequestParams) {
     const xhr = new XMLHttpRequest();
-    const isEvent = Boolean(params.en);
+    const isEvent = Boolean(params.en || params.et);
     const fullUrl = isEvent ? url : buildCollectUrl(url, params);
 
     xhr.open(isEvent ? "POST" : "GET", fullUrl, true);
@@ -72,4 +72,36 @@ export function makeRequest(url: string, params: CollectRequestParams) {
     );
     xhr.timeout = REQUEST_TIMEOUT;
     xhr.send(isEvent ? queryParamStringify(params).slice(1) : undefined);
+}
+
+/**
+ * Sends a lifecycle engagement event using the most reliable transport available.
+ * Prefers navigator.sendBeacon; falls back to fetch with keepalive.
+ * @param url The collect endpoint URL
+ * @param params The parameters to send
+ */
+export function sendLifecycleRequest(url: string, params: CollectRequestParams) {
+    const body = queryParamStringify(params).slice(1);
+
+    if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+        try {
+            const blob = new Blob([body], {
+                type: "application/x-www-form-urlencoded",
+            });
+            if (navigator.sendBeacon(url, blob)) return;
+        } catch {
+            // sendBeacon or Blob construction can throw; fall through to fetch.
+        }
+    }
+
+    if (typeof fetch !== "undefined") {
+        fetch(url, {
+            method: "POST",
+            body,
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            keepalive: true,
+        }).catch(() => {
+            // Engagement is fire-and-forget.
+        });
+    }
 }

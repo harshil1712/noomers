@@ -60,6 +60,30 @@ export function buildCollectRequestParams(
     return params;
 }
 
+export function buildEngagementRequestParams(
+    siteId: string,
+    hostname: string,
+    path: string,
+    referrer: string,
+    engagementTime: number,
+    scrollDepth = 0,
+): CollectRequestParams {
+    const params: CollectRequestParams = {
+        p: path,
+        h: hostname,
+        r: referrer,
+        sid: siteId,
+        et: "engagement",
+        e: String(Math.floor(engagementTime)),
+    };
+
+    if (scrollDepth > 0) {
+        params.sd = String(Math.floor(scrollDepth));
+    }
+
+    return params;
+}
+
 export function buildCollectUrl(
     baseUrl: string,
     params: CollectRequestParams,

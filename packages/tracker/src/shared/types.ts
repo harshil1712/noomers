@@ -6,6 +6,9 @@ export type CollectRequestParams = {
     ht?: string; // hit type
     en?: string; // custom event name; absent for pageviews
     ep?: string; // JSON-encoded custom event properties
+    et?: string; // native event type; "engagement" for engagement events
+    e?: string; // engagement time in milliseconds (delta, not cumulative)
+    sd?: string; // scroll depth 0-100
     ip?: string; // optional server-side source IP; never persisted
     [key: string]: string | undefined; // Allow additional string properties
 } & UtmParams;

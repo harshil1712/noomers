@@ -1,4 +1,6 @@
 import { autoTrackPageviews } from "./track";
+import { instrumentEngagementLifecycle } from "./instrument";
+import { clearEngagement, flushEngagement } from "./engagement";
 import type { BaseClientConfig } from "../shared/types";
 
 export type ClientOpts = BaseClientConfig & {
@@ -11,6 +13,7 @@ export class Client {
     reportOnLocalhost = false;
 
     _cleanupAutoTrackPageviews?: () => void;
+    _cleanupEngagementLifecycle?: () => void;
 
     constructor(opts: ClientOpts) {
         this.siteId = opts.siteId;
@@ -19,6 +22,8 @@ export class Client {
         if (opts.reportOnLocalhost) {
             this.reportOnLocalhost = opts.reportOnLocalhost;
         }
+
+        this._cleanupEngagementLifecycle = instrumentEngagementLifecycle(this);
 
         // default to true
         if (opts.autoTrackPageviews === undefined || opts.autoTrackPageviews) {
@@ -31,8 +36,15 @@ export class Client {
     }
 
     cleanup() {
+        if (this._cleanupEngagementLifecycle) {
+            this._cleanupEngagementLifecycle();
+            this._cleanupEngagementLifecycle = undefined;
+        }
         if (this._cleanupAutoTrackPageviews) {
             this._cleanupAutoTrackPageviews();
+            this._cleanupAutoTrackPageviews = undefined;
         }
+        flushEngagement(this, true);
+        clearEngagement(this);
     }
 }

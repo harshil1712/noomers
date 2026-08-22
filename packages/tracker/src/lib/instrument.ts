@@ -1,3 +1,11 @@
+import type { Client } from "./client";
+import {
+    onEngagementHidden,
+    onEngagementPagehide,
+    onEngagementPageshowPersisted,
+    onEngagementVisible,
+} from "./engagement";
+
 export function instrumentHistoryBuiltIns(callback: () => void) {
     const origPushState = history.pushState;
 
@@ -21,5 +29,35 @@ export function instrumentHistoryBuiltIns(callback: () => void) {
     return () => {
         history.pushState = origPushState;
         removeEventListener("popstate", listener);
+    };
+}
+
+export function instrumentEngagementLifecycle(client: Client): () => void {
+    const onVisibilityChange = () => {
+        if (document.visibilityState === "hidden") {
+            onEngagementHidden(client);
+        } else {
+            onEngagementVisible(client);
+        }
+    };
+
+    const onPagehide = () => {
+        onEngagementPagehide(client);
+    };
+
+    const onPageshow = (event: PageTransitionEvent) => {
+        if (event.persisted) {
+            onEngagementPageshowPersisted(client);
+        }
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", onPagehide);
+    window.addEventListener("pageshow", onPageshow);
+
+    return () => {
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+        window.removeEventListener("pagehide", onPagehide);
+        window.removeEventListener("pageshow", onPageshow);
     };
 }

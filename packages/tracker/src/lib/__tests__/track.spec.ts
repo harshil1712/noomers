@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { trackEvent, trackPageview } from "../track";
 import * as requestModule from "../request";
+import * as engagementModule from "../engagement";
 import { Client } from "../client";
 
 describe("trackPageview", () => {
@@ -51,6 +52,15 @@ describe("trackPageview", () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+    });
+
+    beforeEach(() => {
+        vi.spyOn(performance, "now").mockReturnValue(0);
+        Object.defineProperty(document, "visibilityState", {
+            writable: true,
+            configurable: true,
+            value: "visible",
+        });
     });
 
     test("should make a request when host is not empty", async () => {
@@ -444,6 +454,67 @@ describe("trackPageview", () => {
             expect(callArgs).not.toHaveProperty("um");
             expect(callArgs).not.toHaveProperty("ut");
             expect(callArgs).not.toHaveProperty("uco");
+        });
+    });
+
+    describe("engagement lifecycle integration", () => {
+        test("starts an engagement context after tracking a pageview", async () => {
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            const startEngagementSpy = vi.spyOn(
+                engagementModule,
+                "startEngagement",
+            );
+
+            await trackPageview(client);
+
+            expect(startEngagementSpy).toHaveBeenCalledWith(
+                client,
+                "http://localhost",
+                "/test-path",
+                "",
+            );
+
+            client.cleanup();
+        });
+
+        test("flushes previous engagement before SPA navigation", async () => {
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            vi.spyOn(performance, "now").mockImplementation(() => 5000);
+            Object.defineProperty(document, "visibilityState", {
+                writable: true,
+                configurable: true,
+                value: "visible",
+            });
+
+            await trackPageview(client, { url: "/first" });
+
+            vi.spyOn(performance, "now").mockImplementation(() => 8000);
+
+            await trackPageview(client, { url: "/second" });
+
+            // First call should be the first pageview; second call is engagement
+            // for /first; third call is the second pageview.
+            const engagementCalls = makeRequestMock.mock.calls.filter(
+                ([, params]) => params.et === "engagement",
+            );
+            expect(engagementCalls).toHaveLength(1);
+            expect(engagementCalls[0][1]).toMatchObject({
+                et: "engagement",
+                e: "3000",
+                p: "/first",
+            });
+
+            client.cleanup();
         });
     });
 
