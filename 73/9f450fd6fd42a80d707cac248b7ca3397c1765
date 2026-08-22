@@ -1,0 +1,21 @@
+packages/server/app/analytics/__tests__/bot.test.ts
+  s_8be4f114c9467a::t_dfa171577a3d79 1-55
+packages/server/app/analytics/__tests__/plausible.test.ts
+  s_8be4f114c9467a::t_f37bb8283ee126 38-40,65-90,92,94-101,424-445
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "739f450fd6fd42a80d707cac248b7ca3397c1765",
+  "prompts": {},
+  "sessions": {
+    "s_8be4f114c9467a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fd526ee65ffeuDVHgCmYcL1e86",
+        "model": "@cf/moonshotai/kimi-k2.7-code"
+      },
+      "human_author": "Harshil Agrawal <harshil@cloudflare.com>"
+    }
+  }
+}
