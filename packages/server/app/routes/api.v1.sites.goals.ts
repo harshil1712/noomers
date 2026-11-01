@@ -20,7 +20,7 @@ async function requireSite(database: D1Database, siteId: string) {
 }
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     const url = new URL(request.url);
     const siteId = url.searchParams.get("site_id") || "";
@@ -60,7 +60,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (request.method !== "PUT") {
         return Response.json({ error: "Method Not Allowed" }, { status: 405 });
     }
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     try {
         const input = (await request.json()) as {

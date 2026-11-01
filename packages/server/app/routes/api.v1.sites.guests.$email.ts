@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { requireAPIKey } from "~/api/auth";
 
 export async function action({ request, context }: ActionFunctionArgs) {
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     if (request.method === "DELETE") {
         return Response.json({ error: "Not Implemented" }, { status: 501 });

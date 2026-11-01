@@ -11,7 +11,7 @@ function notFound() {
 }
 
 export async function loader({ request, context, params }: LoaderFunctionArgs) {
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     const site = await new SitesRepository(context.cloudflare.env.GOALS_DB).get(
         params.site_id || "",
@@ -20,7 +20,7 @@ export async function loader({ request, context, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request, context, params }: ActionFunctionArgs) {
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     const repository = new SitesRepository(context.cloudflare.env.GOALS_DB);
     if (request.method === "DELETE") {

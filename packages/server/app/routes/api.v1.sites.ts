@@ -8,7 +8,7 @@ import {
 import { validateTeamId } from "~/sites/team";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     try {
         const url = new URL(request.url);
@@ -42,7 +42,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
     if (request.method !== "POST") {
         return Response.json({ error: "Method Not Allowed" }, { status: 405 });
     }
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     try {
         const input = (await request.json()) as {

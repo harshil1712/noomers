@@ -1,4 +1,5 @@
 import type { ActionFunctionArgs } from "react-router";
+import { secretsEqual } from "~/lib/secrets";
 import { executeStatsQuery, StatsAPIError } from "~/analytics/stats-api";
 import { SitesRepository } from "~/sites/repository";
 
@@ -14,7 +15,11 @@ export async function action({ request, context }: ActionFunctionArgs) {
     }
     const token = context.cloudflare.env.STATS_API_TOKEN;
     const authorization = request.headers.get("Authorization");
-    if (!token || authorization !== `Bearer ${token}`) {
+    if (
+        !token ||
+        !authorization ||
+        !(await secretsEqual(authorization, `Bearer ${token}`))
+    ) {
         return Response.json({ error: "Invalid API key" }, { status: 401 });
     }
     try {

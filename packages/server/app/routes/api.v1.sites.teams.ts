@@ -3,7 +3,7 @@ import { requireAPIKey } from "~/api/auth";
 import { SINGLE_ORGANIZATION } from "~/sites/team";
 
 export async function loader({ request, context }: LoaderFunctionArgs) {
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
 
     return Response.json({

@@ -7,7 +7,7 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     if (request.method !== "DELETE") {
         return Response.json({ error: "Method Not Allowed" }, { status: 405 });
     }
-    const unauthorized = requireAPIKey(request, context.cloudflare.env);
+    const unauthorized = await requireAPIKey(request, context.cloudflare.env);
     if (unauthorized) return unauthorized;
     try {
         const input = (await request.json()) as { site_id?: string };
