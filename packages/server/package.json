@@ -80,7 +80,7 @@
         "vite-tsconfig-paths": "^5.1.4",
         "vitest": "~4.0.8",
         "vitest-dom": "^0.1.1",
-        "wrangler": "^4.152.0"
+        "wrangler": "4.152.0"
     },
     "postcss": {
         "plugins": {
