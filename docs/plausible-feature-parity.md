@@ -14,7 +14,7 @@ Last reviewed: 2026-08-22.
 | Deferred  | Explicitly out of scope for the single-organization product; not planned work.                          |
 | Blocked   | Implementation or validation requires external infrastructure, credentials, or upstream product access. |
 
-Passing unit tests only prove noomers's local contracts. Analytics Engine and R2 SQL behavior must also be validated against deployed Cloudflare resources before full parity can be claimed.
+Passing unit tests only prove noomers's local contracts. Analytics Engine and Basin SQL (formerly R2 SQL) behavior must also be validated against deployed Cloudflare resources before full parity can be claimed.
 
 ## Current baseline
 
@@ -24,7 +24,7 @@ noomers currently has:
 - A partial `POST /api/v2/query` Stats API.
 - Partial Sites API provisioning, goals, and custom-property registration.
 - A noomers dashboard with summary, time-series, page, referrer, event, goal, browser, country, device, and UTM reports.
-- Optional canonical event storage through Cloudflare Pipelines, Data Catalog, and R2 SQL.
+- Optional canonical event storage through Basin Pipelines (formerly Cloudflare Pipelines), Basin Catalog (formerly R2 Data Catalog), and Basin SQL.
 - A D1 site registry, permanent deletion tombstones, and deletion-job records tracking Analytics Engine expiry, daily-rollup deletion, and Iceberg maintenance state (including explicit `blocked`).
 - A single shared-password dashboard and deployment-wide API tokens.
 
@@ -39,7 +39,7 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 | P0       | Initial site provisioning and upgrade migration | Collection rejects unknown sites; the installer now creates a site and backfills existing Analytics Engine site IDs, pending live validation.                                                                                                                              |
 | P0       | Session-correct visit dimensions                | Source, campaign, geography, technology, entry, and exit reports require first-page session attribution rather than event-row grouping.                                                                                                                                    |
 | P0       | Complete deletion execution                     | Site deletion records a per-layer deletion job that a scheduled processor claims, leases, retries, and advances to Iceberg `blocked`, but Iceberg rows and daily Arrow rollups are not automatically erased and the Analytics Engine expiry transition is not implemented. |
-| P1       | Automated durable-event provisioning            | Exact session metrics require Pipeline, Data Catalog, and R2 SQL resources that are currently configured manually.                                                                                                                                                         |
+| P1       | Automated durable-event provisioning            | Exact session metrics require Pipeline, Basin Catalog, and Basin SQL resources that are currently configured manually.                                                                                                                                                         |
 | P1       | Goal and revenue reporting                      | Revenue and goal definitions exist, but Stats API and dashboard reporting remain incomplete.                                                                                                                                                                               |
 | P1       | Historical imports                              | There is no Plausible, Google Analytics, or CSV migration path.                                                                                                                                                                                                            |
 | P1       | Broader Stats API query model                   | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                                                                                                                                                         |
@@ -65,9 +65,9 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 | Form-submission tracking          | Missing   | Add form instrumentation and compatible properties.                                                                                         |
 | Tagged-event tracking             | Missing   | Support Plausible's CSS-class and data-attribute conventions.                                                                               |
 | Automatic 404 tracking            | Missing   | Detect and report 404 pages through the served tracker integration.                                                                         |
-| Automatic scroll-depth reporting  | Supported | The noomers tracker now generates bounded scroll-depth values and sends them with engagement events; durable storage requires Pipeline/R2 SQL. Stats API `scroll_depth` metrics and dashboard scroll reports are still missing. |
+| Automatic scroll-depth reporting  | Supported | The noomers tracker now generates bounded scroll-depth values and sends them with engagement events; durable storage requires Pipeline/Basin SQL. Stats API `scroll_depth` metrics and dashboard scroll reports are still missing. |
 | Revenue tracking                  | Partial   | Revenue is validated and sent to the durable stream, but Analytics Engine, Stats API, goals, and dashboard do not report it.                |
-| Engagement reporting              | Partial   | The native tracker emits bounded engagement-time deltas and scroll-depth values. Engagement events require Pipeline/R2 SQL and are not queryable through Analytics Engine alone.                         |
+| Engagement reporting              | Partial   | The native tracker emits bounded engagement-time deltas and scroll-depth values. Engagement events require Pipeline/Basin SQL and are not queryable through Analytics Engine alone.                         |
 | Tracker configuration             | Partial   | Sites API stores Plausible-style tracker settings, but most settings do not alter the served noomers tracker.                               |
 | Native `/collect` bot filtering   | Supported | Native `/collect` now shares the UA-based bot policy with `/api/event`, exempting only the first-party `noomers-tracker-server/` UA prefix. |
 
@@ -78,11 +78,11 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 Metrics:
 
 - `visitors`
-- `visits` with R2 SQL
+- `visits` with Basin SQL
 - `pageviews`
-- `views_per_visit` with R2 SQL
-- `bounce_rate` with R2 SQL
-- `visit_duration` with R2 SQL
+- `views_per_visit` with Basin SQL
+- `bounce_rate` with Basin SQL
+- `visit_duration` with Basin SQL
 - `events`
 
 Dimensions:
@@ -128,7 +128,7 @@ Query behavior:
 | Dimension family                            | Status  | Remaining work                                                                                                 |
 | ------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
 | `event:goal`                                | Missing | Resolve event and page goals, including property constraints.                                                  |
-| `event:props:*`                             | Missing | Query registered event properties safely in Analytics Engine and R2 SQL.                                       |
+| `event:props:*`                             | Missing | Query registered event properties safely in Analytics Engine and Basin SQL.                                       |
 | Entry and exit page/hostname                | Missing | Sessionize first and last pageviews.                                                                           |
 | Source, referrer, and channel               | Missing | Attribute values from the first pageview and implement channel classification.                                 |
 | UTM medium/source/campaign/content/term     | Missing | Attribute campaign values from the first pageview.                                                             |
@@ -143,7 +143,7 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 
 | Feature                       | Status   | Remaining work                                                                              |
 | ----------------------------- | -------- | ------------------------------------------------------------------------------------------- |
-| `matches` and `matches_not`   | Missing  | Add RE2-compatible validation and dialect-specific Analytics Engine/R2 SQL rendering.       |
+| `matches` and `matches_not`   | Missing  | Add RE2-compatible validation and dialect-specific Analytics Engine/Basin SQL rendering.       |
 | Case-insensitive modifiers    | Missing  | Support `{case_sensitive:false}` where Plausible permits it.                                |
 | Nested `and`, `or`, and `not` | Missing  | Introduce a bounded filter AST and safe SQL compilers.                                      |
 | `has_done` and `has_not_done` | Missing  | Evaluate behavioral conditions over reconstructed sessions.                                 |
@@ -162,12 +162,12 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 | Gap                                         | Status  | Remaining work                                                                                                                                                                                                                                       |
 | ------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Live Analytics Engine arithmetic validation | Blocked | Validate sampling and aggregate expressions against a deployed dataset.                                                                                                                                                                              |
-| Live R2 SQL validation                      | Blocked | Validate generated SQL and response shapes against the current R2 SQL service.                                                                                                                                                                       |
+| Live Basin SQL validation                      | Blocked | Validate generated SQL and response shapes against the current Basin SQL service.                                                                                                                                                                       |
 | Session behavior across UTC midnight        | Partial | Daily visitor IDs intentionally prevent cross-day linkage; document and test resulting visit differences.                                                                                                                                            |
 | Page session attribution                    | Partial | Verify whether entry-page attribution for visit metrics matches each supported page query combination.                                                                                                                                               |
-| R2 row pagination                           | Partial | R2 SQL has no OFFSET; breakdowns now paginate deterministically with `ROW_NUMBER() OVER (...)` + a `dimension` tie-breaker and bounded `row_num` filters, matching the requested Stats API metric order. Validate against a deployed R2 SQL service. |
+| R2 row pagination                           | Partial | Basin SQL has no OFFSET; breakdowns now paginate deterministically with `ROW_NUMBER() OVER (...)` + a `dimension` tie-breaker and bounded `row_num` filters, matching the requested Stats API metric order. Validate against a deployed Basin SQL service. |
 | Long R2 time ranges                         | Partial | Prevent very large generated bucket expressions or use native timezone-aware bucketing.                                                                                                                                                              |
-| R2 total rows                               | Partial | `COUNT(*) OVER ()` returns the full matching group count independently of the fetched page; `include.total_rows` reports it. Validate against a deployed R2 SQL service.                                                                             |
+| R2 total rows                               | Partial | `COUNT(*) OVER ()` returns the full matching group count independently of the fetched page; `include.total_rows` reports it. Validate against a deployed Basin SQL service.                                                                             |
 | R2 query-time event deduplication           | Partial | `getSessionMetrics`, `getBasicMetrics`, and `getSessionBreakdown` collapse duplicate durable copies that share a non-empty canonical `event_id` before aggregation/sessionization. Empty or missing IDs remain distinct; client retries receive new IDs, and storage-level durable idempotency is still unimplemented. |
 | Analytics Engine sampling metadata          | Missing | Surface sampling or uncertainty warnings when applicable.                                                                                                                                                                                            |
 
@@ -226,7 +226,7 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 
 ### Current reports
 
-- Visitors, pageviews, bounce rate, visits, and average visit duration (when engagement data is present through Pipeline/R2 SQL).
+- Visitors, pageviews, bounce rate, visits, and average visit duration (when engagement data is present through Pipeline/Basin SQL).
 - Visitors, views, and bounce time series.
 - Pages, referrers, events, goals, browsers, browser versions, countries, devices, and UTM breakdowns.
 - Equality filters through URL parameters and paginated tables.
@@ -245,7 +245,7 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 | OS and version reports         | Missing  | Add report routes and cards.                                                                                                                                                                        |
 | Scroll depth                   | Missing  | Tracker generation is supported; add page-level average scroll reporting via Stats API and dashboard.                                                                                         |
 | Time on page                   | Missing  | Derive engagement and expose page metrics.                                                                                                                                                          |
-| Native average visit duration    | Supported | The native tracker emits bounded engagement-time deltas; the dashboard/R2 SQL average visit duration metric reports them. Average duration still requires Pipeline/R2 SQL and is unavailable in Analytics Engine-only deployments. |
+| Native average visit duration    | Supported | The native tracker emits bounded engagement-time deltas; the dashboard/Basin SQL average visit duration metric reports them. Average duration still requires Pipeline/Basin SQL and is unavailable in Analytics Engine-only deployments. |
 | Revenue/ecommerce dashboard    | Missing  | Add revenue goal cards, trends, and breakdowns.                                                                                                                                                     |
 | Custom-property reports        | Missing  | Add property dimensions, filters, and cards.                                                                                                                                                        |
 | Expanded report metrics        | Missing  | Allow report-specific engagement, conversion, and revenue columns.                                                                                                                                  |
@@ -258,9 +258,9 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 | Full queued export             | Missing  | Generate downloadable native aggregate exports with expiry.                                                                                                                                         |
 | Consolidated multi-site view   | Deferred | Requires cross-site query semantics, team scope, and independent configuration.                                                                                                                     |
 | Site settings UI               | Missing  | Provisioning and tracker configuration are API/CLI-only.                                                                                                                                            |
-| Long-term dashboard history    | Partial  | Daily Arrow rollups are archival/write-only today with no dashboard, read, or restore path; the dashboard remains limited to Analytics Engine (retention-limited) and R2 SQL (lagging) query paths. |
+| Long-term dashboard history    | Partial  | Daily Arrow rollups are archival/write-only today with no dashboard, read, or restore path; the dashboard remains limited to Analytics Engine (retention-limited) and Basin SQL (lagging) query paths. |
 
-The default daily Arrow rollups are write-only archival storage. There is no reader, query, or restore path for them today, so they preserve durability only and cannot be used to extend dashboard history. Queryable exact session history requires the Pipeline/Data Catalog/R2 SQL path, which can lag realtime collection because Pipeline batches events. Successfully accepting an event confirms request validation/acceptance only; the collector attempts a non-blocking Analytics Engine write and, when configured, an awaited Pipeline send, but neither failure is fatal, so a successful response does not prove provider persistence or a durable Pipeline/Iceberg or R2 SQL record.
+The default daily Arrow rollups are write-only archival storage. There is no reader, query, or restore path for them today, so they preserve durability only and cannot be used to extend dashboard history. Queryable exact session history requires the Pipeline/Basin Catalog/Basin SQL path, which can lag realtime collection because Pipeline batches events. Successfully accepting an event confirms request validation/acceptance only; the collector attempts a non-blocking Analytics Engine write and, when configured, an awaited Pipeline send, but neither failure is fatal, so a successful response does not prove provider persistence or a durable Pipeline/Iceberg or Basin SQL record.
 
 The dashboard currently mixes R2 session summaries with Analytics Engine breakdowns and time series. It needs a unified query path before exact Plausible semantics can be claimed across every card.
 
@@ -362,11 +362,11 @@ noomers intentionally uses a single-organization, shared-password model. Individ
 | ------------------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Initial site creation                | Partial   | Installer prompts for/accepts a domain and IANA timezone and provisions the site idempotently; live validation against a deployed Worker pending.                                                                                                                                                                                                               |
 | Existing-site upgrade migration      | Partial   | Installer discovers bounded distinct Analytics Engine site IDs as backfill candidates and inserts them into D1 before fail-closed collection; backfill is fail-closed (aborts on discovery error, malformed ID, over-bounds, decline, or insert failure) and inserts skip already-registered and tombstoned sites; live Analytics Engine/D1 validation pending. |
-| Pipeline/Data Catalog provisioning   | Blocked   | Wrangler's setup is credential-dependent and interactive; automate when a stable non-interactive path exists.                                                                                                                                                                                                                                                   |
-| R2 SQL credential provisioning       | Blocked   | Create/scoped credentials and configure secrets through a supported API flow.                                                                                                                                                                                                                                                                                   |
+| Pipeline/Basin Catalog provisioning   | Blocked   | Wrangler's setup is credential-dependent and interactive; automate when a stable non-interactive path exists.                                                                                                                                                                                                                                                   |
+| Basin SQL credential provisioning       | Blocked   | Create/scoped credentials and configure secrets through a supported API flow.                                                                                                                                                                                                                                                                                   |
 | Stats/Sites API token configuration  | Partial   | Fresh installs securely accept a strong user-provided token and write it to `STATS_API_TOKEN` and `SITES_API_TOKEN`; existing installs securely prompt for the existing token and are never silently rotated; an `env api-token` alias rotates both; live verification pending.                                                                                 |
 | Pipeline binding metadata            | Supported | Reinstalls preserve the runtime `EVENT_STREAM` binding and reject stale `EVENTS_PIPELINE` metadata before deployment.                                                                                                                                                                                                                                           |
-| Dependency-aware health checks       | Missing   | Check D1, Analytics Engine, Pipeline configuration, and R2 SQL rather than always returning `ok`.                                                                                                                                                                                                                                                               |
+| Dependency-aware health checks       | Missing   | Check D1, Analytics Engine, Pipeline configuration, and Basin SQL rather than always returning `ok`.                                                                                                                                                                                                                                                               |
 | Pipeline retry/dead-letter handling  | Missing   | Durable send failures are currently logged while collection succeeds.                                                                                                                                                                                                                                                                                           |
 | Analytics Engine write observability | Missing   | Write failures are logged and swallowed. Add metrics and alerts.                                                                                                                                                                                                                                                                                                |
 | Rate limiting and quotas             | Missing   | Protect Events, Stats, and Sites APIs.                                                                                                                                                                                                                                                                                                                          |
@@ -383,10 +383,10 @@ These are noomers reliability improvements, not documented Plausible public API 
 | Feature                       | Status  | Remaining work                                                                                                                                                                                                                                 |
 | ----------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Trusted event timestamps      | Missing | Add a restricted path for backdated migration events without weakening public ingestion.                                                                                                                                                       |
-| Event deduplication           | Partial | R2 SQL read paths collapse duplicate durable copies that share a non-empty canonical `event_id` before aggregation/sessionization. Empty or missing IDs and client retries remain distinct; duplicate Iceberg rows are not erased and storage-level idempotent writes remain unimplemented. |
+| Event deduplication           | Partial | Basin SQL read paths collapse duplicate durable copies that share a non-empty canonical `event_id` before aggregation/sessionization. Empty or missing IDs and client retries remain distinct; duplicate Iceberg rows are not erased and storage-level idempotent writes remain unimplemented. |
 | Batch ingestion               | Missing | Add a bounded administrative batch path if migration throughput requires it.                                                                                                                                                                   |
 | Ingestion rate limits         | Missing | Add deployment-wide and per-site limits without allowing one site to starve others.                                                                                                                                                            |
-| Durable-write acknowledgement | Missing | A successful collection response confirms request validation/acceptance and that realtime Analytics Engine and optional durable writes were attempted; it is not proof of provider persistence or a durable Pipeline/Iceberg or R2 SQL record. |
+| Durable-write acknowledgement | Missing | A successful collection response confirms request validation/acceptance and that realtime Analytics Engine and optional durable writes were attempted; it is not proof of provider persistence or a durable Pipeline/Iceberg or Basin SQL record. |
 
 ## Explicit non-goals
 
@@ -408,7 +408,7 @@ Until the relevant rows above are complete, documentation should avoid claiming:
 - Full Stats API v2 support.
 - Revenue analytics or custom-property analytics.
 - Property-filtered goal reporting.
-- Exact Plausible session metrics without R2 SQL.
+- Exact Plausible session metrics without Basin SQL.
 - Long-term dashboard analytics from the daily Arrow archive.
 - Complete data erasure immediately after deleting a site.
 - Real teams, guests, or shared links.

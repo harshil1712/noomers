@@ -38,13 +38,13 @@ export async function validateCommand(
             console.log(`✅ ${check.name}: ok${detail}`);
         }
         const skipped = opts.skipDurable
-            ? " Durable (R2 SQL) session check skipped."
+            ? " Durable (Basin SQL) session check skipped."
             : "";
         console.log(
             `\nValidation passed.${skipped}\n` +
                 "Note: this confirms the configured HTTP surface is reachable and the configured " +
                 "read queries validate the requested paths. It does not prove durable delivery " +
-                "(Analytics Engine, Pipeline/Iceberg, or R2 SQL persistence) now or in the future, " +
+                "(Analytics Engine, Pipeline/Iceberg, or Basin SQL persistence) now or in the future, " +
                 "and no events or resources were written.",
         );
     } catch (error) {

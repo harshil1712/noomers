@@ -330,7 +330,7 @@ export async function validateDeployment(
         checks.push({
             name: "session",
             status: "ok",
-            detail: "visits (R2 SQL, exact session metric)",
+            detail: "visits (Basin SQL, exact session metric)",
         });
     }
 

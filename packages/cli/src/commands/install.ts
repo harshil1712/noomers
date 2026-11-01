@@ -636,7 +636,7 @@ Your token needs these permissions:
                 ?.length
         ) {
             note(
-                `Pipeline/Data Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest pipelines list\nSetup: npx wrangler@latest pipelines setup --name ${suggestPipelineName(workerName)}\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest r2 bucket catalog get <BUCKET>`,
+                `Basin Pipelines/Basin Catalog: not provisioned (credentials and interactive setup required).\n\nPreflight: npx wrangler@latest basin pipelines list\nSetup: npx wrangler@latest basin pipelines setup --name ${suggestPipelineName(workerName)}\nSchema: ${path.join(serverPkgDir, "pipelines", "events.schema.json")}\nCatalog status: npx wrangler@latest basin catalog get <BUCKET>`,
                 "Optional convergence storage",
             );
         }
