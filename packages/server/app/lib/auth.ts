@@ -1,6 +1,6 @@
 import { redirect } from "react-router";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { signJWT, verifyJWT } from "./jwt";
 import { createJWTCookie, clearJWTCookie } from "./session";
 import { User } from "./types";
 
@@ -44,16 +44,15 @@ export async function login(_request: Request, password: string, env: Env) {
         throw new Error("Invalid password");
     }
 
-    const token = jwt.sign(
+    const iat = Math.floor(Date.now() / 1000);
+    const token = await signJWT(
         {
             authenticated: true,
-            iat: Math.floor(Date.now() / 1000),
+            iat,
+            exp: iat + 60 * 60 * 24 * 30,
+            iss: "noomers",
         },
         env.CF_JWT_SECRET,
-        {
-            expiresIn: "30d",
-            issuer: "noomers",
-        },
     );
 
     return redirect("/dashboard", {
@@ -113,10 +112,11 @@ export async function getUser(request: Request, env: Env): Promise<User> {
             return { authenticated: false };
         }
 
-        const decoded = jwt.verify(
+        const decoded = await verifyJWT(
             token,
             env.CF_JWT_SECRET,
-        ) as jwt.JwtPayload;
+            "noomers",
+        );
 
         if (decoded.authenticated) {
             return { authenticated: true };

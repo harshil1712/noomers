@@ -2,7 +2,26 @@ import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { login, logout, requireAuth, getUser, isAuthEnabled } from "../auth";
 import { createJWTCookie, clearJWTCookie } from "../session";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { signJWT, verifyJWT, type JWTPayload } from "../jwt";
+
+const JWT_SECRET = "test-secret-key-for-jwt-signing-and-verification";
+
+function makeToken(
+    overrides: Partial<JWTPayload> = {},
+    secret = JWT_SECRET,
+): Promise<string> {
+    const iat = Math.floor(Date.now() / 1000);
+    return signJWT(
+        {
+            authenticated: true,
+            iat,
+            exp: iat + 60 * 60 * 24 * 30,
+            iss: "noomers",
+            ...overrides,
+        },
+        secret,
+    );
+}
 
 vi.mock("../session");
 vi.mock("bcryptjs");
@@ -12,7 +31,7 @@ vi.mock("react-router", () => ({
 
 const mockEnv = {
     CF_PASSWORD_HASH: "$2b$12$test.hash.value",
-    CF_JWT_SECRET: "test-secret-key-for-jwt-signing-and-verification",
+    CF_JWT_SECRET: JWT_SECRET,
 } as Env;
 
 const mockEnvAuthDisabled = {
@@ -92,10 +111,11 @@ describe("auth", () => {
             // Verify the JWT token that was created
             const createJWTCookieCall =
                 vi.mocked(createJWTCookie).mock.calls[0][0];
-            const decoded = jwt.verify(
+            const decoded = await verifyJWT(
                 createJWTCookieCall,
                 mockEnv.CF_JWT_SECRET,
-            ) as jwt.JwtPayload;
+                "noomers",
+            );
             expect(decoded.authenticated).toBe(true);
             expect(decoded.iat).toBeTypeOf("number");
             expect(decoded.iss).toBe("noomers");
@@ -181,12 +201,7 @@ describe("auth", () => {
 
     describe("requireAuth", () => {
         test("should return user when authenticated", async () => {
-            // Create a real JWT token for testing
-            const validToken = jwt.sign(
-                { authenticated: true, iat: Math.floor(Date.now() / 1000) },
-                mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "noomers" },
-            );
+            const validToken = await makeToken();
 
             const request = new Request("http://localhost", {
                 headers: { Cookie: `__noomers_token=${validToken}` },
@@ -218,12 +233,9 @@ describe("auth", () => {
         });
 
         test("should redirect when JWT is expired", async () => {
-            // Create an expired token
-            const expiredToken = jwt.sign(
-                { authenticated: true, iat: Math.floor(Date.now() / 1000) },
-                mockEnv.CF_JWT_SECRET,
-                { expiresIn: "-1s", issuer: "noomers" },
-            );
+            const expiredToken = await makeToken({
+                exp: Math.floor(Date.now() / 1000) - 10,
+            });
 
             const request = new Request("http://localhost", {
                 headers: { Cookie: `__noomers_token=${expiredToken}` },
@@ -246,12 +258,7 @@ describe("auth", () => {
 
     describe("getUser", () => {
         test("should return user object when authenticated with valid JWT", async () => {
-            // Create a real JWT token for testing
-            const validToken = jwt.sign(
-                { authenticated: true, iat: Math.floor(Date.now() / 1000) },
-                mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "noomers" },
-            );
+            const validToken = await makeToken();
 
             const request = new Request("http://localhost", {
                 headers: { Cookie: `__noomers_token=${validToken}` },
@@ -291,12 +298,9 @@ describe("auth", () => {
         });
 
         test("should return { authenticated: false } when JWT is expired", async () => {
-            // Create an expired token
-            const expiredToken = jwt.sign(
-                { authenticated: true, iat: Math.floor(Date.now() / 1000) },
-                mockEnv.CF_JWT_SECRET,
-                { expiresIn: "-1s", issuer: "noomers" },
-            );
+            const expiredToken = await makeToken({
+                exp: Math.floor(Date.now() / 1000) - 10,
+            });
 
             const request = new Request("http://localhost", {
                 headers: { Cookie: `__noomers_token=${expiredToken}` },
@@ -308,12 +312,9 @@ describe("auth", () => {
         });
 
         test("should return { authenticated: false } when JWT payload is not authenticated", async () => {
-            // Create a token with authenticated: false
-            const unauthenticatedToken = jwt.sign(
-                { authenticated: false, iat: Math.floor(Date.now() / 1000) },
-                mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "noomers" },
-            );
+            const unauthenticatedToken = await makeToken({
+                authenticated: false,
+            });
 
             const request = new Request("http://localhost", {
                 headers: {
@@ -327,12 +328,9 @@ describe("auth", () => {
         });
 
         test("should return { authenticated: false } when JWT has wrong issuer", async () => {
-            // Create a token with wrong issuer
-            const wrongIssuerToken = jwt.sign(
-                { authenticated: true, iat: Math.floor(Date.now() / 1000) },
-                mockEnv.CF_JWT_SECRET,
-                { expiresIn: "30d", issuer: "wrong-issuer" },
-            );
+            const wrongIssuerToken = await makeToken({
+                iss: "wrong-issuer",
+            });
 
             const request = new Request("http://localhost", {
                 headers: { Cookie: `__noomers_token=${wrongIssuerToken}` },
@@ -340,17 +338,11 @@ describe("auth", () => {
 
             const result = await getUser(request, mockEnv);
 
-            // This should still work since the auth.ts doesn't validate issuer in verification
-            expect(result).toEqual({ authenticated: true });
+            expect(result).toEqual({ authenticated: false });
         });
 
         test("should return { authenticated: false } when JWT signed with wrong secret", async () => {
-            // Create a token with wrong secret
-            const wrongSecretToken = jwt.sign(
-                { authenticated: true, iat: Math.floor(Date.now() / 1000) },
-                "wrong-secret",
-                { expiresIn: "30d", issuer: "noomers" },
-            );
+            const wrongSecretToken = await makeToken({}, "wrong-secret");
 
             const request = new Request("http://localhost", {
                 headers: { Cookie: `__noomers_token=${wrongSecretToken}` },
@@ -368,5 +360,123 @@ describe("auth", () => {
 
             expect(result).toEqual({ authenticated: true });
         });
+    });
+});
+
+describe("jwt", () => {
+    const ISSUER = "noomers";
+
+    test("verifies a token produced by the previous jsonwebtoken settings", async () => {
+        // Generated with jsonwebtoken@9:
+        //   jwt.sign({authenticated: true, iat: 1700000000, exp: 2000000000},
+        //            JWT_SECRET, {issuer: "noomers"})
+        const fixture =
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9." +
+            "eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAwMDAwMDAwMCwiaXNzIjoibm9vbWVycyJ9." +
+            "Z4WGsx8VAwovKoNRjI8l50ATaZDAPC0LdcAE7sysboo";
+
+        const decoded = await verifyJWT(fixture, JWT_SECRET, ISSUER);
+
+        expect(decoded.authenticated).toBe(true);
+        expect(decoded.iss).toBe(ISSUER);
+    });
+
+    test("produces tokens that follow the standard JWT format", async () => {
+        const token = await makeToken();
+        const [header] = token.split(".");
+
+        expect(JSON.parse(atob(header))).toEqual({
+            alg: "HS256",
+            typ: "JWT",
+        });
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).resolves.toMatchObject(
+            { authenticated: true, iss: ISSUER },
+        );
+    });
+
+    test("rejects a token signed with the none algorithm", async () => {
+        const header = btoa(JSON.stringify({ alg: "none", typ: "JWT" }));
+        const body = btoa(
+            JSON.stringify({
+                authenticated: true,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                iss: ISSUER,
+            }),
+        );
+        const token = `${header}.${body}.`;
+
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).rejects.toThrow();
+    });
+
+    test("rejects a token declaring a different algorithm", async () => {
+        // Well-formed token whose header claims HS384
+        const header = btoa(JSON.stringify({ alg: "HS384", typ: "JWT" }))
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+        const body = btoa(
+            JSON.stringify({
+                authenticated: true,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                iss: ISSUER,
+            }),
+        )
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+        const token = `${header}.${body}.ZmFrZXNpZw`;
+
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).rejects.toThrow();
+    });
+
+    test("rejects a token with a tampered payload", async () => {
+        const token = await makeToken();
+        const [header, , signature] = token.split(".");
+        const tamperedBody = btoa(
+            JSON.stringify({
+                authenticated: true,
+                exp: Math.floor(Date.now() / 1000) + 3600,
+                iss: ISSUER,
+                admin: true,
+            }),
+        )
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+
+        await expect(
+            verifyJWT(`${header}.${tamperedBody}.${signature}`, JWT_SECRET, ISSUER),
+        ).rejects.toThrow();
+    });
+
+    test("rejects a token signed with the wrong secret", async () => {
+        const token = await makeToken({}, "wrong-secret");
+
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).rejects.toThrow();
+    });
+
+    test("rejects an expired token", async () => {
+        const token = await makeToken({
+            exp: Math.floor(Date.now() / 1000) - 10,
+        });
+
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).rejects.toThrow();
+    });
+
+    test("rejects a token with the wrong issuer", async () => {
+        const token = await makeToken({ iss: "wrong-issuer" });
+
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).rejects.toThrow();
+    });
+
+    test.each([
+        "not-a-jwt",
+        "only.two",
+        "a.b.c.d",
+        "..",
+        "a..c",
+        "!!!.@@@.###",
+    ])("rejects malformed token %s", async (token) => {
+        await expect(verifyJWT(token, JWT_SECRET, ISSUER)).rejects.toThrow();
     });
 });
