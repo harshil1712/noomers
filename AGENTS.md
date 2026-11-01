@@ -13,7 +13,7 @@ noomers is a pnpm/Turborepo monorepo for self-hosted web analytics on Cloudflare
 | `packages/cli`           | Installer and deployment-management CLI built around Wrangler.                                                        |
 | `packages/eslint-config` | Shared ESLint configuration.                                                                                          |
 
-Read `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, `docs/implementation-roadmap.md` before planning feature work, and `docs/convergence-provisioning.md` before changing durable-event provisioning.
+Read `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, and `docs/convergence-provisioning.md` before changing durable-event provisioning.
 
 ## Toolchain
 
