@@ -3,7 +3,6 @@ import { login, logout, requireAuth, getUser, isAuthEnabled } from "../auth";
 import { createJWTCookie, clearJWTCookie } from "../session";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { AnalyticsEngineDataset } from "@cloudflare/workers-types";
 
 vi.mock("../session");
 vi.mock("bcryptjs");

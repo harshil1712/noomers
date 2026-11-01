@@ -1,4 +1,3 @@
-import type { AnalyticsEngineDataset } from "@cloudflare/workers-types";
 import { IDevice, UAParser } from "ua-parser-js";
 import { shouldDropBot } from "./bot";
 import { maskBrowserVersion } from "~/lib/utils";

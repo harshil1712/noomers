@@ -15,3 +15,5 @@ declare namespace Cloudflare {
         R2_SQL_TOKEN?: string;
     }
 }
+
+interface Env extends Cloudflare.Env {}

@@ -1,6 +1,5 @@
 /*eslint @typescript-eslint/no-explicit-any: 0 */
 import { Mock, describe, expect, test, vi, beforeEach } from "vitest";
-import type { AnalyticsEngineDataset } from "@cloudflare/workers-types";
 import httpMocks from "node-mocks-http";
 
 import { collectRequestHandler as handleCollectRequest } from "../collect";

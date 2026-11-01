@@ -1,4 +1,3 @@
-import type { AnalyticsEngineDataset } from "@cloudflare/workers-types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { plausibleEventRequestHandler } from "../plausible";
 

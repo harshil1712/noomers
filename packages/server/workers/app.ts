@@ -1,8 +1,3 @@
-import type {
-    ExecutionContext,
-    ExportedHandler,
-    ScheduledController,
-} from "@cloudflare/workers-types";
 import { createRequestHandler, type ServerBuild } from "react-router";
 
 /**
@@ -26,7 +21,6 @@ export default {
         // CF_STORAGE_ENABLED gate inside runScheduledJobs.
         ctx.waitUntil(runScheduledJobs(env));
     },
-    // @ts-expect-error TODO figure out types here
     async fetch(request: any, env: any, ctx: any) {
         try {
             const loadContext = getLoadContext({
