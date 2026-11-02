@@ -1,77 +1,75 @@
 # noomers design system
 
-Kumo (`@cloudflare/kumo`) IS the design system. No custom palette, no custom
-type, no concept art — the product looks like the component library it ships
-with: light and dark via `html[data-mode]` + `light-dark()`, theme toggle
-provided by the app and site.
+Warm paper/stone palette over Kumo's semantic tokens — one chromatic accent
+(moss green) reserved for the primary action, selected state, main chart
+series and keyword highlight. Inter Tight 400 headings ("quiet authority"),
+Inter body, IBM Plex Mono uppercase metadata labels. Hairlines are the
+structural device; no card shadows (the site's product screenshot is the one
+exception).
 
-## Tokens
+## Tokens (`packages/brand/tokens.css`, `light-dark()` pairs)
 
-`packages/brand/tokens.css` defines only:
+| token                 | light   | dark    |
+| --------------------- | ------- | ------- |
+| canvas                | #F7F6F3 | #0F0E0D |
+| base/elevated         | #FFFFFF | #191816 |
+| recessed/overlay/tint | #F1EFEB | #22201E |
+| fill-hover            | #EAE7E2 | #2A2725 |
+| line                  | #E7E4DF | #2E2B28 |
+| hairline              | #EEEBE6 | #262422 |
+| control-line          | #8C857E | #6E6862 |
+| text default          | #1C1917 | #EDEBE8 |
+| strong                | #0C0A09 | #FAFAF9 |
+| subtle                | #6F6862 | #A39D96 |
+| placeholder           | #7A736C | #8F8982 |
+| brand (moss)          | #1F7A55 | #4FC08D |
+| brand-hover           | #186446 | #6BD0A1 |
+| brand-ink (on brand)  | #FFFFFF | #0F0E0D |
+| brand-tint            | #E3F1EA | #16291F |
+| brand-text            | #1F7A55 | #4FC08D |
+| series-2 (brass)      | #A08C6E | #8C7B62 |
 
-- `--brand-ink: light-dark(#fff, #121212)` — text drawn on `--color-kumo-brand`
-  surfaces (Kumo's default brand is orange; white ink on light, near-black on dark).
-- `color-scheme` mapping so `html[data-mode]` drives `light-dark()`.
+Semantic success/danger/warning stay Kumo's defaults — used only for delta
+badges and errors (subtle badge variants).
 
-Everything else — canvas/elevated/recessed surfaces, line/hairline/control,
-default/subtle/placeholder text, brand, danger, success, chart palette —
-comes from `@cloudflare/kumo/styles`. Never add a brand color, font, or
-semantic token back to this file; a one-off need is either an existing
-`kumo-*` token you haven't found yet, or a component bug to fix upstream.
+## Contrast (measured, WCAG AA)
+
+| pair                    | light | dark                         |
+| ----------------------- | ----- | ---------------------------- |
+| default / canvas        | 16.18 | 16.21                        |
+| default / elevated      | 17.49 | 14.91                        |
+| subtle / canvas         | 5.07  | 7.18                         |
+| subtle / elevated       | 5.48  | 6.61                         |
+| placeholder / elevated  | 4.67  | 5.13                         |
+| control-line / elevated | 3.64  | 3.23 (non-text, ≥3:1)        |
+| brand / canvas          | 4.89  | 8.50                         |
+| brand-text / elevated   | 5.29  | 7.82                         |
+| brand-ink / brand       | 5.29  | 8.50                         |
+| brand-text / brand-tint | 4.54  | 6.75                         |
+| series-2 / elevated     | 3.25  | 4.33 (data series, not text) |
 
 ## Type
 
-Kumo's default stack only. Numbers get `tabular-nums` where they are data
-(stat values, table counts, chart axes). Headings use the `Text` component
-(`variant="heading1|2|3"`, `as="h1…h6"`), body uses `variant="body|secondary"`,
-code uses `Code`/`Code.Block`.
+- **Display** — `Inter Tight Variable`, weight **400**, letter-spacing
+  −0.02em (−0.025em ≥40px). Headings, KPI values, card numbers. Never bold.
+- **Body/UI** — `Inter Variable` (Kumo ships system fonts; we load Inter
+  explicitly).
+- **Mono** — `IBM Plex Mono` 400/500 for `.mono-label`: uppercase 11–12px,
+  +0.04em tracking, subtle color — KPI labels, table column headers,
+  eyebrows, code, timezone caption. Table numbers stay Inter + `tabular-nums`.
 
-## Logo
+## Shape
 
-Wordmark only: lowercase "noomers" in semibold Kumo text (`Logo.tsx` /
-`Logo.astro`, `size`/`markOnly` props kept for call-site compatibility).
-Favicon: lowercase "n" in white on a rounded square of Kumo's default brand
-(`favicon.svg`, 32px PNG, 180px apple-touch — both apps).
+- Primary buttons + segmented tabs: pill radius (CSS override; Kumo Button
+  exposes no pill variant).
+- Cards/Surfaces: 12px radius, 1px line border, `box-shadow: none`.
 
-## App patterns
+## Rules
 
-- **Shell:** Kumo `Sidebar` (`collapsible="icon"`): wordmark header, Sites
-  group (one `Globe` item per registered site), "Add site" Dialog explaining
-  the Sites API, footer Settings/Admin(theme toggle, user menu).
-  `CommandPalette` on Cmd/Ctrl+K for site/Settings/Admin jumps.
-- **Dashboard header:** Breadcrumbs (Sites / domain), domain title + external
-  link icon, segmented `Tabs` (Overview | Realtime), interval `Select`,
-  "Tracking code" `Dialog` with `Code.Block` snippets; filter `Badge` row.
-- **KPI strip:** one `Surface`, `Grid` of tiles — live-visitors tile first
-  (pulsing `.live-dot` — the only allowed custom CSS, suppressed under
-  `prefers-reduced-motion`), then the stats endpoint's metrics in
-  `tabular-nums`. Change badges only when the API returns previous values.
-- **Breakdowns:** `Grid variant="2up"` of `Surface` panels; header = `Text
-  heading3` + `Tabs variant="underline"`; body = `Table layout="fixed"` Name |
-  count | %, with a `bg-kumo-tint` proportion bar behind each name; rows are
-  keyboard-focusable filter controls; `Pagination`-style prev/next footer.
-- **Chart:** `TimeseriesChart` + `ChartPalette.categorical(i, isDark)` +
-  `ChartLegend` items.
-- **Realtime tab:** `Surface` hero count + 2up tiles + `Table`s for
-  topPages/topReferrers straight from the DO payload.
-- **States:** skeleton blocks for loading; ONE `Banner variant="error"` when
-  ≥3 historical fetches fail (Basin SQL down), with a `Retry` `Button`;
-  per-panel failure stays a small inline message; `Empty` with `commandLine`
-  snippets for no-data/no-sites.
-- **Auth screens:** centered `Surface`, wordmark above, `Field`/`Input`/
-  `SensitiveInput`, plain headings ("Sign in to noomers", "Create your
-  account", "Reset your password", "Check your email").
-
-## Site patterns
-
-Same tokens and fonts via `@import "@cloudflare/kumo/styles/tailwind"`;
-plain Astro + tokens, no React components. Conventional marketing page:
-nav (wordmark · Docs · Blog · GitHub · Deploy button), hero with a real
-dashboard screenshot (`<picture>` for light/dark), "what it stores / never
-stores" columns, architecture flow, deploy steps, API subset, script snippet.
-
-## Motion
-
-Exactly one custom animation: `.live-dot` pulse on the realtime indicators,
-suppressed under `prefers-reduced-motion`. Everything else is Kumo's own
-transition set.
+- One accent only: moss green = primary action, selected state, main chart
+  series, keyword highlight. Everything else is warm stone.
+- Proportion bars use `--color-kumo-tint`; hover deepens to the stronger tint.
+- Sidebar: canvas bg, hairline border, active item = tint + brand icon.
+- Site: alternating canvas/white bands (96px rhythm), mono eyebrows, ONE
+  brand-tint keyword in the hero headline, soft shadow only on the product
+  screenshot frame (hairline only in dark).
