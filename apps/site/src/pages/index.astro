@@ -44,7 +44,7 @@ const REPO = "https://github.com/harshil1712/noomers";
     <h2>See your traffic, not just totals</h2>
     <div class="bento-grid">
       <figure class="bento-card">
-        <img data-light="/features/changed-light.png" data-dark="/features/changed-dark.png" src="/features/changed-light.png" alt="KPI strip showing visitors, pageviews and change badges" loading="lazy" width="1440" height="112" />
+        <img class="fit-contain" data-light="/features/changed-light.png" data-dark="/features/changed-dark.png" src="/features/changed-light.png" alt="KPI strip showing visitors, pageviews and change badges" loading="lazy" width="566" height="119" />
         <figcaption><b>See what changed</b><span>Period-over-period deltas on every metric.</span></figcaption>
       </figure>
       <figure class="bento-card">
@@ -123,9 +123,9 @@ const REPO = "https://github.com/harshil1712/noomers";
     <span class="mono-label eyebrow">Self-host</span>
     <h2>Deploy in three steps</h2>
     <ol class="steps">
-      <li><span class="num">1</span><div><b>Fork the repo</b><p>noomers carries its own infrastructure as code — nothing to provision by hand.</p></div></li>
-      <li><span class="num">2</span><div><b>Add secrets</b><p>Cloudflare token, Better Auth secret, the daily salt and the API tokens.</p></div></li>
-      <li><span class="num">3</span><div><b>Merge to main</b><p>Alchemy deploys through GitHub Actions with a smoke check.</p></div></li>
+      <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M224 112a44 44 0 0 0-44-44c-13.48 0-25.07 6.1-33.71 15.58A52.05 52.05 0 0 0 104 24a52 52 0 0 0-52 52v36a44 44 0 0 0 36 43.19V156a12 12 0 0 0 24 0v-16.49A52 52 0 0 0 144.66 87c1.11 16.41 4.7 25.35 14.34 30.94A36 36 0 0 0 224 112Zm-44-44a36 36 0 0 1 0 72 36 36 0 0 1 0-72Z"/></svg></i><div><b>Fork the repo</b><p>Infrastructure as code, nothing to click.</p></div></li>
+      <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M216.57 39.43A80 80 0 0 0 160 24a80.36 80.36 0 0 0-56.57 136.57l-71.43 71.43a12 12 0 0 0 17 17l80-80a80 80 0 0 0 87.57-129.57ZM160 88a24 24 0 1 1 24 24 24 24 0 0 1-24-24Z"/></svg></i><div><b>Add secrets</b><p>Cloudflare token, auth secret, salt, API tokens.</p></div></li>
+      <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M152 224a8 8 0 0 1-8 8h-32a8 8 0 0 1-8-8v-27.31a80 80 0 1 1 48 0Zm-45.93-80.94a8 8 0 0 0 11.32 11.32L128 143.9l10.59 10.59a8 8 0 0 0 11.32-11.32L114.9 108.15a8 8 0 0 0-11.32 0Zm45.93-61.68a8 8 0 0 0-11.32-11.32l-21.9 21.9a8 8 0 0 0 11.32 11.32l16.18-16.18Z"/></svg></i><div><b>Merge to main</b><p>GitHub Actions deploys with Alchemy.</p></div></li>
     </ol>
     <pre class="code">git clone {REPO}
 cp .env.example .env  # fill in the values
@@ -142,7 +142,7 @@ cp .env.example .env  # fill in the values
     </div>
     <div class="col">
       <h2>Add the script</h2>
-      <p class="lede">One tag, about 3&nbsp;KB gzipped, no cookies. Works on any site you own.</p>
+      <p class="lede">One tag, about 3&nbsp;KB gzipped, no cookies.</p>
       <pre class="code">&lt;script defer
   src="https://analytics.example.com/tracker.js"
   data-site-id="example.com"&gt;&lt;/script&gt;</pre>
@@ -223,6 +223,9 @@ cp .env.example .env  # fill in the values
     border-bottom: 1px solid var(--color-kumo-hairline);
     background: var(--color-kumo-recessed);
   }
+  .bento-card img.fit-contain {
+    object-fit: contain; padding: 0.75rem;
+  }
   .bento-card figcaption { padding: 1rem 1.25rem 1.1rem; }
   .bento-card b { display: block; font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; font-size: 1.05rem; letter-spacing: -0.02em; }
   .bento-card span { font-size: 0.9rem; color: var(--color-kumo-subtle); }
@@ -261,15 +264,18 @@ cp .env.example .env  # fill in the values
     background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text);
   }
   .salt-days .divider {
-    border-left: 1px dashed var(--color-kumo-control-line);
     position: relative;
   }
+  .salt-days .divider::before {
+    content: ""; position: absolute; top: 14px; bottom: 0; left: 0;
+    border-left: 1px dashed var(--color-kumo-control-line);
+  }
   .salt-days .divider::after {
-    content: "00:00 UTC"; position: absolute; top: 50%; left: 0;
-    transform: translate(-50%, -50%) rotate(-90deg);
+    content: "00:00 UTC"; position: absolute; top: 0; left: 0;
+    transform: translateX(-50%);
     font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 9px;
     letter-spacing: 0.04em; color: var(--color-kumo-subtle);
-    background: var(--color-kumo-elevated); padding: 0 2px;
+    background: var(--color-kumo-elevated); padding: 0 3px; white-space: nowrap;
   }
 
   .salt-line { margin: 0; font-size: 0.95rem; color: var(--color-kumo-subtle); }
