@@ -1,0 +1,37 @@
+{
+  "name": "site-events-test",
+  "main": "workers/test-entry.ts",
+  "compatibility_date": "2026-08-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SITE_EVENTS",
+        "class_name": "SiteEvents"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "SiteEvents"
+      ]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "GOALS_DB",
+      "database_name": "test-db",
+      "database_id": "00000000-0000-0000-0000-000000000001"
+    }
+  ],
+  "vars": {
+    "CF_JWT_SECRET": "test-secret",
+    "CF_PASSWORD_HASH": "unused",
+    "CF_AUTH_ENABLED": "true",
+    "VISITOR_SALT": "salt"
+  }
+}

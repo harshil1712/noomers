@@ -1,3 +1,4 @@
+import { DurableObject } from "cloudflare:workers";
 import type { DurableEvent } from "../app/analytics/collect";
 
 const SHIP_DELAY_MS = 5_000;
@@ -30,15 +31,13 @@ interface EventRow {
     payload: string;
 }
 
-export class SiteEvents implements DurableObject {
+export class SiteEvents extends DurableObject<Env> {
     private alarmPending = false;
     private lastBroadcast = 0;
     private missingStreamLogged = false;
 
-    constructor(
-        private readonly ctx: DurableObjectState,
-        private readonly env: Env,
-    ) {
+    constructor(ctx: DurableObjectState, env: Env) {
+        super(ctx, env);
         this.ctx.storage.sql.exec(`
             CREATE TABLE IF NOT EXISTS events (
                 seq INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +61,7 @@ export class SiteEvents implements DurableObject {
     private metaGet(key: string): string | undefined {
         const row = this.ctx.storage.sql
             .exec("SELECT value FROM meta WHERE key = ?", key)
-            .one();
+            .toArray()[0] as unknown as { value: string | number } | undefined;
         return row ? String(row.value) : undefined;
     }
 
@@ -106,7 +105,6 @@ export class SiteEvents implements DurableObject {
     async alarm(): Promise<void> {
         this.alarmPending = false;
         const now = Date.now();
-        const shippedSeq = Number(this.metaGet("shipped_seq") ?? 0);
 
         if (this.env.EVENT_STREAM) {
             let failures = 0;
@@ -166,6 +164,9 @@ export class SiteEvents implements DurableObject {
                 }),
             );
         }
+
+        // Re-read shipped_seq — the ship loop above may have advanced it.
+        const shippedSeq = Number(this.metaGet("shipped_seq") ?? 0);
 
         // Prune shipped rows past the realtime window. seq order equals time
         // order; AUTOINCREMENT keeps seq monotonic across full prunes.

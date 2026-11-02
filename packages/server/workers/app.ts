@@ -18,6 +18,7 @@ export default {
         try {
             const url = new URL(request.url);
             if (url.pathname.startsWith("/realtime/")) {
+                const { handleRealtime } = await import("./realtime");
                 return await handleRealtime(request, env, url);
             }
             const loadContext = getLoadContext({
@@ -47,26 +48,3 @@ export default {
     },
 } satisfies ExportedHandler<Env>;
 
-async function handleRealtime(
-    request: Request,
-    env: Env,
-    url: URL,
-): Promise<Response> {
-    const siteId = decodeURIComponent(url.pathname.slice("/realtime/".length));
-    if (!siteId) return new Response("Not Found", { status: 404 });
-    if (!env.SITE_EVENTS) {
-        return new Response("Realtime unavailable", { status: 503 });
-    }
-    const { getUser } = await import("../app/lib/auth");
-    const { SitesRepository } = await import("../app/sites/repository");
-    const user = await getUser(request, env);
-    if (!user.authenticated) {
-        return new Response("Unauthorized", { status: 401 });
-    }
-    const repository = new SitesRepository(env.GOALS_DB);
-    if ((await repository.collectionStatus(siteId)) !== "active") {
-        return new Response("Not Found", { status: 404 });
-    }
-    const namespace = env.SITE_EVENTS;
-    return namespace.get(namespace.idFromName(siteId)).fetch(request);
-}
