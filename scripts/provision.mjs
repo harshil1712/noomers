@@ -90,6 +90,15 @@ tryRun(["basin", "catalog", "enable", names.bucket], {
 tryRun(["basin", "catalog", "compaction", "enable", names.bucket], {
     env: { CLOUDFLARE_API_TOKEN: TOKEN },
 });
+// Snapshot expiration: keep snapshots younger than 7 days, retain last 10.
+tryRun(
+    [
+        "basin", "catalog", "snapshot-expiration", "enable", names.bucket,
+        "--older-than-days", "7",
+        "--retain-last", "10",
+        "--token", TOKEN,
+    ],
+);
 
 // 2. Stream (schema file, HTTP ingest off)
 tryRun(

@@ -1,6 +1,6 @@
 {
   "main": "./workers/app.ts",
-  "name": "noomers",
+  "name": "noomers-local",
   "compatibility_flags": [
     "nodejs_compat"
   ],

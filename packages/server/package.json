@@ -1,95 +1,95 @@
 {
-    "name": "@noomers/server",
-    "version": "3.4.1",
-    "description": "noomers Server",
-    "homepage": "https://noomers.dev",
-    "license": "MIT",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/harshil1712/noomers",
-        "directory": "packages/server"
-    },
-    "engines": {
-        "node": ">=20.0.0"
-    },
-    "files": [
-        "build",
-        "app",
-        "workers",
-        "migrations",
-        "pipelines",
-        "wrangler.json"
-    ],
-    "scripts": {
-        "dev": "react-router dev",
-        "build": "react-router build",
-        "preview": "wrangler dev --var VERSION:`git rev-parse HEAD`",
-        "deploy": "wrangler deploy --var VERSION:`git rev-parse HEAD`",
-        "lint": "eslint .",
-        "test": "TZ=EST vitest run",
-        "test-ci": "TZ=EST vitest run --coverage",
-        "typecheck": "react-router typegen && tsc",
-        "prepare": "husky",
-        "types:gen": "wrangler types",
-        "copytracker": "cp ../tracker/dist/loader/tracker.js ./public/tracker.js"
-    },
-    "dependencies": {
-        "@noomers/tracker": "workspace:*",
-        "@radix-ui/react-select": "^2.1.0",
-        "@radix-ui/react-slot": "^1.1.0",
-        "@react-router/cloudflare": "7.1.1",
-        "bcryptjs": "^3.0.2",
-        "class-variance-authority": "^0.7.0",
-        "clsx": "^2.1.1",
-        "dayjs": "^1.11.11",
-        "isbot": "^5.1.9",
-        "lucide-react": "^0.395.0",
-        "react": "^18.3.1",
-        "react-dom": "^18.3.1",
-        "react-router": "7.7.1",
-        "recharts": "2.13",
-        "tailwind-merge": "^2.3.0",
-        "tailwindcss-animate": "^1.0.7",
-        "ua-parser-js": "^1.0.38"
-    },
-    "devDependencies": {
-        "@cloudflare/vitest-pool-workers": "0.23.0",
-        "@noomers/eslint-config": "workspace:*",
-        "@react-router/dev": "7.7.1",
-        "@react-router/fs-routes": "7.7.1",
-        "@testing-library/react": "^16.2.0",
-        "@types/node": "^22.10.2",
-        "@types/react": "^18.3.3",
-        "@types/react-dom": "^18.3.0",
-        "@types/recharts": "^1.8.29",
-        "@types/ua-parser-js": "^0.7.39",
-        "@typescript-eslint/eslint-plugin": "^8.26.1",
-        "@typescript-eslint/parser": "^8.26.1",
-        "@vitest/coverage-istanbul": "^4.1.12",
-        "@vitest/coverage-v8": "^4.1.12",
-        "autoprefixer": "^10.4.19",
-        "globals": "^16.0.0",
-        "husky": "^9.0.11",
-        "jsdom": "^23.2.0",
-        "node-mocks-http": "^1.14.1",
-        "postcss": "^8.4.38",
-        "resize-observer-polyfill": "^1.5.1",
-        "tailwindcss": "^3.4.4",
-        "typescript": "^5.7.2",
-        "vite": "^7.2.2",
-        "vite-tsconfig-paths": "^5.1.4",
-        "vitest": "^4.1.12",
-        "vitest-dom": "^0.1.1",
-        "wrangler": "4.152.0"
-    },
-    "postcss": {
-        "plugins": {
-            "tailwindcss": {},
-            "autoprefixer": {}
-        }
-    },
-    "publishConfig": {
-        "access": "public",
-        "registry": "https://registry.npmjs.org/"
+  "name": "@noomers/server",
+  "version": "3.4.1",
+  "description": "noomers Server",
+  "homepage": "https://noomers.dev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/harshil1712/noomers",
+    "directory": "packages/server"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "build",
+    "app",
+    "workers",
+    "migrations",
+    "pipelines",
+    "wrangler.json"
+  ],
+  "scripts": {
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "preview": "wrangler dev --var VERSION:`git rev-parse HEAD`",
+    "deploy": "node ../../scripts/deploy.mjs",
+    "lint": "eslint .",
+    "test": "TZ=EST vitest run",
+    "test-ci": "TZ=EST vitest run --coverage",
+    "typecheck": "react-router typegen && tsc",
+    "prepare": "husky",
+    "types:gen": "wrangler types",
+    "copytracker": "cp ../tracker/dist/loader/tracker.js ./public/tracker.js"
+  },
+  "dependencies": {
+    "@noomers/tracker": "workspace:*",
+    "@radix-ui/react-select": "^2.1.0",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@react-router/cloudflare": "7.1.1",
+    "bcryptjs": "^3.0.2",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.11",
+    "isbot": "^5.1.9",
+    "lucide-react": "^0.395.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router": "7.7.1",
+    "recharts": "2.13",
+    "tailwind-merge": "^2.3.0",
+    "tailwindcss-animate": "^1.0.7",
+    "ua-parser-js": "^1.0.38"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@noomers/eslint-config": "workspace:*",
+    "@react-router/dev": "7.7.1",
+    "@react-router/fs-routes": "7.7.1",
+    "@testing-library/react": "^16.2.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/recharts": "^1.8.29",
+    "@types/ua-parser-js": "^0.7.39",
+    "@typescript-eslint/eslint-plugin": "^8.26.1",
+    "@typescript-eslint/parser": "^8.26.1",
+    "@vitest/coverage-istanbul": "^4.1.12",
+    "@vitest/coverage-v8": "^4.1.12",
+    "autoprefixer": "^10.4.19",
+    "globals": "^16.0.0",
+    "husky": "^9.0.11",
+    "jsdom": "^23.2.0",
+    "node-mocks-http": "^1.14.1",
+    "postcss": "^8.4.38",
+    "resize-observer-polyfill": "^1.5.1",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.7.2",
+    "vite": "^7.2.2",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.1.12",
+    "vitest-dom": "^0.1.1",
+    "wrangler": "4.152.0"
+  },
+  "postcss": {
+    "plugins": {
+      "tailwindcss": {},
+      "autoprefixer": {}
     }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  }
 }
