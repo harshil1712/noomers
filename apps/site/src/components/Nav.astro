@@ -68,6 +68,9 @@ const REPO = "https://github.com/harshil1712/noomers";
     border-radius: 999px;
     font-weight: 600;
   }
+  @media (max-width: 639px) {
+    .nav nav a:not(.deploy) { display: none; }
+  }
 </style>
 <script>
   import { applyTheme, readTheme, resolveTheme } from "@noomers/brand/theme";

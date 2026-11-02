@@ -91,7 +91,9 @@ const REPO = "https://github.com/harshil1712/noomers";
         <span class="mono-label">Visitor ID · salted daily at 00:00 UTC</span>
         <div class="salt-days">
           <div class="day"><span class="d">Mon</span><span class="hash">a3f9…</span></div>
+          <div class="divider" aria-hidden="true"></div>
           <div class="day"><span class="d">Tue</span><span class="hash">7c21…</span></div>
+          <div class="divider" aria-hidden="true"></div>
           <div class="day"><span class="d">Wed</span><span class="hash">e08b…</span></div>
         </div>
         <p class="salt-line">Same visitor, new ID every day. Nothing links them.</p>
@@ -133,7 +135,7 @@ cp .env.example .env  # fill in the values
   <section class="two-col">
     <div class="col">
       <h2>Plausible-compatible API</h2>
-      <p class="lede">A subset of Plausible's Events, Sites and Stats APIs — keep your integrations, dashboards and imports. Coverage lives in the <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>parity document</a>.</p>
+      <p class="lede">A subset of Plausible's APIs. See the <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>parity document</a>.</p>
       <pre class="code">curl https://analytics.example.com/api/v2/query \
   -H "Authorization: Bearer $STATS_API_TOKEN" \
   -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</pre>
@@ -156,7 +158,7 @@ cp .env.example .env  # fill in the values
 </PageLayout>
 <style>
   .hero { padding: 4rem 0 2.5rem; max-width: 46rem; }
-  .hero h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; line-height: 1.05; letter-spacing: -0.02em; font-weight: 700; }
+  .hero h1 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; line-height: 1.05; letter-spacing: -0.025em; font-weight: 400; }
   .hero h1 em { font-style: normal; color: var(--color-kumo-brand); }
   .sub { font-size: 1.15rem; color: var(--color-kumo-subtle); max-width: 62ch; text-wrap: pretty; }
   .btns { display: flex; gap: .75rem; margin-top: 1.75rem; flex-wrap: wrap; }
@@ -178,7 +180,7 @@ cp .env.example .env  # fill in the values
     padding-left: calc(50vw - 50%);
     padding-right: calc(50vw - 50%);
   }
-  section h2 { font-size: 2rem; letter-spacing: -0.02em; }
+  section h2 { font-size: 2rem; letter-spacing: -0.02em; text-wrap: balance; }
   section h2::before { content: ""; display: block; }
   @media (max-width: 860px) { section { padding: 4rem 0; } }
   h2 { font-size: 1.6rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
@@ -216,8 +218,10 @@ cp .env.example .env  # fill in the values
     transition: transform 0.18s ease;
   }
   .bento-card img {
-    display: block; width: 100%; height: 150px; object-fit: cover; object-position: top left;
+    display: block; width: 100%; aspect-ratio: 16/10; height: auto;
+    object-fit: cover; object-position: top left;
     border-bottom: 1px solid var(--color-kumo-hairline);
+    background: var(--color-kumo-recessed);
   }
   .bento-card figcaption { padding: 1rem 1.25rem 1.1rem; }
   .bento-card b { display: block; font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; font-size: 1.05rem; letter-spacing: -0.02em; }
@@ -244,20 +248,30 @@ cp .env.example .env  # fill in the values
     color: var(--color-kumo-subtle); text-decoration: line-through;
   }
   .never .chip i { font-style: normal; text-decoration: none; color: var(--color-kumo-subtle); }
-  .salt-card { display: flex; flex-direction: column; gap: 1rem; }
+  .salt-card { display: flex; flex-direction: column; gap: 1.25rem; justify-content: space-between; }
   .salt-days { display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: stretch; flex: 1; }
   .salt-days .day {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 0.75rem; padding: 1.5rem 0.5rem;
+    gap: 1rem; padding: 2rem 0.5rem; flex: 1;
   }
-  .salt-days .d { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-kumo-subtle); }
+  .salt-days .d { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-kumo-subtle); }
   .salt-days .hash {
-    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 13px;
-    padding: 4px 12px; border-radius: 999px;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 15px;
+    padding: 6px 16px; border-radius: 999px;
     background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text);
   }
-  .salt-days > div + div:not(.day) { background: repeating-linear-gradient(to bottom, var(--color-kumo-subtle) 0 4px, transparent 4px 9px); width: 1px; }
-  .salt-days > div:not(.day) { border-left: 1px dashed var(--color-kumo-control-line); }
+  .salt-days .divider {
+    border-left: 1px dashed var(--color-kumo-control-line);
+    position: relative;
+  }
+  .salt-days .divider::after {
+    content: "00:00 UTC"; position: absolute; top: 50%; left: 0;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 9px;
+    letter-spacing: 0.04em; color: var(--color-kumo-subtle);
+    background: var(--color-kumo-elevated); padding: 0 2px;
+  }
+
   .salt-line { margin: 0; font-size: 0.95rem; color: var(--color-kumo-subtle); }
 
   /* arch icons */
@@ -282,7 +296,7 @@ cp .env.example .env  # fill in the values
 
   @media (max-width: 860px) {
     .cards, .steps, .two-col, .bento-grid, .model-grid { grid-template-columns: 1fr; }
-    .bento-card img { height: 180px; }
+    .bento-card img { aspect-ratio: 16/10; height: auto; }
     .flow { grid-template-columns: 1fr; gap: .4rem; }
     .flow li + li::before { content: ""; }
     .flow li + li::after { content: "↓"; position: absolute; left: 1rem; top: -0.55rem; color: var(--color-kumo-subtle); font-size: .7rem; }
