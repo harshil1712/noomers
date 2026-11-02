@@ -561,9 +561,18 @@ export class R2SQLAPI {
         const start = sqlString(startDate.toISOString());
         const end = sqlString(endDate.toISOString());
         const filterPredicate = filtersToPredicate(filters);
-        const eventDimension = EVENT_DIMENSIONS[dimension || "time:day"];
+        let eventDimension = EVENT_DIMENSIONS[dimension || "time:day"];
+        let propsExpression: string | undefined;
+        if (dimension?.startsWith("event:props:")) {
+            const key = dimension.slice("event:props:".length);
+            if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key)) {
+                throw new Error(`Invalid event property key: ${key}`);
+            }
+            propsExpression = `json_get_str(event_properties, ${sqlString(key)})`;
+            eventDimension = "event_properties";
+        }
         const dimensionExpression = dimension
-            ? eventDimension || `CASE ${timeBuckets?.map((bucket) =>
+            ? propsExpression || eventDimension || `CASE ${timeBuckets?.map((bucket) =>
                   `WHEN event_ts >= TRY_CAST(${sqlString(bucket.start.toISOString())} AS TIMESTAMP)` +
                   ` AND event_ts < TRY_CAST(${sqlString(bucket.end.toISOString())} AS TIMESTAMP)` +
                   ` THEN ${sqlString(bucket.label)}`,
@@ -825,6 +834,13 @@ export class R2SQLAPI {
                 FROM numbered
                 GROUP BY visitor_id, session_number
             ),
+            session_dimensions AS (
+                ${eventDimension
+                    ? `SELECT visitor_id, session_number, entry_page AS dimension
+                       FROM sessions WHERE matching_events > 0`
+                    : `SELECT visitor_id, session_number, ${sessionDimensionExpression} AS dimension
+                       FROM sessions WHERE matching_events > 0`}
+            ),
             event_metrics AS (
                 ${visitDimension
                     ? `SELECT
@@ -850,13 +866,6 @@ export class R2SQLAPI {
                         AND event_ts < TRY_CAST(${end} AS TIMESTAMP)
                         AND matches_filter = 1
                     GROUP BY dimension`}
-            ),
-            session_dimensions AS (
-                ${eventDimension
-                    ? `SELECT visitor_id, session_number, entry_page AS dimension
-                       FROM sessions WHERE matching_events > 0`
-                    : `SELECT visitor_id, session_number, ${sessionDimensionExpression} AS dimension
-                       FROM sessions WHERE matching_events > 0`}
             ),
             session_metrics AS (
                 SELECT
