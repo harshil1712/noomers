@@ -10,7 +10,7 @@ _noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.d
 - **Privacy by construction** — no cookies, no raw IPs or full user-agents persisted; visitor IDs are site-scoped, hostname-scoped, salted, and rotate daily in UTC.
 - **Realtime** — a per-site `SiteEvents` Durable Object buffers canonical events and serves live realtime aggregates over WebSocket.
 - **Full history** — the DO ships durable events to [Cloudflare Basin](https://developers.cloudflare.com/basin/) (Pipelines → R2 → Iceberg → Basin SQL), so there is no fixed retention limit.
-- **Admin dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; the first verified `OWNER_ADMIN_EMAIL` becomes admin) with stats, timeseries, realtime, goals, and breakdown cards.
+- **Dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; the first verified `OWNER_ADMIN_EMAIL` becomes admin) with stats, timeseries, realtime, goals, and breakdown cards.
 - **Plausible-compatible APIs** — a subset of Plausible's Events, Sites, and Stats APIs. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline — **not** full parity.
 
 ## Architecture
