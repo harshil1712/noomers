@@ -117,6 +117,7 @@ type R2SQLResponse<Row> = {
 const FILTER_COLUMNS: Partial<Record<keyof SearchFilters, string>> = {
     host: "hostname",
     path: "pathname",
+    name: "event_name",
     referrer: "referrer",
     browserName: "browser",
     browserVersion: "browser_version",
@@ -295,6 +296,7 @@ export class R2SQLAPI {
         table: string,
         private readonly fetcher: typeof fetch = fetch,
         importTable?: string,
+        private readonly waitUntil?: (promise: Promise<unknown>) => void,
     ) {
         this.endpoint =
             "https://api.sql.cloudflarestorage.com/api/v1/accounts/" +
@@ -310,7 +312,6 @@ export class R2SQLAPI {
     }
 
     async query<Row>(query: string, rangeEndMs?: number): Promise<Row[]> {
-        if (rangeEndMs !== undefined) this.lastRangeEnd = rangeEndMs;
         const cacheKey = await this.cacheKey(query);
         const cache =
             cacheKey &&
@@ -348,7 +349,8 @@ export class R2SQLAPI {
         const rows = getRows(payload);
         if (cache && cacheKey) {
             const ttl =
-                Date.now() - this.lastRangeEnd >= 10 * 60 * 1000
+                rangeEndMs !== undefined &&
+                Date.now() - rangeEndMs >= 60 * 60 * 1000
                     ? 24 * 60 * 60
                     : 60;
             const cached = new Response(JSON.stringify(rows), {
@@ -362,8 +364,15 @@ export class R2SQLAPI {
         return rows;
     }
 
-    private lastRangeEnd = 0;
     private ctxWaitUntil(promise: Promise<unknown>): void {
+        if (this.waitUntil) {
+            try {
+                this.waitUntil(promise);
+                return;
+            } catch {
+                // fall through to fire-and-forget
+            }
+        }
         try {
             promise.catch(() => {});
         } catch {

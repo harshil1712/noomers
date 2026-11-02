@@ -46,6 +46,7 @@ export const getLoadContext: GetLoadContext = ({ context }) => {
             R2_SQL_TABLE!,
             fetch,
             R2_SQL_IMPORT_TABLE || undefined,
+            (promise) => context.cloudflare.ctx.waitUntil(promise),
         );
         return api;
     };

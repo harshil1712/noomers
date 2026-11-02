@@ -30,19 +30,24 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
         if (!deleted) return notFound();
         const namespace = context.cloudflare.env.SITE_EVENTS;
         if (namespace) {
-            context.cloudflare.ctx.waitUntil(
-                namespace
-                    .get(namespace.idFromName(siteId))
-                    .purge()
-                    .catch((error: unknown) =>
-                        console.error(
-                            JSON.stringify({
-                                message: "site events purge failed",
-                                error: String(error),
-                            }),
-                        ),
-                    ),
-            );
+            try {
+                await namespace.get(namespace.idFromName(siteId)).purge();
+            } catch (error) {
+                console.error(
+                    JSON.stringify({
+                        message: "site events purge failed",
+                        error: String(error),
+                    }),
+                );
+                return Response.json(
+                    {
+                        deleted: "true",
+                        warning:
+                            "site tombstoned, but realtime-buffered data purge failed",
+                    },
+                    { status: 502 },
+                );
+            }
         }
         return Response.json({ deleted: "true" });
     }

@@ -22,6 +22,7 @@ type Metric = (typeof METRICS)[number];
 const SCALAR_DIMENSIONS = {
     "event:page": { column: ColumnMappings.path, filter: "path" },
     "event:hostname": { column: ColumnMappings.host, filter: "host" },
+    "event:name": { column: ColumnMappings.path, filter: "name" },
 } as const;
 const TIME_DIMENSIONS = [
     "time",
@@ -150,7 +151,7 @@ function parseQuery(value: unknown, reportingTimezone: string): StatsQuery & { s
         throw new StatsAPIError("metrics must be unique");
     }
     const dimensions = input.dimensions ?? [];
-    if (!Array.isArray(dimensions) || dimensions.some((dimension) => typeof dimension !== "string" || (!Object.hasOwn(SCALAR_DIMENSIONS, dimension) && !TIME_DIMENSIONS.includes(dimension as TimeDimension)))) {
+    if (!Array.isArray(dimensions) || dimensions.some((dimension) => typeof dimension !== "string" || (!Object.hasOwn(SCALAR_DIMENSIONS, dimension) && !TIME_DIMENSIONS.includes(dimension as TimeDimension) && !/^event:props:[A-Za-z0-9_.-]{1,64}$/.test(dimension)))) {
         throw new StatsAPIError("At most one supported dimension can be queried");
     }
     if (new Set(dimensions).size !== dimensions.length) {
@@ -305,6 +306,9 @@ export async function executeStatsQuery(sessions: R2SQLAPI | undefined, input: u
     const dimension = query.dimensions[0];
     if (needsSessions && dimension === "event:hostname") {
         throw new StatsAPIError("event:hostname requires event:page when querying session metrics");
+    }
+    if (dimension?.startsWith("event:props:") && !query.filters?.some((f) => f[0] === "is" && f[1] === "event:name" && Array.isArray(f[2]) && f[2].length === 1)) {
+        throw new StatsAPIError("event:props breakdown requires an event:name is-filter naming exactly one event");
     }
     const resolvedDimension = dimension && TIME_DIMENSIONS.includes(dimension as TimeDimension)
         ? resolveTimeDimension(dimension as TimeDimension, query.start, query.end)

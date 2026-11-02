@@ -5,6 +5,7 @@ import {
     paramsFromUrl,
 } from "~/lib/utils";
 import type { SessionDimension, SessionMetricsRow } from "~/analytics/r2-sql";
+import { SitesRepository } from "~/sites/repository";
 
 /** [dimension, visitors, secondary metric] tuples consumed by TableCard. */
 export type CountRow =
@@ -27,7 +28,10 @@ export async function breakdownLoader(
 ): Promise<{ countsByProperty: CountRow[]; page: number }> {
     const { interval = "7d", site, page = 1 } = paramsFromUrl(request.url);
     const url = new URL(request.url);
-    const tz = url.searchParams.get("timezone") || "UTC";
+    const siteRow = await new SitesRepository(
+        context.cloudflare.env.GOALS_DB,
+    ).get(site);
+    const tz = siteRow?.timezone || "Etc/UTC";
     const filters = getFiltersFromSearchParams(url.searchParams);
     const { startDate, endDate } = getDateTimeRange(interval, tz);
     const analytics = context.sessionAnalytics();
