@@ -100,8 +100,18 @@ def export_events(domain: str, ch_site_id: int, dest: Path) -> Path:
     raise SystemExit(f"could not export {domain} after retries")
 
 
-def norm_referrer(v: str) -> str:
-    return v or ""
+def norm_referrer(v: str, host: str) -> str:
+    """Drop self-referrals like the collector does (host match ignoring www.)."""
+    if not v:
+        return ""
+    try:
+        from urllib.parse import urlparse
+        ref = urlparse(v).hostname or ""
+        if ref.removeprefix("www.") == (host or "").removeprefix("www."):
+            return ""
+    except Exception:
+        pass
+    return v
 
 
 def fixed3(v: str) -> str:
@@ -153,7 +163,7 @@ def transform(rows, domain: str):
             "url": f"https://{r['hostname']}{r['pathname']}",
             "hostname": r["hostname"] or "",
             "pathname": r["pathname"] or "/",
-            "referrer": norm_referrer(r["referrer"]),
+            "referrer": norm_referrer(r["referrer"], r["hostname"]),
             "interactive": interactive,
             "revenue_amount": (
                 "" if r["revenue_reporting_amount"] is None
