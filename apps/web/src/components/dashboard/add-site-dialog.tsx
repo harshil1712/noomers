@@ -1,4 +1,5 @@
 import { Button, Code, Dialog } from "@cloudflare/kumo";
+import { X } from "@phosphor-icons/react";
 
 /** "Add site" explainer — sites are registered through the Sites API. */
 export function AddSiteDialog({ trigger }: { trigger?: React.ReactElement }) {
@@ -12,7 +13,18 @@ export function AddSiteDialog({ trigger }: { trigger?: React.ReactElement }) {
       <Dialog className="p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
           <Dialog.Title>Add a site</Dialog.Title>
-          <Dialog.Close aria-label="Close" />
+          <Dialog.Close
+            aria-label="Close"
+            render={(props) => (
+              <Button
+                {...props}
+                variant="ghost"
+                size="sm"
+                icon={<X size={16} />}
+                aria-label="Close"
+              />
+            )}
+          />
         </div>
         <Dialog.Description>
           Sites are registered through the Sites API — there is no site-creation UI. Use your

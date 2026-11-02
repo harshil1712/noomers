@@ -312,7 +312,18 @@ function Dashboard() {
               <Dialog size="lg" className="p-6">
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <Dialog.Title>Tracking code</Dialog.Title>
-                  <Dialog.Close aria-label="Close" />
+                  <Dialog.Close
+                    aria-label="Close"
+                    render={(props) => (
+                      <Button
+                        {...props}
+                        variant="ghost"
+                        size="sm"
+                        icon={<X size={16} />}
+                        aria-label="Close"
+                      />
+                    )}
+                  />
                 </div>
                 <Dialog.Description>Add one of these snippets to your site.</Dialog.Description>
                 <div className="mt-3 flex flex-col gap-4">
@@ -396,16 +407,16 @@ function Dashboard() {
             <Button onClick={loadSites}>Retry</Button>
           </div>
         </Surface>
-      ) : sites === null ? (
-        <SkeletonBlock h={200} />
-      ) : sites.length === 0 ? (
+      ) : sites === null && !site ? (
+        <DashboardSkeleton />
+      ) : sites !== null && sites.length === 0 ? (
         <Empty
           title="No sites registered"
           description="Sites are registered through the Sites API — there's no site-management UI yet."
           commandLine={addSiteCmd}
         />
       ) : !site ? (
-        <SkeletonBlock h={200} />
+        <DashboardSkeleton />
       ) : tab === "realtime" ? (
         <RealtimeTab realtime={realtime} />
       ) : (
@@ -1155,8 +1166,31 @@ function RealtimeTab({ realtime }: { realtime: ReturnType<typeof useRealtime> })
 }
 
 /* ---------- states ---------- */
-function SkeletonBlock({ h }: { h: number }) {
-  return <div className="skeleton rounded-xl " style={{ height: h }} />;
+/** Page-level loading state mirroring the real dashboard layout. */
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-5" aria-hidden="true">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-2 rounded-xl border border-kumo-hairline p-4">
+            <div className="skeleton h-3 w-16 rounded" />
+            <div className="skeleton h-8 w-20 rounded" />
+          </div>
+        ))}
+      </div>
+      <div className="skeleton h-[300px] rounded-xl" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-2 rounded-xl border border-kumo-hairline p-4">
+            <div className="skeleton h-4 w-24 rounded" />
+            {Array.from({ length: 6 }).map((_, j) => (
+              <div key={j} className="skeleton h-5 rounded" style={{ width: `${95 - j * 9}%` }} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function MutedRows() {

@@ -140,9 +140,9 @@ function SiteCard({
           />
         </div>
         {loading ? (
-          <div className="space-y-2">
-            <div className="skeleton rounded " />
-            <div className="skeleton rounded " />
+          <div className="flex flex-col gap-3" aria-hidden="true">
+            <div className="skeleton h-8 w-24 rounded" />
+            <div className="skeleton h-14 rounded" />
           </div>
         ) : error ? (
           <div className="py-4">
