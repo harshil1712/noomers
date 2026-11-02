@@ -183,11 +183,26 @@
   text-transform: uppercase;
   color: var(--color-kumo-subtle);
 }
-/* pill-shaped primary buttons + segmented tabs */
-[data-kumo-component="Button"][data-variant="primary"],
-[data-kumo-component="LinkButton"][data-variant="primary"],
-[data-kumo-component="Tabs"][data-variant="segmented"] [role="tab"] {
+/* pill-shaped buttons + segmented tabs. Kumo doesn't mark variant in DOM:
+   primary buttons carry an inline --color-kumo-brand custom property (the
+   emphasis style), secondary/outline carry ring-kumo-line; ghost buttons
+   have neither, so they keep the default radius. */
+[data-kumo-component*="Button"][style*="--color-kumo-brand"],
+button[style*="--color-kumo-brand"],
+button[class*="ring-kumo-line"],
+a[class*="ring-kumo-line"],
+[role="tab"] {
   border-radius: 999px !important;
+}
+/* active sidebar item: brand icon over the tint background */
+[data-kumo-component="SidebarMenuButton"][data-active],
+[data-kumo-component="SidebarMenuButton"][aria-current="page"] {
+  color: var(--color-kumo-brand);
+}
+[data-kumo-component="SidebarMenuButton"][data-active] svg,
+[data-kumo-component="SidebarMenuButton"][aria-current="page"] svg {
+  color: var(--color-kumo-brand);
+  fill: currentColor;
 }
 /* no card shadows: hairlines are the structural device */
 .surface,

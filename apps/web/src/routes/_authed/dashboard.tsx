@@ -11,7 +11,6 @@ import {
   Breadcrumbs,
   Button,
   ChartLegend,
-  ChartPalette,
   Code,
   Dialog,
   Empty,
@@ -26,6 +25,7 @@ import {
 } from "@cloudflare/kumo";
 import { ArrowSquareOut, CaretLeft, CaretRight, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
+import { themeColor } from "../../lib/use-is-dark";
 import {
   dashboardApi,
   type BreakdownCard,
@@ -694,8 +694,8 @@ function TimeseriesPanel({
       .then((res) => {
         if (cancelled) return;
         onError?.("timeseries", false);
-        const brand = ChartPalette.categorical(0, isDark);
-        const second = "var(--color-kumo-series-2)";
+        const brand = themeColor("--color-kumo-brand") || "#1f7a55";
+        const second = themeColor("--color-kumo-series-2") || "#a08c6e";
         const muted = "rgba(128,128,128,0.35)";
         const toSeries = (key: "views" | "visitors", name: string, color: string) => ({
           name,
@@ -738,12 +738,12 @@ function TimeseriesPanel({
               <ChartLegend.SmallItem
                 name="Visitors"
                 value=""
-                color={ChartPalette.categorical(0, isDark)}
+                color={themeColor("--color-kumo-brand")}
               />
               <ChartLegend.SmallItem
                 name="Pageviews"
                 value=""
-                color={ChartPalette.categorical(1, isDark)}
+                color={themeColor("--color-kumo-series-2")}
               />
             </div>
             <span className="mono-label">{timezone}</span>
@@ -1087,8 +1087,12 @@ function RealtimeTab({ realtime }: { realtime: ReturnType<typeof useRealtime> })
             <Table layout="fixed">
               <Table.Header>
                 <Table.Row>
-                  <Table.Head>Page</Table.Head>
-                  <Table.Head className="w-24 text-right">Views</Table.Head>
+                  <Table.Head>
+                    <span className="mono-label">Page</span>
+                  </Table.Head>
+                  <Table.Head className="w-24 text-right">
+                    <span className="mono-label">Views</span>
+                  </Table.Head>
                 </Table.Row>
               </Table.Header>
               <Table.Body>

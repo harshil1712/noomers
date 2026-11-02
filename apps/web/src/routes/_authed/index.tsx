@@ -9,7 +9,6 @@ import {
   Banner,
   Breadcrumbs,
   Button,
-  ChartPalette,
   Empty,
   Grid,
   Select,
@@ -19,6 +18,7 @@ import {
 } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
+import { themeColor } from "../../lib/use-is-dark";
 import { useIsDark as dark } from "../../lib/use-is-dark";
 import { dashboardApi, type DashboardQuery } from "../../lib/dashboard-api";
 import { DeltaBadge } from "../../components/dashboard/delta-badge";
@@ -93,7 +93,7 @@ function SiteCard({
           setSeries([
             {
               name: "Visitors",
-              color: ChartPalette.categorical(0, isDark),
+              color: themeColor("--color-kumo-brand") || "#1f7a55",
               data: tRes.value.chartData.map(
                 (r) => [new Date(r.date).getTime(), r.visitors] as [number, number],
               ),
