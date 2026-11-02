@@ -4,6 +4,16 @@ import httpMocks from "node-mocks-http";
 
 import { collectRequestHandler as handleCollectRequest } from "../collect";
 
+const siteEventsStub = {
+    record: vi.fn(async () => {}),
+    realtime: vi.fn(async () => ({})),
+    purge: vi.fn(async () => {}),
+};
+const siteEventsNamespace = {
+    idFromName: (name: string) => name,
+    get: () => siteEventsStub,
+} as any;
+
 const activeSitesDatabase = {
     prepare: vi.fn(() => ({
         bind: vi.fn().mockReturnThis(),
@@ -72,8 +82,7 @@ describe("collectRequestHandler", () => {
             first: vi.fn().mockResolvedValue({ status: "deleted" }),
         };
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            GOALS_DB: { prepare: vi.fn(() => statement) },
+            SITE_EVENTS: siteEventsNamespace,            GOALS_DB: { prepare: vi.fn(() => statement) },
         } as unknown as Env;
 
         const response = await collectRequestHandler(
@@ -98,8 +107,7 @@ describe("collectRequestHandler", () => {
                     ? vi.fn().mockRejectedValue(result)
                     : vi.fn().mockResolvedValue(result);
             const env = {
-                WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-                GOALS_DB: {
+                SITE_EVENTS: siteEventsNamespace,                GOALS_DB: {
                     prepare: vi.fn(() => ({
                         bind: vi.fn().mockReturnThis(),
                         first,
@@ -122,8 +130,7 @@ describe("collectRequestHandler", () => {
         const response = await handleCollectRequest(
             defaultRequestParams as any,
             {
-                WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            },
+                SITE_EVENTS: siteEventsNamespace,            },
         );
 
         expect(response.status).toBe(503);
@@ -132,10 +139,8 @@ describe("collectRequestHandler", () => {
 
     test("returns 400 when siteId is missing", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = generateRequestParams({
             "user-agent":
@@ -151,17 +156,15 @@ describe("collectRequestHandler", () => {
                 ns: "1",
             }).toString();
 
-        const response = await collectRequestHandler(request as any, env);
+        const response = await collectRequestHandler(request as any, env as Env);
         expect(response.status).toBe(400);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(siteEventsStub.record).not.toHaveBeenCalled();
     });
 
     test("returns 400 when siteId is empty string", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = generateRequestParams({
             "user-agent":
@@ -178,9 +181,9 @@ describe("collectRequestHandler", () => {
                 ns: "1",
             }).toString();
 
-        const response = await collectRequestHandler(request as any, env);
+        const response = await collectRequestHandler(request as any, env as Env);
         expect(response.status).toBe(400);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(siteEventsStub.record).not.toHaveBeenCalled();
     });
 
     beforeEach(() => {
@@ -190,20 +193,18 @@ describe("collectRequestHandler", () => {
 
     test("invokes writeDataPoint with transformed params", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         // @ts-expect-error - we're mocking the request object
         const request = httpMocks.createRequest(defaultRequestParams);
 
-        await collectRequestHandler(request as any, env, {
+        await collectRequestHandler(request as any, env as Env, {
             country: "US",
         });
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
-        expect(env.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalled();
+        const writeDataPoint = siteEventsStub.record;
+        expect(siteEventsStub.record).toHaveBeenCalled();
 
         // verify data shows up in the right place
         expect((writeDataPoint as Mock).mock.calls[0][0]).toEqual({
@@ -240,17 +241,15 @@ describe("collectRequestHandler", () => {
 
     test("if-modified-since is absent", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         // @ts-expect-error - we're mocking the request object
         const request = httpMocks.createRequest(generateRequestParams({}));
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -263,10 +262,8 @@ describe("collectRequestHandler", () => {
 
     test("if-modified-since is within 30 minutes", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = httpMocks.createRequest(
             // @ts-expect-error - we're mocking the request object
@@ -277,9 +274,9 @@ describe("collectRequestHandler", () => {
             }),
         );
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -292,10 +289,8 @@ describe("collectRequestHandler", () => {
 
     test("if-modified since is within 30 minutes but over day boundary", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         // intentionally set system time as 00:15:00
         // if the user last visited ~30 minutes ago, that occurred during
@@ -311,9 +306,9 @@ describe("collectRequestHandler", () => {
             }),
         );
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -326,10 +321,8 @@ describe("collectRequestHandler", () => {
 
     test("if-modified-since is over 30 days ago", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = httpMocks.createRequest(
             // @ts-expect-error - we're mocking the request object
@@ -340,9 +333,9 @@ describe("collectRequestHandler", () => {
             }),
         );
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -355,10 +348,8 @@ describe("collectRequestHandler", () => {
 
     test("if-modified-since was yesterday", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = httpMocks.createRequest(
             // @ts-expect-error - we're mocking the request object
@@ -369,9 +360,9 @@ describe("collectRequestHandler", () => {
             }),
         );
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -384,10 +375,8 @@ describe("collectRequestHandler", () => {
 
     test("if-modified-since is one second after midnight", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const midnight = new Date();
         midnight.setHours(0, 0, 0, 0);
@@ -406,9 +395,9 @@ describe("collectRequestHandler", () => {
             }),
         );
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -421,10 +410,8 @@ describe("collectRequestHandler", () => {
 
     test("if-modified-since is two seconds after midnight", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const midnightPlusOneSecond = new Date();
         midnightPlusOneSecond.setHours(0, 0, 1, 0);
@@ -445,9 +432,9 @@ describe("collectRequestHandler", () => {
             }),
         );
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
+        const writeDataPoint = siteEventsStub.record;
         expect((writeDataPoint as Mock).mock.calls[0][0]).toHaveProperty(
             "doubles",
             [
@@ -460,22 +447,20 @@ describe("collectRequestHandler", () => {
 
     test("handles UTM parameters correctly", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = generateRequestParams({
             "user-agent":
                 "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36",
         });
 
-        await collectRequestHandler(request as any, env, {
+        await collectRequestHandler(request as any, env as Env, {
             country: "US",
         });
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
-        expect(env.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalled();
+        const writeDataPoint = siteEventsStub.record;
+        expect(siteEventsStub.record).toHaveBeenCalled();
 
         const blobs = (writeDataPoint as Mock).mock.calls[0][0].blobs;
         expect(blobs[10]).toBe("google"); // utm_source
@@ -487,10 +472,8 @@ describe("collectRequestHandler", () => {
 
     test("handles missing UTM parameters gracefully", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
 
         const request = generateRequestParams({
             "user-agent":
@@ -504,12 +487,12 @@ describe("collectRequestHandler", () => {
             .replace(/&ut=[^&]*/, "")
             .replace(/&uco=[^&]*/, "");
 
-        await collectRequestHandler(request as any, env, {
+        await collectRequestHandler(request as any, env as Env, {
             country: "US",
         });
 
-        const writeDataPoint = env.WEB_COUNTER_AE.writeDataPoint;
-        expect(env.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalled();
+        const writeDataPoint = siteEventsStub.record;
+        expect(siteEventsStub.record).toHaveBeenCalled();
 
         const blobs = (writeDataPoint as Mock).mock.calls[0][0].blobs;
         expect(blobs[10]).toBe(""); // utm_source (empty)
@@ -521,10 +504,8 @@ describe("collectRequestHandler", () => {
 
     test("stores custom events without affecting visit or bounce counts", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
         const request = generateRequestParams({});
         const url = new URL(request.url);
         url.searchParams.set("en", "Signup");
@@ -534,9 +515,9 @@ describe("collectRequestHandler", () => {
         );
         request.url = url.toString();
 
-        await collectRequestHandler(request as any, env);
+        await collectRequestHandler(request as any, env as Env);
 
-        const datapoint = (env.WEB_COUNTER_AE.writeDataPoint as Mock).mock
+        const datapoint = (siteEventsStub.record as Mock).mock
             .calls[0][0];
         expect(datapoint.blobs[15]).toBe("Signup");
         expect(datapoint.blobs[16]).toBe(
@@ -548,9 +529,8 @@ describe("collectRequestHandler", () => {
     test("stores a stable salted daily visitor id without storing the IP", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            VISITOR_SALT: "test-secret",
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
+        } as unknown as Env;
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/&r=",
             {
@@ -561,8 +541,8 @@ describe("collectRequestHandler", () => {
             },
         );
 
-        await collectRequestHandler(request, env);
-        await collectRequestHandler(request, env);
+        await collectRequestHandler(request, env as Env);
+        await collectRequestHandler(request, env as Env);
 
         const firstBlobs = writeDataPoint.mock.calls[0][0].blobs;
         const secondBlobs = writeDataPoint.mock.calls[1][0].blobs;
@@ -574,11 +554,8 @@ describe("collectRequestHandler", () => {
     test("sends a privacy-safe canonical event to the durable stream", async () => {
         const send = vi.fn().mockResolvedValue(undefined);
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-            EVENT_STREAM: { send },
-            VISITOR_SALT: "test-secret",
+            SITE_EVENTS: siteEventsNamespace,
+                        VISITOR_SALT: "test-secret",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -597,7 +574,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env, {
+        const response = await collectRequestHandler(request, env as Env, {
             country: "US",
         });
 
@@ -633,8 +610,7 @@ describe("collectRequestHandler", () => {
             .spyOn(console, "error")
             .mockImplementation(() => {});
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            EVENT_STREAM: { send },
+            SITE_EVENTS: siteEventsNamespace,
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
@@ -643,7 +619,7 @@ describe("collectRequestHandler", () => {
             },
         );
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(writeDataPoint).toHaveBeenCalledOnce();
@@ -656,9 +632,8 @@ describe("collectRequestHandler", () => {
     test("accepts a server-supplied IP in a POST body without persisting it", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            VISITOR_SALT: "test-secret",
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
+        } as unknown as Env;
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: {
@@ -675,7 +650,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        await collectRequestHandler(request, env);
+        await collectRequestHandler(request, env as Env);
 
         const blobs = writeDataPoint.mock.calls[0][0].blobs;
         expect(blobs[17]).toMatch(/^[0-9a-f]{64}$/);
@@ -685,14 +660,13 @@ describe("collectRequestHandler", () => {
     test("rejects oversized POST bodies before collecting analytics", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,        } as unknown as Env;
         const request = new Request("https://example.com/collect", {
             method: "POST",
             body: `sid=example&payload=${"x".repeat(32 * 1024)}`,
         });
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(413);
         expect(writeDataPoint).not.toHaveBeenCalled();
@@ -701,8 +675,7 @@ describe("collectRequestHandler", () => {
     test("accepts valid Unicode event properties after form encoding", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,        } as unknown as Env;
         const properties = JSON.stringify({ label: "é".repeat(1000) });
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -717,7 +690,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(writeDataPoint.mock.calls[0][0].blobs[16]).toBe(properties);
@@ -726,8 +699,7 @@ describe("collectRequestHandler", () => {
     test("accepts POST collector parameters from the query string", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-        };
+            SITE_EVENTS: siteEventsNamespace,        };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/query",
             {
@@ -737,7 +709,7 @@ describe("collectRequestHandler", () => {
             },
         );
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(writeDataPoint.mock.calls[0][0].blobs[2]).toBe("/query");
@@ -745,20 +717,18 @@ describe("collectRequestHandler", () => {
 
     test("rejects invalid custom event properties", async () => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
         const request = generateRequestParams({});
         const url = new URL(request.url);
         url.searchParams.set("en", "Signup");
         url.searchParams.set("ep", JSON.stringify({ nested: { value: 1 } }));
         request.url = url.toString();
 
-        const response = await collectRequestHandler(request as any, env);
+        const response = await collectRequestHandler(request as any, env as Env);
 
         expect(response.status).toBe(400);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(siteEventsStub.record).not.toHaveBeenCalled();
     });
 
     test.each([
@@ -766,10 +736,8 @@ describe("collectRequestHandler", () => {
         ["properties without an event name", { ep: '{"plan":"pro"}' }],
     ])("rejects %s", async (_, eventParams) => {
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-        } as Env;
+            SITE_EVENTS: siteEventsNamespace,
+        } as unknown as Env;
         const request = generateRequestParams({});
         const url = new URL(request.url);
         Object.entries(eventParams).forEach(([key, value]) =>
@@ -777,10 +745,10 @@ describe("collectRequestHandler", () => {
         );
         request.url = url.toString();
 
-        const response = await collectRequestHandler(request as any, env);
+        const response = await collectRequestHandler(request as any, env as Env);
 
         expect(response.status).toBe(400);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(siteEventsStub.record).not.toHaveBeenCalled();
     });
 
     test("logs a privacy-safe warning when Analytics Engine is unavailable", async () => {
@@ -788,8 +756,7 @@ describe("collectRequestHandler", () => {
             .spyOn(console, "warn")
             .mockImplementation(() => {});
         const env = {
-            WEB_COUNTER_AE: undefined,
-            VISITOR_SALT: "test-secret",
+            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
         } as unknown as Env;
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -808,7 +775,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env, {
+        const response = await collectRequestHandler(request, env as Env, {
             country: "US",
         });
 
@@ -836,8 +803,7 @@ describe("collectRequestHandler", () => {
         const writeDataPoint = vi.fn();
         const send = vi.fn().mockResolvedValue(undefined);
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            EVENT_STREAM: { send },
+            SITE_EVENTS: siteEventsNamespace,
             VISITOR_SALT: "test-secret",
         };
         const request = new Request(
@@ -850,7 +816,7 @@ describe("collectRequestHandler", () => {
             },
         );
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(response.headers.get("x-noomers-dropped")).toBe("1");
@@ -863,8 +829,7 @@ describe("collectRequestHandler", () => {
     test("records first-party server tracker traffic even though isbot flags its UA", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            VISITOR_SALT: "test-secret",
+            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
@@ -876,7 +841,7 @@ describe("collectRequestHandler", () => {
             },
         );
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(response.headers.get("x-noomers-dropped")).toBeNull();
@@ -886,8 +851,7 @@ describe("collectRequestHandler", () => {
     test("drops a custom server user agent that isbot flags as a bot", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-        };
+            SITE_EVENTS: siteEventsNamespace,        };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
             {
@@ -897,7 +861,7 @@ describe("collectRequestHandler", () => {
             },
         );
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(response.headers.get("x-noomers-dropped")).toBe("1");
@@ -908,8 +872,7 @@ describe("collectRequestHandler", () => {
         const writeDataPoint = vi.fn();
         const send = vi.fn().mockResolvedValue(undefined);
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-            EVENT_STREAM: { send },
+            SITE_EVENTS: siteEventsNamespace,
             VISITOR_SALT: "test-secret",
         };
         const request = new Request("https://example.com/collect", {
@@ -926,7 +889,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(response.headers.get("Content-Type")).toBe("image/gif");
@@ -950,8 +913,7 @@ describe("collectRequestHandler", () => {
     test("engagement events do not affect visit or bounce counts", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-        };
+            SITE_EVENTS: siteEventsNamespace,        };
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: { "user-agent": defaultBrowserUserAgent },
@@ -965,7 +927,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        await collectRequestHandler(request, env);
+        await collectRequestHandler(request, env as Env);
 
         const datapoint = writeDataPoint.mock.calls[0]?.[0];
         expect(datapoint).toBeUndefined();
@@ -974,8 +936,7 @@ describe("collectRequestHandler", () => {
     test("keeps a custom event named engagement as a custom event", async () => {
         const writeDataPoint = vi.fn();
         const env = {
-            WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-        };
+            SITE_EVENTS: siteEventsNamespace,        };
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: { "user-agent": defaultBrowserUserAgent },
@@ -988,7 +949,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(writeDataPoint).toHaveBeenCalledOnce();
@@ -998,11 +959,8 @@ describe("collectRequestHandler", () => {
     test("accepts scroll-only engagement with e=0 and sd 1..100", async () => {
         const send = vi.fn().mockResolvedValue(undefined);
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-            EVENT_STREAM: { send },
-        };
+            SITE_EVENTS: siteEventsNamespace,
+                    };
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: { "user-agent": defaultBrowserUserAgent },
@@ -1017,7 +975,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(send).toHaveBeenCalledWith([
@@ -1033,11 +991,8 @@ describe("collectRequestHandler", () => {
     test("accepts sd=0 when paired with a positive engagement time", async () => {
         const send = vi.fn().mockResolvedValue(undefined);
         const env = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
-            } as AnalyticsEngineDataset,
-            EVENT_STREAM: { send },
-        };
+            SITE_EVENTS: siteEventsNamespace,
+                    };
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: { "user-agent": defaultBrowserUserAgent },
@@ -1052,7 +1007,7 @@ describe("collectRequestHandler", () => {
             }),
         });
 
-        const response = await collectRequestHandler(request, env);
+        const response = await collectRequestHandler(request, env as Env);
 
         expect(response.status).toBe(200);
         expect(send).toHaveBeenCalledWith([
@@ -1073,11 +1028,8 @@ describe("collectRequestHandler", () => {
         async (_, engagementTime, scrollDepth) => {
             const send = vi.fn().mockResolvedValue(undefined);
             const env = {
-                WEB_COUNTER_AE: {
-                    writeDataPoint: vi.fn(),
-                } as AnalyticsEngineDataset,
-                EVENT_STREAM: { send },
-            };
+                SITE_EVENTS: siteEventsNamespace,
+                            };
             const params: Record<string, string> = {
                 sid: "example",
                 h: "example.com",
@@ -1095,7 +1047,7 @@ describe("collectRequestHandler", () => {
                 body: new URLSearchParams(params),
             });
 
-            const response = await collectRequestHandler(request, env);
+            const response = await collectRequestHandler(request, env as Env);
 
             expect(response.status).toBe(200);
             expect(send).toHaveBeenCalled();
@@ -1141,8 +1093,7 @@ describe("collectRequestHandler", () => {
             const writeDataPoint = vi.fn();
             const send = vi.fn().mockResolvedValue(undefined);
             const env = {
-                WEB_COUNTER_AE: { writeDataPoint } as AnalyticsEngineDataset,
-                EVENT_STREAM: { send },
+                SITE_EVENTS: siteEventsNamespace,
             };
 
             let request: Request;
@@ -1165,7 +1116,7 @@ describe("collectRequestHandler", () => {
                 });
             }
 
-            const response = await collectRequestHandler(request, env);
+            const response = await collectRequestHandler(request, env as Env);
 
             expect(response.status).toBe(400);
             expect(writeDataPoint).not.toHaveBeenCalled();

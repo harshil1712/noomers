@@ -17,7 +17,7 @@ import { createRoutesStub } from "react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 
 import Dashboard, { loader } from "../dashboard";
-import { AnalyticsEngineAPI } from "~/analytics/query";
+
 import { createFetchResponse, getDefaultContext } from "./testutils";
 import ResizeObserverPolyfill from "resize-observer-polyfill";
 

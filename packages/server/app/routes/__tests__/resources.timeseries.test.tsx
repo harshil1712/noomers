@@ -26,7 +26,7 @@ describe("resources.timeseries loader", () => {
 
     beforeEach(() => {
         vi.spyOn(
-            context.analyticsEngine,
+            context.sessionAnalytics,
             "getViewsGroupedByInterval",
         ).mockResolvedValue([
             ["2024-01-15T00:00:00Z", { views: 100, visitors: 0, bounces: 0 }],
@@ -80,7 +80,7 @@ describe("resources.timeseries loader", () => {
         expect(data.intervalType).toBe("DAY");
 
         expect(
-            context.analyticsEngine.getViewsGroupedByInterval,
+            context.sessionAnalytics.getViewsGroupedByInterval,
         ).toHaveBeenCalledWith(
             "test-site",
             "DAY",
