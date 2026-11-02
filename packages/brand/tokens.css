@@ -27,6 +27,7 @@
   --color-kumo-brand-tint: light-dark(#e3f1ea, #16291f);
   --color-kumo-brand-text: light-dark(#1f7a55, #4fc08d);
   --color-kumo-focus: var(--color-kumo-brand);
+  --text-color-kumo-link: var(--color-kumo-brand-text);
 
   /* chart series: moss + muted brass */
   --color-kumo-series-1: var(--color-kumo-brand);
