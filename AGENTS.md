@@ -160,7 +160,7 @@ Before finishing a cross-package change, run the relevant package tests and type
 ## Cloudflare and deployment safety
 
 - Do not deploy, create resources, apply remote migrations, rotate secrets, or modify a live Cloudflare account unless the user explicitly asks.
-- Do not push to `main` or `v3` without explicit production-deployment authorization. The `cd` workflow deploys after a completed CI workflow on those branches and currently does not check whether CI succeeded.
+- Do not push to `main` or `v3` without explicit authorization. The `cd` workflow is manual-only and never deploys; real deploys use `scripts/deploy.mjs <dev|prod>` after `scripts/provision.mjs`.
 - Never commit `.dev.vars`, API tokens, passwords, salts, R2 SQL credentials, or files under `~/.noomers/`.
 - Load Cloudflare and Wrangler guidance before changing Worker bindings or running Wrangler commands.
 - Pipeline/Data Catalog setup is currently interactive and credential-dependent. Keep manual and automated provisioning paths clearly distinguished.
