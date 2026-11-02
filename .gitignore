@@ -13,4 +13,5 @@ dist
 
 coverage
 playwright-report
-__screenshots__
+__screenshots__packages/server/wrangler.dev.json
+packages/server/wrangler.prod.json

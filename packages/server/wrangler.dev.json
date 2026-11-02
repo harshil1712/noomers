@@ -1,0 +1,49 @@
+{
+  "main": "./workers/app.ts",
+  "name": "noomers-dev",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./build/client"
+  },
+  "d1_databases": [
+    {
+      "binding": "GOALS_DB",
+      "database_name": "noomers-dev",
+      "database_id": "801dd3d0-743a-47b7-8b12-d83895951bcd",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SITE_EVENTS",
+        "class_name": "SiteEvents"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "SiteEvents"
+      ]
+    }
+  ],
+  "pipelines": [
+    {
+      "binding": "EVENT_STREAM",
+      "stream": "3d355e7d76384c7ba8805ecf4abbe572"
+    }
+  ],
+  "workers_dev": true,
+  "account_id": "cf583c9be8982922212ed2e432115f57",
+  "vars": {
+    "R2_SQL_BUCKET": "noomers-dev-events",
+    "R2_SQL_TABLE": "noomers.events",
+    "CF_ACCOUNT_ID": "cf583c9be8982922212ed2e432115f57"
+  }
+}

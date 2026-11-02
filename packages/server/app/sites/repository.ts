@@ -234,6 +234,7 @@ export class SitesRepository {
         const site: Site = {
             domain: normalizeDomain(input.domain),
             trackerId: crypto.randomUUID(),
+            plausibleScriptId: input.plausibleScriptId ?? null,
             timezone: normalizeTimezone(input.timezone),
             customProperties: [],
             trackerScriptConfiguration: mergeTrackerConfiguration(

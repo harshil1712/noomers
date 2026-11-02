@@ -1,5 +1,5 @@
 /* eslint-disable */
-export const PLAUSIBLE_TRACKER_TEMPLATE = `/*!
+export const PLAUSIBLE_TRACKER_TEMPLATE = String.raw`/*!
  * Plausible tracker (MIT License) — vendored verbatim except for the
  * endpoint/domain placeholders that are substituted per-site at serve time.
  *

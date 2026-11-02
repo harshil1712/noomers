@@ -565,6 +565,7 @@ export class R2SQLAPI {
                 [
                     "pathname",
                     "hostname",
+                    "event_name",
                     ...(eventDimension ? [eventDimension] : []),
                 ],
             )},
