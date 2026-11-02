@@ -22,8 +22,9 @@ import {
   Tabs,
   Text,
   TimeseriesChart,
+  Tooltip,
 } from "@cloudflare/kumo";
-import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
+import { ArrowSquareOut, CaretLeft, CaretRight, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import {
   dashboardApi,
@@ -424,15 +425,25 @@ function OverviewTab({
   onError: (key: string, failed: boolean) => void;
   quiet: boolean;
 }) {
+  const [metric, setMetric] = useState<"visitors" | "views">("visitors");
   return (
     <>
-      <KpiStrip query={query} realtime={realtime} onError={onError} quiet={quiet} />
+      <KpiStrip
+        query={query}
+        realtime={realtime}
+        onError={onError}
+        quiet={quiet}
+        metric={metric}
+        onSelectMetric={setMetric}
+        interval={query.interval}
+      />
       <TimeseriesPanel
         query={query}
         isDark={isDark}
         timezone={timezone}
         onError={onError}
         quiet={quiet}
+        metric={metric}
       />
       <Grid variant="2up" gap="base">
         {PANELS.map((panel) => (
@@ -452,16 +463,59 @@ function OverviewTab({
 }
 
 /* ---------- KPI strip ---------- */
+const INTERVAL_LABEL = {
+  day: "previous day",
+  "7d": "previous 7 days",
+  "30d": "previous 30 days",
+  month: "previous month",
+  "6mo": "previous 6 months",
+  "12mo": "previous 12 months",
+};
+
+function DeltaBadge({
+  current,
+  previous,
+  interval,
+  invert,
+}: {
+  current?: number | null;
+  previous?: number | null;
+  interval: string;
+  invert?: boolean;
+}) {
+  if (current === undefined || current === null || !previous) return null;
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (!Number.isFinite(pct) || pct === 0) return null;
+  const up = pct > 0;
+  const good = invert ? !up : up;
+  return (
+    <Tooltip
+      content={`vs. ${interval in INTERVAL_LABEL ? INTERVAL_LABEL[interval as keyof typeof INTERVAL_LABEL] : "previous period"}`}
+      render={
+        <Badge variant={good ? "success" : "destructive"}>
+          {up ? "↑" : "↓"} {Math.abs(pct)}%
+        </Badge>
+      }
+    />
+  );
+}
+
 function KpiStrip({
   query,
   realtime,
   onError,
   quiet,
+  metric,
+  onSelectMetric,
+  interval,
 }: {
   query: DashboardQuery;
   realtime: ReturnType<typeof useRealtime>;
   onError?: (key: string, failed: boolean) => void;
   quiet?: boolean;
+  metric: "visitors" | "views";
+  onSelectMetric: (m: "visitors" | "views") => void;
+  interval: string;
 }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof dashboardApi.stats>> | null>(null);
   const [error, setError] = useState(false);
@@ -501,20 +555,45 @@ function KpiStrip({
     );
   }
 
-  const tiles: { label: string; value: string; live?: boolean }[] = [
+  const prev = data?.previous;
+  const tiles: {
+    label: string;
+    value: string;
+    live?: boolean;
+    delta?: React.ReactNode;
+    toggle?: "visitors" | "views";
+  }[] = [
     {
       label: "Live visitors",
       value:
         realtime.stats?.currentVisitors !== undefined
           ? fmt.format(realtime.stats.currentVisitors)
-          : "—",
+          : "0",
       live: true,
     },
-    { label: "Visitors", value: data?.visitors !== undefined ? fmt.format(data.visitors) : "—" },
-    { label: "Pageviews", value: data?.views !== undefined ? fmt.format(data.views) : "—" },
+    {
+      label: "Visitors",
+      value: data?.visitors !== undefined ? fmt.format(data.visitors) : "—",
+      delta: <DeltaBadge current={data?.visitors} previous={prev?.visitors} interval={interval} />,
+      toggle: "visitors",
+    },
+    {
+      label: "Pageviews",
+      value: data?.views !== undefined ? fmt.format(data.views) : "—",
+      delta: <DeltaBadge current={data?.views} previous={prev?.views} interval={interval} />,
+      toggle: "views",
+    },
     {
       label: "Bounce rate",
       value: data?.bounceRate !== undefined ? `${Math.round(data.bounceRate * 100)}%` : "—",
+      delta: (
+        <DeltaBadge
+          current={data?.bounceRate}
+          previous={prev?.bounceRate}
+          interval={interval}
+          invert
+        />
+      ),
     },
     {
       label: "Visit duration",
@@ -522,6 +601,13 @@ function KpiStrip({
         data?.averageVisitDuration !== undefined && data?.averageVisitDuration !== null
           ? duration(data.averageVisitDuration)
           : "—",
+      delta: (
+        <DeltaBadge
+          current={data?.averageVisitDuration}
+          previous={prev?.averageVisitDuration}
+          interval={interval}
+        />
+      ),
     },
     {
       label: "Views / visit",
@@ -533,24 +619,53 @@ function KpiStrip({
   ];
 
   return (
-    <Surface className="rounded-xl p-1">
-      <Grid variant="1-3up" gap="none" className="sm:grid-cols-6">
-        {tiles.map((t) => (
-          <div key={t.label} className="px-5 py-4">
-            <Text variant="secondary" size="sm">
-              {t.label}
-            </Text>
-            <div className="mt-1 flex items-baseline gap-2">
-              {t.live && <span className="live-dot" aria-hidden="true" title={realtime.status} />}
-              <span className="tabular-nums">
-                <Text variant="heading2" as="h2">
-                  {t.value}
-                </Text>
-              </span>
+    <Surface className="overflow-hidden rounded-xl">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+        {tiles.map((t, i) => {
+          const selected = t.toggle === metric;
+          const inner = (
+            <>
+              <Text variant="secondary" size="sm">
+                {t.label}
+              </Text>
+              <div className="mt-1 flex items-center gap-2">
+                {t.live && <span className="live-dot" aria-hidden="true" title={realtime.status} />}
+                <span className="tabular-nums">
+                  <Text variant="heading1" as="h2">
+                    {t.value}
+                  </Text>
+                </span>
+                {t.live && realtime.status === "connecting" && (
+                  <Text variant="secondary" size="sm">
+                    Connecting…
+                  </Text>
+                )}
+                {t.delta}
+              </div>
+            </>
+          );
+          const cls = `border-kumo-hairline px-5 py-4 ${
+            i % 2 === 1 ? "" : "border-r"
+          } sm:border-r ${i === 5 ? "sm:border-r-0" : ""} ${
+            selected ? "border-t-2 border-t-kumo-brand bg-kumo-tint" : ""
+          }`;
+          return t.toggle ? (
+            <button
+              key={t.label}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onSelectMetric(t.toggle!)}
+              className={`text-left ${cls}`}
+            >
+              {inner}
+            </button>
+          ) : (
+            <div key={t.label} className={cls}>
+              {inner}
             </div>
-          </div>
-        ))}
-      </Grid>
+          );
+        })}
+      </div>
     </Surface>
   );
 }
@@ -562,12 +677,14 @@ function TimeseriesPanel({
   timezone,
   onError,
   quiet,
+  metric,
 }: {
   query: DashboardQuery;
   isDark: boolean;
   timezone: string;
   onError?: (key: string, failed: boolean) => void;
   quiet?: boolean;
+  metric: "visitors" | "views";
 }) {
   const [data, setData] = useState<
     { name: string; color: string; data: [number, number][] }[] | null
@@ -583,6 +700,7 @@ function TimeseriesPanel({
         onError?.("timeseries", false);
         const brand = ChartPalette.categorical(0, isDark);
         const second = ChartPalette.categorical(1, isDark);
+        const muted = "rgba(128,128,128,0.35)";
         const toSeries = (key: "views" | "visitors", name: string, color: string) => ({
           name,
           color,
@@ -590,7 +708,11 @@ function TimeseriesPanel({
             (row) => [new Date(row.date).getTime(), row[key]] as [number, number],
           ),
         });
-        setData([toSeries("visitors", "Visitors", brand), toSeries("views", "Pageviews", second)]);
+        setData(
+          metric === "visitors"
+            ? [toSeries("visitors", "Visitors", brand), toSeries("views", "Pageviews", muted)]
+            : [toSeries("views", "Pageviews", second), toSeries("visitors", "Visitors", muted)],
+        );
       })
       .catch(() => {
         if (!cancelled) {
@@ -601,7 +723,7 @@ function TimeseriesPanel({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters, query.nonce, isDark]);
+  }, [query.site, query.interval, query.timezone, query.filters, query.nonce, isDark, metric]);
 
   return (
     <Surface className="rounded-xl p-4">
@@ -615,16 +737,7 @@ function TimeseriesPanel({
         <div className="h-[300px] animate-pulse rounded-lg bg-kumo-recessed" />
       ) : (
         <>
-          <TimeseriesChart
-            echarts={echarts}
-            isDarkMode={isDark}
-            data={data}
-            height={300}
-            xAxisName={timezone}
-            yAxisName="Count"
-            yAxisMinInterval={1}
-          />
-          <div className="mt-2">
+          <div className="mb-1 flex items-center justify-between">
             <div className="flex gap-4">
               <ChartLegend.LargeItem
                 name="Visitors"
@@ -637,7 +750,17 @@ function TimeseriesPanel({
                 color={ChartPalette.categorical(1, isDark)}
               />
             </div>
+            <Text variant="secondary" size="sm">
+              {timezone}
+            </Text>
           </div>
+          <TimeseriesChart
+            echarts={echarts}
+            isDarkMode={isDark}
+            data={data}
+            height={300}
+            yAxisMinInterval={1}
+          />
         </>
       )}
     </Surface>
@@ -663,7 +786,7 @@ function BreakdownPanel({
   const [tab, setTab] = useState(panel.tabs[0].card);
   const active = panel.tabs.find((t) => t.card === tab) ?? panel.tabs[0];
   return (
-    <Surface className="rounded-xl p-4">
+    <Surface className="flex h-full flex-col rounded-xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <Text variant="heading3" as="h2">
           {panel.title}
@@ -841,7 +964,8 @@ function BreakdownTable({
       </>
     );
   }
-  const max = Math.max(...rows.map((r) => r[1]), 1);
+  const shown = rows.slice(0, 8);
+  const max = Math.max(...shown.map((r) => r[1]), 1);
   const label = (first: string | [string, string]) => (Array.isArray(first) ? first[1] : first);
   const value = (first: string | [string, string]) => (Array.isArray(first) ? first[0] : first);
 
@@ -852,19 +976,21 @@ function BreakdownTable({
         <Table.Header>
           <Table.Row>
             <Table.Head>Name</Table.Head>
-            <Table.Head className="w-20 text-right">{isGoals ? "Conv." : "Visitors"}</Table.Head>
+            <Table.Head className="w-24 text-right">
+              {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
+            </Table.Head>
             <Table.Head className="w-14 text-right">%</Table.Head>
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {rows.map((row, index) => {
+          {shown.map((row, index) => {
             const pct = row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}
                 tabIndex={0}
                 role="button"
-                className={realFilter ? "cursor-pointer" : ""}
+                className={`relative ${realFilter ? "cursor-pointer hover:bg-kumo-recessed" : ""}`}
                 onClick={() => realFilter && onFilter({ [realFilter]: value(row[0]) })}
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && realFilter) {
@@ -873,34 +999,44 @@ function BreakdownTable({
                   }
                 }}
               >
-                <Table.Cell>
-                  <div className="relative flex items-center">
-                    <span
-                      aria-hidden="true"
-                      className="absolute inset-y-0 left-0 rounded bg-kumo-tint"
-                      style={{ width: `${(row[1] / max) * 100}%` }}
-                    />
-                    <span className="relative max-w-full truncate">{label(row[0])}</span>
-                  </div>
+                <Table.Cell className="relative">
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-y-0 left-0 rounded bg-kumo-tint"
+                    style={{ width: `${(row[1] / max) * 100}%` }}
+                  />
+                  <span className="relative max-w-full truncate">{label(row[0])}</span>
                 </Table.Cell>
-                <Table.Cell className="tabular-nums text-right">{row[1]}</Table.Cell>
-                <Table.Cell className="tabular-nums text-right">{pct}%</Table.Cell>
+                <Table.Cell className="relative tabular-nums text-right">
+                  {new Intl.NumberFormat("en", {
+                    notation: row[1] >= 100000 ? "compact" : "standard",
+                  }).format(row[1])}
+                </Table.Cell>
+                <Table.Cell className="relative tabular-nums text-right">{pct}%</Table.Cell>
               </Table.Row>
             );
           })}
         </Table.Body>
       </Table>
-      {!isGoals && (
-        <div className="mt-3 flex items-center justify-between">
-          <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>
-            Previous
-          </Button>
+      {!isGoals && rows.length >= 8 && (
+        <div className="mt-3 flex items-center justify-end gap-2">
           <Text variant="secondary" size="sm">
-            Page {data.page ?? page}
+            {(page - 1) * 10 + 1}–{(page - 1) * 10 + shown.length}
           </Text>
-          <Button variant="secondary" disabled={rows.length < 10} onClick={() => setPage(page + 1)}>
-            Next
-          </Button>
+          <Button
+            variant="ghost"
+            icon={<CaretLeft size={14} />}
+            aria-label="Previous page"
+            disabled={page <= 1}
+            onClick={() => setPage(page - 1)}
+          />
+          <Button
+            variant="ghost"
+            icon={<CaretRight size={14} />}
+            aria-label="Next page"
+            disabled={rows.length < 10}
+            onClick={() => setPage(page + 1)}
+          />
         </div>
       )}
     </div>

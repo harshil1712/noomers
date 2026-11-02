@@ -197,9 +197,13 @@ function SidebarNav() {
             </Sidebar.MenuButton>
           )}
         </Sidebar.Menu>
-        <div className="flex items-center justify-between px-1">
+        <div className="flex min-w-0 items-center justify-between gap-2 px-1 pt-2">
+          {data?.user && (
+            <div className="min-w-0 flex-1">
+              <UserMenu user={data.user} />
+            </div>
+          )}
           <ThemeToggle />
-          {data?.user && <UserMenu user={data.user} />}
         </div>
       </Sidebar.Footer>
     </>

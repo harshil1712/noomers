@@ -127,3 +127,11 @@
     }
   }
 }
+
+/* Select trigger renders a `shadow-xs` ring at rest that reads as a focused
+   state next to borderless buttons. Match the other header controls instead:
+   no ring, a control-line hairline. */
+[data-kumo-component="Select"][data-kumo-part="trigger"] {
+  box-shadow: none !important;
+  border: 1px solid var(--color-kumo-control-line) !important;
+}
