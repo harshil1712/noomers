@@ -245,13 +245,11 @@ function SitesOverview() {
       <PageHeader
         crumbs={[{ label: "Sites" }]}
         title="Sites"
+        description={
+          sites ? `${sites.length} site${sites.length === 1 ? "" : "s"} registered` : undefined
+        }
         actions={
           <>
-            {sites && (
-              <Text variant="secondary" size="sm">
-                {sites.length} site{sites.length === 1 ? "" : "s"} registered
-              </Text>
-            )}
             <Select
               value={interval}
               onValueChange={(v) => {

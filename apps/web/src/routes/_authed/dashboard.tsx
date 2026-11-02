@@ -309,7 +309,7 @@ function Dashboard() {
             </Select>
             <Dialog.Root>
               <Dialog.Trigger render={<Button variant="secondary">Tracking code</Button>} />
-              <Dialog className="p-6">
+              <Dialog size="lg" className="p-6">
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <Dialog.Title>Tracking code</Dialog.Title>
                   <Dialog.Close aria-label="Close" />
@@ -319,19 +319,24 @@ function Dashboard() {
                   <div className="flex flex-col gap-2">
                     <span className="mono-label">Site ID</span>
                     <ClipboardText text={site || "example.com"} size="sm" />
+                    <span className="mono-label">Script URL</span>
                     <ClipboardText text={`${location.origin}/tracker.js`} size="sm" />
                   </div>
                   <div>
                     <Text variant="secondary" size="sm">
                       Script tag
                     </Text>
-                    <Code.Block code={trackingSnippet} lang="tsx" />
+                    <div className="overflow-x-auto">
+                      <Code.Block code={trackingSnippet} lang="tsx" />
+                    </div>
                   </div>
                   <div>
                     <Text variant="secondary" size="sm">
                       Plausible-style
                     </Text>
-                    <Code.Block code={plausibleSnippet} lang="tsx" />
+                    <div className="overflow-x-auto">
+                      <Code.Block code={plausibleSnippet} lang="tsx" />
+                    </div>
                   </div>
                 </div>
               </Dialog>

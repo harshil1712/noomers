@@ -3,7 +3,6 @@ import { useState } from "react";
 import { Banner, Button, Input, Text } from "@cloudflare/kumo";
 import { authClient } from "../lib/auth-client";
 import { loadPublicConfig } from "../lib/public-config";
-import { authErrorFields } from "../lib/auth-errors";
 import { useCaptchaForm } from "../lib/use-captcha-form";
 import AuthCard from "../components/auth-card";
 import { AuthLink } from "../components/auth-link";

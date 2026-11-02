@@ -67,21 +67,26 @@ function Settings() {
   const user = data?.user;
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
-      <PageHeader crumbs={[{ label: "Sites", to: "/" }, { label: "Settings" }]} title="Settings" />
-      {!user || hasPassword === null ? (
-        <div className="flex justify-center py-12">
-          <Loader size="base" aria-label="Loading settings" />
-        </div>
-      ) : (
-        <>
-          {/* key: re-seed the form if the signed-in user changes */}
-          <ProfileSection key={user.id} name={user.name} email={user.email} />
-          <PasswordSection hasPassword={hasPassword} />
-          <SessionsSection />
-          <DeleteAccountSection hasPassword={hasPassword} />
-        </>
-      )}
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex w-full max-w-[720px] flex-col gap-6">
+        <PageHeader
+          crumbs={[{ label: "Sites", to: "/" }, { label: "Settings" }]}
+          title="Settings"
+        />
+        {!user || hasPassword === null ? (
+          <div className="flex justify-center py-12">
+            <Loader size="base" aria-label="Loading settings" />
+          </div>
+        ) : (
+          <>
+            {/* key: re-seed the form if the signed-in user changes */}
+            <ProfileSection key={user.id} name={user.name} email={user.email} />
+            <PasswordSection hasPassword={hasPassword} />
+            <SessionsSection />
+            <DeleteAccountSection hasPassword={hasPassword} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
