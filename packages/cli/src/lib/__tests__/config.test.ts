@@ -577,7 +577,6 @@ describe("CLI Functions", () => {
             expect(writtenConfig.vars).toEqual({
                 R2_SQL_BUCKET: "custom-warehouse",
                 R2_SQL_TABLE: "default.events",
-                ANALYTICS_DATASET: "custom-dataset",
             });
         });
 
@@ -603,12 +602,11 @@ describe("CLI Functions", () => {
             );
 
             expect(writtenConfig.pipelines).toBeUndefined();
-            expect(writtenConfig.vars).toEqual({
-                ANALYTICS_DATASET: "new-dataset",
-            });
+            // ANALYTICS_DATASET is no longer written; Analytics Engine was removed.
+            expect(writtenConfig.vars).toBeUndefined();
         });
 
-        it("merges ANALYTICS_DATASET with preserved vars on reinstall", async () => {
+        it("preserves vars on reinstall without adding ANALYTICS_DATASET", async () => {
             const { existsSync, writeFileSync } = await import("node:fs");
             vi.mocked(existsSync).mockReturnValue(true);
             vi.mocked(writeFileSync);
@@ -643,7 +641,6 @@ describe("CLI Functions", () => {
             expect(writtenConfig.vars).toEqual({
                 R2_SQL_BUCKET: "custom-warehouse",
                 R2_SQL_TABLE: "default.events",
-                ANALYTICS_DATASET: "custom-dataset",
             });
         });
     });
@@ -738,12 +735,13 @@ describe("CLI Functions", () => {
             expect(readPersistedDeploymentConfig()).toBeNull();
         });
 
-        it("returns null when the persisted config lacks an analytics dataset", async () => {
+        it("falls back to the default dataset when the persisted config lacks one", async () => {
             const { existsSync, readFileSync } = await import("node:fs");
             vi.mocked(existsSync).mockReturnValue(true);
             vi.mocked(readFileSync).mockReturnValue('{"name": "worker"}');
 
-            expect(readPersistedDeploymentConfig()).toBeNull();
+            const parsed = readPersistedDeploymentConfig();
+            expect(parsed?.analyticsDataset).toBe("events");
         });
 
         it("returns null when the persisted config has no worker name", async () => {
@@ -758,7 +756,7 @@ describe("CLI Functions", () => {
             expect(readPersistedDeploymentConfig()).toBeNull();
         });
 
-        it("returns null when the persisted config has an empty analytics dataset value", async () => {
+        it("falls back to the default dataset when the persisted dataset is empty", async () => {
             const { existsSync, readFileSync } = await import("node:fs");
             vi.mocked(existsSync).mockReturnValue(true);
             vi.mocked(readFileSync).mockReturnValue(
@@ -768,7 +766,8 @@ describe("CLI Functions", () => {
                 }),
             );
 
-            expect(readPersistedDeploymentConfig()).toBeNull();
+            const parsed = readPersistedDeploymentConfig();
+            expect(parsed?.analyticsDataset).toBe("events");
         });
 
         it("returns null when the persisted config has a blank worker name", async () => {

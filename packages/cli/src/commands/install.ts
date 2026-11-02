@@ -125,38 +125,9 @@ export async function promptProjectConfig(
         bail();
     }
 
-    let analyticsDataset = (await text({
-        message:
-            `What do you want to name your analytics dataset? ` +
-            chalk.dim(`[default: ${defaultAnalyticsDataset}]`),
-        initialValue: defaultAnalyticsDataset,
-    })) as string;
-
-    if (isCancel(analyticsDataset)) {
-        bail();
-    }
-
-    while (true) {
-        try {
-            analyticsDataset = validateDatasetIdentifier(analyticsDataset);
-            break;
-        } catch (error) {
-            const message =
-                error instanceof Error ? error.message : "Invalid dataset name";
-            log.error(message);
-            analyticsDataset = (await text({
-                message:
-                    `What do you want to name your analytics dataset? ` +
-                    chalk.dim(`[default: ${defaultAnalyticsDataset}]`),
-                initialValue: defaultAnalyticsDataset,
-            })) as string;
-            if (isCancel(analyticsDataset)) {
-                bail();
-            }
-        }
-    }
-
-    return { workerName, analyticsDataset };
+    // Analytics Engine was removed; the dataset name is kept only for
+    // compatibility with persisted installs and is no longer prompted for.
+    return { workerName, analyticsDataset: defaultAnalyticsDataset ?? "events" };
 }
 
 const TICK_LENGTH = 500;
@@ -293,8 +264,6 @@ export async function install(
         });
     }
 
-    const dailyRollups = resolveDailyRollupsBucket(workerName);
-
     await stageDeployConfig(
         tmpStagingConfigPath,
         initialDeployConfig,
@@ -302,7 +271,7 @@ export async function install(
         analyticsDataset,
         accountId,
         undefined,
-        dailyRollups,
+        undefined,
         persistedConfig ?? undefined,
     );
 
@@ -518,15 +487,6 @@ Your token needs these permissions:
     deploySpinner.start(`Deploying noomers ...`);
 
     try {
-        if (dailyRollups.bucket) {
-            const bucketStatus = await cloudflare.getOrCreateR2Bucket(
-                dailyRollups.bucket,
-            );
-            log.info(
-                `Daily R2 bucket: ${dailyRollups.bucket} (${bucketStatus})`,
-            );
-        }
-
         const databaseName = `${workerName}-goals`;
         const databaseId = await cloudflare.getOrCreateD1Database(databaseName);
         await stageDeployConfig(
@@ -536,7 +496,7 @@ Your token needs these permissions:
             analyticsDataset,
             accountId,
             { name: databaseName, id: databaseId },
-            dailyRollups,
+            undefined,
             persistedConfig ?? undefined,
         );
         await cloudflare.applyD1Migrations(databaseName);
@@ -570,8 +530,8 @@ Your token needs these permissions:
             analyticsDataset,
             d1Database: { name: databaseName, id: databaseId },
             resources: {
-                dailyRollupsBucket: dailyRollups.bucket,
-                dailyRollupsPreviewBucket: dailyRollups.previewBucket,
+                dailyRollupsBucket: undefined,
+                dailyRollupsPreviewBucket: undefined,
                 pipelineName,
                 dataCatalogBucket:
                     persistedConfig?.vars?.R2_SQL_BUCKET ??

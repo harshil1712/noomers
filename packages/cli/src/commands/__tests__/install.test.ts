@@ -88,17 +88,15 @@ describe("install prompts", () => {
     });
 
     describe("promptProjectConfig", () => {
-        it("should return worker name and dataset name", async () => {
+        it("should return worker name and the default dataset name", async () => {
             const mockWorkerName = "test-worker";
-            const mockDatasetName = "test-dataset";
             const mockPrompts = await import("@clack/prompts");
             (isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
                 false,
             );
 
             (mockPrompts.text as unknown as ReturnType<typeof vi.fn>)
-                .mockResolvedValueOnce(mockWorkerName)
-                .mockResolvedValueOnce(mockDatasetName);
+                .mockResolvedValueOnce(mockWorkerName);
 
             const result = await promptProjectConfig(
                 "default-worker",
@@ -106,30 +104,25 @@ describe("install prompts", () => {
             );
             expect(result).toEqual({
                 workerName: mockWorkerName,
-                analyticsDataset: mockDatasetName,
+                analyticsDataset: "default-dataset",
             });
         });
 
-        it("should re-prompt for an invalid dataset name", async () => {
+        it("should not prompt for a dataset name", async () => {
             const mockPrompts = await import("@clack/prompts");
             (isCancel as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
                 false,
             );
-
-            (mockPrompts.text as unknown as ReturnType<typeof vi.fn>)
-                .mockResolvedValueOnce("test-worker")
-                .mockResolvedValueOnce("bad dataset")
-                .mockResolvedValueOnce("valid-dataset");
+            (
+                mockPrompts.text as unknown as ReturnType<typeof vi.fn>
+            ).mockResolvedValueOnce("test-worker");
 
             const result = await promptProjectConfig(
                 "default-worker",
                 "default-dataset",
             );
-            expect(result).toEqual({
-                workerName: "test-worker",
-                analyticsDataset: "valid-dataset",
-            });
-            expect(mockPrompts.text).toHaveBeenCalledTimes(3);
+            expect(result.analyticsDataset).toBe("default-dataset");
+            expect(mockPrompts.text).toHaveBeenCalledTimes(1);
         });
 
         it("should throw error if user cancels worker name", async () => {
@@ -146,19 +139,7 @@ describe("install prompts", () => {
             );
         });
 
-        it("should throw error if user cancels dataset name", async () => {
-            const mockPrompts = await import("@clack/prompts");
-            (isCancel as unknown as ReturnType<typeof vi.fn>)
-                .mockReturnValueOnce(false)
-                .mockReturnValueOnce(true);
-            (
-                mockPrompts.text as unknown as ReturnType<typeof vi.fn>
-            ).mockResolvedValue("test");
 
-            await expect(promptProjectConfig()).rejects.toThrow(
-                "Operation canceled",
-            );
-        });
 
         it("should use provided default values", async () => {
             const defaultWorker = "default-worker";
@@ -178,11 +159,7 @@ describe("install prompts", () => {
                     initialValue: defaultWorker,
                 }),
             );
-            expect(mockPrompts.text).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    initialValue: defaultDataset,
-                }),
-            );
+            expect(mockPrompts.text).toHaveBeenCalledTimes(1);
         });
     });
 

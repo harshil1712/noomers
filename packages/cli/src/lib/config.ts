@@ -585,7 +585,8 @@ export const makePathsAbsolute = (
 export function getWorkerAndDatasetName(config: ReturnType<typeof JSON.parse>) {
     return {
         workerName: config.name as string,
-        analyticsDataset: config.analytics_engine_datasets[0].dataset,
+        analyticsDataset:
+            config.analytics_engine_datasets?.[0]?.dataset ?? "events",
     };
 }
 
@@ -623,7 +624,9 @@ export async function stageDeployConfig(
         serverPkgDir,
     );
     outDeployConfig.name = workerName;
-    outDeployConfig.analytics_engine_datasets[0].dataset = analyticsDataset;
+    if (outDeployConfig.analytics_engine_datasets?.[0]) {
+        outDeployConfig.analytics_engine_datasets[0].dataset = analyticsDataset;
+    }
 
     if (accountId) {
         outDeployConfig.account_id = accountId;
@@ -654,14 +657,10 @@ export async function stageDeployConfig(
         );
     }
 
-    // Synchronize the runtime dataset name with the Analytics Engine binding.
-    // Always write this var so the server's SQL builders know which dataset
-    // the WEB_COUNTER_AE binding points to. Merge with preserved vars so R2 SQL
-    // configuration is never overwritten.
-    outDeployConfig.vars = {
-        ...(preservedConfig?.vars ?? {}),
-        ANALYTICS_DATASET: analyticsDataset,
-    };
+    // Merge preserved vars (R2 SQL configuration is never overwritten).
+    if (preservedConfig?.vars) {
+        outDeployConfig.vars = { ...preservedConfig.vars };
+    }
 
     writeFileSync(targetPath, JSON.stringify(outDeployConfig, null, 2));
 }

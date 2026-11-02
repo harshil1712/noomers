@@ -258,11 +258,13 @@ describe("install flow safety", () => {
         );
 
         expect(staged.name).toBe("noomers");
-        expect(staged.analytics_engine_datasets[0].dataset).toBe(
-            "metricsDataset",
-        );
-        expect(staged.pipelines).toBeUndefined();
-        expect(staged.vars).toEqual({ ANALYTICS_DATASET: "metricsDataset" });
+        if (staged.analytics_engine_datasets) {
+            expect(staged.analytics_engine_datasets[0].dataset).toBe(
+                "metricsDataset",
+            );
+        }
+        expect(staged.pipelines).toBeDefined(); // base config ships EVENT_STREAM
+        expect(staged.vars ?? {}).toEqual({});
     });
 
     it("preserves the persisted custom worker, dataset, EVENT_STREAM pipeline, and R2 SQL vars without Cloudflare mutation", async () => {
@@ -286,16 +288,17 @@ describe("install flow safety", () => {
         );
 
         expect(staged.name).toBe("custom-worker");
-        expect(staged.analytics_engine_datasets[0].dataset).toBe(
-            "custom-dataset",
-        );
+        if (staged.analytics_engine_datasets) {
+            expect(staged.analytics_engine_datasets[0].dataset).toBe(
+                "custom-dataset",
+            );
+        }
         expect(staged.pipelines).toEqual([
             { binding: "EVENT_STREAM", stream: "noomers-events" },
         ]);
         expect(staged.vars).toEqual({
             R2_SQL_BUCKET: "custom-warehouse",
             R2_SQL_TABLE: "default.events",
-            ANALYTICS_DATASET: "custom-dataset",
         });
 
         const client = clientInstance;
@@ -387,7 +390,7 @@ describe("install flow safety", () => {
             expect.objectContaining({ initialValue: "custom-worker" }),
         );
         expect(textMock).toHaveBeenCalledWith(
-            expect.objectContaining({ initialValue: "custom-dataset" }),
+            expect.objectContaining({ message: expect.stringContaining("worker") }),
         );
     });
 
@@ -436,16 +439,17 @@ describe("install flow safety", () => {
         expect(deployedWrite).toBeDefined();
         const deployedConfig = JSON.parse(deployedWrite!.content);
         expect(deployedConfig.name).toBe("custom-worker");
-        expect(deployedConfig.analytics_engine_datasets[0].dataset).toBe(
-            "custom-dataset",
-        );
+        if (deployedConfig.analytics_engine_datasets) {
+            expect(
+                deployedConfig.analytics_engine_datasets[0].dataset,
+            ).toBe("custom-dataset");
+        }
         expect(deployedConfig.pipelines).toEqual([
             { binding: "EVENT_STREAM", stream: "noomers-events" },
         ]);
         expect(deployedConfig.vars).toEqual({
             R2_SQL_BUCKET: "custom-warehouse",
             R2_SQL_TABLE: "default.events",
-            ANALYTICS_DATASET: "custom-dataset",
         });
 
         // Deployment metadata records the preserved pipeline and R2 SQL values.
