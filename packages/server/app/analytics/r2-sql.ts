@@ -748,6 +748,7 @@ export class R2SQLAPI {
                         AND TRY_CAST(received_at AS TIMESTAMP) >= TRY_CAST(${start} AS TIMESTAMP)
                         AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)
                         THEN 1 ELSE 0 END AS matches_filter,
+                    ${eventDimension ? `${eventDimension},` : ""}
                     TRY_CAST(received_at AS TIMESTAMP) AS event_ts
                 FROM deduplicated_events
                 WHERE ${KEEP_DEDUPLICATED_ROW}
