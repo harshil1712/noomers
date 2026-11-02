@@ -24,9 +24,26 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
     if (unauthorized) return unauthorized;
     const repository = new SitesRepository(context.cloudflare.env.GOALS_DB);
     if (request.method === "DELETE") {
-        return (await repository.delete(params.site_id || ""))
-            ? Response.json({ deleted: "true" })
-            : notFound();
+        const siteId = params.site_id || "";
+        const deleted = await repository.delete(siteId);
+        if (!deleted) return notFound();
+        const namespace = context.cloudflare.env.SITE_EVENTS;
+        if (namespace) {
+            context.cloudflare.ctx.waitUntil(
+                namespace
+                    .get(namespace.idFromName(siteId))
+                    .purge()
+                    .catch((error: unknown) =>
+                        console.error(
+                            JSON.stringify({
+                                message: "site events purge failed",
+                                error: String(error),
+                            }),
+                        ),
+                    ),
+            );
+        }
+        return Response.json({ deleted: "true" });
     }
     if (request.method !== "PUT") {
         return Response.json({ error: "Method Not Allowed" }, { status: 405 });

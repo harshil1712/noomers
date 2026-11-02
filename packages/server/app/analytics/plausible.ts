@@ -228,9 +228,6 @@ function parsePayload(
         engagementTime: normalizedEngagementTime,
         scrollDepth: normalizedScrollDepth,
         suppliedIp,
-        // Plausible has no client-side first-visit signal. The query layer counts
-        // these daily visitor IDs distinctly instead of treating every hit as new.
-        newVisitor: eventType === "pageview" ? -1 : 0,
         utmSource:
             params.get("utm_source") ||
             params.get("source") ||

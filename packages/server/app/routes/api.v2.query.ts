@@ -39,8 +39,7 @@ export async function action({ request, context }: ActionFunctionArgs) {
             return Response.json({ error: "Site not found" }, { status: 404 });
         }
         return Response.json(await executeStatsQuery(
-            context.analyticsEngine,
-            context.sessionAnalytics,
+            context.sessionAnalytics(),
             { ...input, site_id: site.domain },
             site.timezone,
         ));

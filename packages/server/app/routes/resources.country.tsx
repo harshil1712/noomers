@@ -1,4 +1,6 @@
 import { useFetcher } from "react-router";
+import { requireAuth } from "~/lib/auth";
+import { breakdownLoader } from "./resources.shared";
 import type { LoaderFunctionArgs } from "react-router";
 import { getFiltersFromSearchParams, paramsFromUrl } from "~/lib/utils";
 import PaginatedTableCard from "~/components/PaginatedTableCard";
@@ -24,30 +26,8 @@ function convertCountryCodesToNames(
 }
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
-    const { analyticsEngine } = context;
-    const { interval, site, page = 1 } = paramsFromUrl(request.url);
-    const url = new URL(request.url);
-    const tz = url.searchParams.get("timezone") || "UTC";
-    const filters = getFiltersFromSearchParams(url.searchParams);
-
-    const countsByCountry = await analyticsEngine.getCountByCountry(
-        site,
-        interval,
-        tz,
-        filters,
-        Number(page),
-    );
-
-    // normalize country codes to country names
-    // NOTE: this must be done ONLY on server otherwise hydration mismatches
-    //       can occur because Intl.DisplayNames produces different results
-    //       in different browsers (see https://github.com/harshil1712/noomers/issues/72)
-    const countsByProperty = convertCountryCodesToNames(countsByCountry);
-
-    return {
-        countsByProperty,
-        page: Number(page),
-    };
+    await requireAuth(request, context.cloudflare.env);
+    return breakdownLoader(context, request, "visit:country", "visits");
 }
 
 export const CountryCard = ({

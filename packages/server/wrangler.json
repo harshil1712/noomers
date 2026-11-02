@@ -1,25 +1,14 @@
 {
     "main": "./workers/app.ts",
     "name": "noomers",
-    "compatibility_flags": ["nodejs_compat"],
+    "compatibility_flags": [
+        "nodejs_compat"
+    ],
     "compatibility_date": "2026-10-01",
     "assets": {
         "binding": "ASSETS",
         "directory": "./build/client"
     },
-    "analytics_engine_datasets": [
-        {
-            "binding": "WEB_COUNTER_AE",
-            "dataset": "metricsDataset"
-        }
-    ],
-    "r2_buckets": [
-        {
-            "bucket_name": "noomers-daily-rollups",
-            "preview_bucket_name": "noomers-daily-rollups-dev",
-            "binding": "DAILY_ROLLUPS"
-        }
-    ],
     "d1_databases": [
         {
             "binding": "GOALS_DB",
@@ -28,10 +17,26 @@
             "migrations_dir": "./migrations"
         }
     ],
-    "vars": {
-        "ANALYTICS_DATASET": "metricsDataset"
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "SITE_EVENTS",
+                "class_name": "SiteEvents"
+            }
+        ]
     },
-    "triggers": {
-        "crons": ["0 2 * * *"]
-    }
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "SiteEvents"
+            ]
+        }
+    ],
+    "pipelines": [
+        {
+            "binding": "EVENT_STREAM",
+            "stream": "00000000000000000000000000000000"
+        }
+    ]
 }

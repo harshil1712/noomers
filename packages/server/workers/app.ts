@@ -7,22 +7,19 @@ import { createRequestHandler, type ServerBuild } from "react-router";
  */
 import { getLoadContext } from "../app/load-context";
 import * as build from "../build/server";
-import { runScheduledJobs } from "./lib/scheduled";
+import { SiteEvents } from "./site-events";
+
+export { SiteEvents };
 
 const requestHandler = createRequestHandler(build as unknown as ServerBuild);
 
 export default {
-    async scheduled(
-        _controller: ScheduledController,
-        env: Env,
-        ctx: ExecutionContext,
-    ) {
-        // Deletion processing always runs; the Arrow rollup retains its
-        // CF_STORAGE_ENABLED gate inside runScheduledJobs.
-        ctx.waitUntil(runScheduledJobs(env));
-    },
-    async fetch(request: any, env: any, ctx: any) {
+    async fetch(request: any, env: Env, ctx: any) {
         try {
+            const url = new URL(request.url);
+            if (url.pathname.startsWith("/realtime/")) {
+                return await handleRealtime(request, env, url);
+            }
             const loadContext = getLoadContext({
                 request,
                 context: {
@@ -36,7 +33,7 @@ export default {
                         cf: request.cf as never,
                         // @ts-expect-error TODO: figure out how to get this type to work
                         caches,
-                        env,
+                        env: env as Env & { CF_PAGES_COMMIT_SHA: string },
                     },
                 },
             });
@@ -49,3 +46,27 @@ export default {
         }
     },
 } satisfies ExportedHandler<Env>;
+
+async function handleRealtime(
+    request: Request,
+    env: Env,
+    url: URL,
+): Promise<Response> {
+    const siteId = decodeURIComponent(url.pathname.slice("/realtime/".length));
+    if (!siteId) return new Response("Not Found", { status: 404 });
+    if (!env.SITE_EVENTS) {
+        return new Response("Realtime unavailable", { status: 503 });
+    }
+    const { getUser } = await import("../app/lib/auth");
+    const { SitesRepository } = await import("../app/sites/repository");
+    const user = await getUser(request, env);
+    if (!user.authenticated) {
+        return new Response("Unauthorized", { status: 401 });
+    }
+    const repository = new SitesRepository(env.GOALS_DB);
+    if ((await repository.collectionStatus(siteId)) !== "active") {
+        return new Response("Not Found", { status: 404 });
+    }
+    const namespace = env.SITE_EVENTS;
+    return namespace.get(namespace.idFromName(siteId)).fetch(request);
+}

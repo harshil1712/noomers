@@ -12,77 +12,25 @@ import { requireAuth } from "~/lib/auth";
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
     await requireAuth(request, context.cloudflare.env);
-    const { analyticsEngine, sessionAnalytics } = context;
     const { interval, site } = paramsFromUrl(request.url);
     const url = new URL(request.url);
     const tz = url.searchParams.get("timezone") || "UTC";
     const filters = getFiltersFromSearchParams(url.searchParams);
 
     const { startDate, endDate } = getDateTimeRange(interval, tz);
-    if (sessionAnalytics) {
-        try {
-            const sessionMetrics = await sessionAnalytics.getSessionMetrics(
-                site,
-                startDate,
-                endDate,
-                filters,
-            );
-            return {
-                views: sessionMetrics.views,
-                visitors: sessionMetrics.visitors,
-                visits: sessionMetrics.visits,
-                bounceRate:
-                    sessionMetrics.visits > 0
-                        ? sessionMetrics.bounces / sessionMetrics.visits
-                        : undefined,
-                averageVisitDuration: sessionMetrics.averageVisitDuration,
-                hasSufficientBounceData: true,
-            };
-        } catch (error) {
-            console.error(
-                "R2 session query failed; using realtime metrics",
-                error,
-            );
-        }
-    }
-
-    const [counts, { earliestEvent, earliestBounce }] = await Promise.all([
-        analyticsEngine.getCountsForRange(
-            site,
-            startDate,
-            endDate,
-            tz,
-            filters,
-        ),
-        analyticsEngine.getEarliestEvents(site),
-    ]);
-
-    // FOR BACKWARDS COMPAT, ONLY SHOW BOUNCE RATE IF WE HAVE DATE FOR THE ENTIRE QUERY PERIOD
-    // -----------------------------------------------------------------------------
-    // Bounce rate is a later-introduced metric that may not have been recorded for
-    // the full duration of the queried noomers dataset (not possible to backfill
-    // data we dont have!)
-
-    // So, cannot reliably show "bounce rate" if bounce data was unavailable for a portion
-    // of the query period.
-
-    // To figure out if we can give an answer or not, we inspect the earliest bounce/earliest event
-    // data recorded, and determine if our dataset is "complete" for the given query interval.
-
-    const hasSufficientBounceData =
-        earliestBounce !== null &&
-        earliestEvent !== null &&
-        (earliestEvent.getTime() == earliestBounce.getTime() || // earliest event recorded a bounce -- any query is fine
-            earliestBounce < startDate); // earliest bounce occurred before start of query period -- this query is fine
-
-    const bounceRate =
-        counts.visitors > 0 ? counts.bounces / counts.visitors : undefined;
-
+    const sessionMetrics = await context
+        .sessionAnalytics()
+        .getSessionMetrics(site, startDate, endDate, filters);
     return {
-        views: counts.views,
-        visitors: counts.visitors,
-        bounceRate: bounceRate,
-        hasSufficientBounceData,
+        views: sessionMetrics.views,
+        visitors: sessionMetrics.visitors,
+        visits: sessionMetrics.visits,
+        bounceRate:
+            sessionMetrics.visits > 0
+                ? sessionMetrics.bounces / sessionMetrics.visits
+                : undefined,
+        averageVisitDuration: sessionMetrics.averageVisitDuration,
+        hasSufficientBounceData: true,
     };
 }
 

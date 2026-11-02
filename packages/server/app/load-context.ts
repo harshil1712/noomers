@@ -1,6 +1,5 @@
 import { type AppLoadContext } from "react-router";
 import { type PlatformProxy } from "wrangler";
-import { AnalyticsEngineAPI } from "./analytics/query";
 import { R2SQLAPI } from "./analytics/r2-sql";
 
 interface ExtendedEnv extends Env {
@@ -9,11 +8,19 @@ interface ExtendedEnv extends Env {
 
 type Cloudflare = Omit<PlatformProxy<ExtendedEnv>, "dispose">;
 
+export class BasinNotConfiguredError extends Error {
+    constructor() {
+        super("Basin SQL is not configured (R2_SQL_* env vars missing)");
+        this.name = "BasinNotConfiguredError";
+    }
+}
+
 declare module "react-router" {
     interface AppLoadContext {
         cloudflare: Cloudflare;
-        analyticsEngine: AnalyticsEngineAPI;
-        sessionAnalytics?: R2SQLAPI;
+        /** Throws BasinNotConfiguredError when Basin env vars are absent. */
+        sessionAnalytics(): R2SQLAPI;
+        readonly basinConfigured: boolean;
     }
 }
 
@@ -24,26 +31,28 @@ type GetLoadContext = (args: {
 
 // Shared implementation compatible with Vite, Wrangler, and Cloudflare Pages
 export const getLoadContext: GetLoadContext = ({ context }) => {
-    const analyticsEngine = new AnalyticsEngineAPI(
-        context.cloudflare.env.CF_ACCOUNT_ID,
-        context.cloudflare.env.CF_BEARER_TOKEN,
-        context.cloudflare.env.ANALYTICS_DATASET ?? "metricsDataset",
-    );
-    const { R2_SQL_BUCKET, R2_SQL_TABLE, R2_SQL_TOKEN } =
+    const { R2_SQL_BUCKET, R2_SQL_TABLE, R2_SQL_TOKEN, R2_SQL_IMPORT_TABLE } =
         context.cloudflare.env;
-    const sessionAnalytics =
-        R2_SQL_BUCKET && R2_SQL_TABLE && R2_SQL_TOKEN
-            ? new R2SQLAPI(
-                  context.cloudflare.env.CF_ACCOUNT_ID,
-                  R2_SQL_BUCKET,
-                  R2_SQL_TOKEN,
-                  R2_SQL_TABLE,
-              )
-            : undefined;
+    const basinConfigured = Boolean(
+        R2_SQL_BUCKET && R2_SQL_TABLE && R2_SQL_TOKEN,
+    );
+    let api: R2SQLAPI | undefined;
+    const sessionAnalytics = () => {
+        if (!basinConfigured) throw new BasinNotConfiguredError();
+        api ??= new R2SQLAPI(
+            context.cloudflare.env.CF_ACCOUNT_ID,
+            R2_SQL_BUCKET!,
+            R2_SQL_TOKEN!,
+            R2_SQL_TABLE!,
+            fetch,
+            R2_SQL_IMPORT_TABLE || undefined,
+        );
+        return api;
+    };
 
     return {
         ...context,
-        analyticsEngine: analyticsEngine,
         sessionAnalytics,
+        basinConfigured,
     };
 };

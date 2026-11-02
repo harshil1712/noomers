@@ -3,12 +3,19 @@ import { shouldDropBot } from "./bot";
 import { maskBrowserVersion } from "~/lib/utils";
 import { SitesRepository, type SiteCollectionStatus } from "~/sites/repository";
 
-export type CollectEnv = Pick<Env, "WEB_COUNTER_AE"> &
-    Partial<Pick<Env, "VISITOR_SALT" | "GOALS_DB">> & {
-        EVENT_STREAM?: {
-            send(records: DurableEvent[]): Promise<void>;
-        };
-    };
+export interface SiteEventsStub {
+    record(event: DurableEvent): Promise<void>;
+    realtime(): Promise<import("../../workers/site-events").RealtimeStats>;
+    purge(): Promise<void>;
+}
+export interface SiteEventsNamespace {
+    idFromName(name: string): DurableObjectId;
+    get(id: DurableObjectId): SiteEventsStub;
+}
+
+export type CollectEnv = Partial<
+    Pick<Env, "VISITOR_SALT" | "GOALS_DB" | "SITE_EVENTS">
+>;
 
 export async function getSiteCollectionStatus(
     env: CollectEnv,
@@ -69,21 +76,6 @@ function getNextLastModifiedDate(current: Date | null): Date {
     next.setSeconds(Math.min(3, currentSeconds + 1));
 
     return next;
-}
-
-/**
- * Calculate bounce value based on hit count
- * @param hits The number of hits (1-3)
- * @returns Bounce value: 1 (bounce), -1 (anti-bounce), or 0 (normal)
- */
-function getBounceValue(hits: number): number {
-    if (hits === 1) {
-        return 1; // First hit = bounce
-    } else if (hits === 2) {
-        return -1; // Second hit = anti-bounce
-    } else {
-        return 0; // Third+ hit = normal
-    }
 }
 
 /**
@@ -219,7 +211,6 @@ export interface NormalizedEvent {
     eventId: string;
     receivedAt: string;
     siteId: string;
-    analyticsIndex: string;
     eventType: "pageview" | "custom" | "engagement";
     eventName: string;
     eventProperties: string;
@@ -248,21 +239,6 @@ export interface NormalizedEvent {
     utmTerm: string;
     utmContent: string;
     visitorId: string;
-    newVisitor: number;
-    newSession: number;
-    bounce: number;
-}
-
-async function getAnalyticsIndex(siteId: string): Promise<string> {
-    if (new TextEncoder().encode(siteId).byteLength <= 96) return siteId;
-
-    const digest = await crypto.subtle.digest(
-        "SHA-256",
-        new TextEncoder().encode(siteId),
-    );
-    return Array.from(new Uint8Array(digest), (byte) =>
-        byte.toString(16).padStart(2, "0"),
-    ).join("");
 }
 
 export interface EventInput {
@@ -285,8 +261,6 @@ export interface EventInput {
     utmTerm?: string;
     utmContent?: string;
     suppliedIp?: string;
-    newVisitor?: number;
-    bounce?: number;
 }
 
 export async function readCollectBody(
@@ -360,7 +334,6 @@ export async function normalizeEvent(
         eventId: crypto.randomUUID(),
         receivedAt: new Date().toISOString(),
         siteId: input.siteId,
-        analyticsIndex: await getAnalyticsIndex(input.siteId),
         eventType: input.eventType,
         eventName: input.eventName,
         eventProperties: input.eventProperties || "",
@@ -389,10 +362,6 @@ export async function normalizeEvent(
         utmTerm: input.utmTerm || "",
         utmContent: input.utmContent || "",
         visitorId,
-        newVisitor:
-            input.newVisitor === -1 && !visitorId ? 0 : input.newVisitor || 0,
-        newSession: 0,
-        bounce: input.bounce || 0,
     };
 }
 
@@ -400,23 +369,6 @@ export async function recordNormalizedEvent(
     env: CollectEnv,
     event: NormalizedEvent,
 ): Promise<void> {
-    if (event.eventType !== "engagement") {
-        try {
-            writeDataPoint(env.WEB_COUNTER_AE, event);
-        } catch (error) {
-            console.error(
-                JSON.stringify({
-                    message: "realtime event ingestion failed",
-                    eventId: event.eventId,
-                    error:
-                        error instanceof Error ? error.message : String(error),
-                }),
-            );
-        }
-    }
-
-    if (!env.EVENT_STREAM) return;
-
     const durableEvent: DurableEvent = {
         schema_version: 2,
         event_id: event.eventId,
@@ -451,17 +403,11 @@ export async function recordNormalizedEvent(
         visitor_id: event.visitorId,
     };
 
-    try {
-        await env.EVENT_STREAM.send([durableEvent]);
-    } catch (error) {
-        console.error(
-            JSON.stringify({
-                message: "durable event ingestion failed",
-                eventId: durableEvent.event_id,
-                error: error instanceof Error ? error.message : String(error),
-            }),
-        );
+    if (!env.SITE_EVENTS) {
+        throw new Error("SITE_EVENTS binding is not configured");
     }
+    const namespace = env.SITE_EVENTS as unknown as SiteEventsNamespace;
+    await namespace.get(namespace.idFromName(event.siteId)).record(durableEvent);
 }
 
 const TRACKING_PIXEL_GIF =
@@ -700,8 +646,7 @@ export async function collectRequestHandler(
                     /^[0-9a-f:.]+$/i.test(params.ip)
                         ? params.ip
                         : undefined,
-                newVisitor: 0,
-                bounce: 0,
+
                 utmSource: params.us,
                 utmMedium: params.um,
                 utmCampaign: params.uc,
@@ -711,42 +656,23 @@ export async function collectRequestHandler(
             extra,
         );
 
-        await recordNormalizedEvent(env, normalizedEvent);
+        try {
+            await recordNormalizedEvent(env, normalizedEvent);
+        } catch (error) {
+            console.error(
+                JSON.stringify({
+                    message: "event recording failed",
+                    eventType: "engagement",
+                    error:
+                        error instanceof Error ? error.message : String(error),
+                }),
+            );
+            return new Response("Event recording failed", { status: 500 });
+        }
 
-        // Engagement events must not mutate the cache state or trigger an
-        // Analytics Engine write; recordNormalizedEvent already skips AE for
-        // engagement events and routes only to the durable EVENT_STREAM.
         return trackingPixelResponse();
     }
 
-    // Check if hit type parameter is provided in the request
-    // If it is, use it to derive visit and bounce values; otherwise, calculate them using the If-Modified-Since header
-    let isVisit = false;
-    let bounceValue = 0;
-    let nextLastModifiedDate: Date | undefined;
-    let hits = 0;
-
-    // Get hit count from params or cache headers
-    if (params.ht !== undefined) {
-        // From params
-        hits = parseInt(params.ht, 10);
-        if (isNaN(hits) || hits <= 0) hits = 1;
-        if (hits > 3) hits = 3;
-
-        // Don't set nextLastModifiedDate when ht is provided
-        nextLastModifiedDate = undefined;
-    } else {
-        // From cache headers
-        const ifModifiedSince = request.headers.get("if-modified-since");
-        const cacheResult = handleCacheHeaders(ifModifiedSince);
-        hits = cacheResult.hits;
-        nextLastModifiedDate = cacheResult.nextLastModifiedDate;
-    }
-
-    isVisit = !event.eventName && hits === 1; // custom events do not affect visit metrics
-
-    // Get bounce value based on hit count
-    bounceValue = event.eventName ? 0 : getBounceValue(hits);
 
     const normalizedEvent = await normalizeEvent(
         request,
@@ -767,8 +693,6 @@ export async function collectRequestHandler(
                 /^[0-9a-f:.]+$/i.test(params.ip)
                     ? params.ip
                     : undefined,
-            newVisitor: isVisit ? 1 : 0,
-            bounce: bounceValue,
             utmSource: params.us,
             utmMedium: params.um,
             utmCampaign: params.uc,
@@ -778,69 +702,19 @@ export async function collectRequestHandler(
         extra,
     );
 
-    await recordNormalizedEvent(env, normalizedEvent);
-
-    return trackingPixelResponse({ nextLastModifiedDate });
-}
-
-// NOTE: Cloudflare Analytics Engine has limits on total number of bytes, number of fields, etc.
-// More here: https://developers.cloudflare.com/analytics/analytics-engine/get-started/#limits
-
-export function writeDataPoint(
-    analyticsEngine: AnalyticsEngineDataset,
-    data: NormalizedEvent,
-) {
-    const maxBlobBytes = 16 * 1024;
-    const datapoint = {
-        indexes: [data.analyticsIndex || ""], // Supply one index
-        blobs: [
-            data.host || "", // blob1
-            "", // blob2 (reserved; raw user agents are not persisted)
-            data.path || "", // blob3
-            data.country || "", // blob4
-            data.referrer || "", // blob5
-            data.browserName || "", // blob6
-            data.deviceModel || "", // blob7
-            data.siteId || "", // blob8
-            data.browserVersion || "", // blob9
-            data.deviceType || "", // blob10
-            data.utmSource || "", // blob11
-            data.utmMedium || "", // blob12
-            data.utmCampaign || "", // blob13
-            data.utmTerm || "", // blob14
-            data.utmContent || "", // blob15
-            data.eventType === "custom" ? data.eventName : "", // blob16
-            data.eventProperties || "", // blob17
-            data.visitorId || "", // blob18
-        ],
-        doubles: [data.newVisitor || 0, data.newSession || 0, data.bounce],
-    };
-
-    const size = () =>
-        datapoint.blobs.reduce(
-            (total, value) =>
-                total + new TextEncoder().encode(value).byteLength,
-            0,
-        );
-    for (const index of [16, 4]) {
-        if (size() <= maxBlobBytes) break;
-        datapoint.blobs[index] = "";
-    }
-    if (size() > maxBlobBytes) {
-        throw new Error("Analytics Engine blob limit exceeded");
-    }
-
-    if (!analyticsEngine) {
-        // no-op; do not log payload details (paths, referrers, properties, or
-        // visitor identifiers are privacy-sensitive)
-        console.warn(
+    try {
+        await recordNormalizedEvent(env, normalizedEvent);
+    } catch (error) {
+        console.error(
             JSON.stringify({
-                message: "realtime analytics unavailable; event not recorded",
-                eventType: data.eventType,
+                message: "event recording failed",
+                eventType: normalizedEvent.eventType,
+                error: error instanceof Error ? error.message : String(error),
             }),
         );
-        return;
+        return new Response("Event recording failed", { status: 500 });
     }
 
-    analyticsEngine.writeDataPoint(datapoint);
+    return trackingPixelResponse();
 }
+

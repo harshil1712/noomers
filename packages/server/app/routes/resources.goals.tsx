@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { GoalsRepository, type GoalType } from "~/goals/repository";
 import { isAuthEnabled, requireAuth } from "~/lib/auth";
 import type { SearchFilters } from "~/lib/types";
-import { getFiltersFromSearchParams, paramsFromUrl } from "~/lib/utils";
+import { getDateTimeRange, getFiltersFromSearchParams, paramsFromUrl } from "~/lib/utils";
 
 async function getGoalsData(
     context: LoaderFunctionArgs["context"],
@@ -18,21 +18,17 @@ async function getGoalsData(
     const filters = getFiltersFromSearchParams(url.searchParams);
     const repository = new GoalsRepository(context.cloudflare.env.GOALS_DB);
     const goals = await repository.list(site);
-    const counts = await context.analyticsEngine.getCounts(
+    const { startDate, endDate } = getDateTimeRange(interval, timezone);
+    const analytics = context.sessionAnalytics();
+    const counts = await analytics.getSessionMetrics(
         site,
-        interval,
-        timezone,
+        startDate,
+        endDate,
         filters,
     );
     const conversions = await Promise.all(
         goals.map((goal) =>
-            context.analyticsEngine.getGoalConversionCount(
-                site,
-                goal,
-                interval,
-                timezone,
-                filters,
-            ),
+            analytics.getGoalConversions(site, startDate, endDate, filters, goal),
         ),
     );
 

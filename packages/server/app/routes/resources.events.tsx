@@ -1,4 +1,5 @@
 import { useFetcher } from "react-router";
+import { breakdownLoader } from "./resources.shared";
 import type { LoaderFunctionArgs } from "react-router";
 
 import PaginatedTableCard from "~/components/PaginatedTableCard";
@@ -8,22 +9,7 @@ import { getFiltersFromSearchParams, paramsFromUrl } from "~/lib/utils";
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
     await requireAuth(request, context.cloudflare.env);
-    const { analyticsEngine } = context;
-    const { interval, site, page = 1 } = paramsFromUrl(request.url);
-    const url = new URL(request.url);
-    const timezone = url.searchParams.get("timezone") || "UTC";
-    const filters = getFiltersFromSearchParams(url.searchParams);
-
-    return {
-        countsByProperty: await analyticsEngine.getCountByEventName(
-            site,
-            interval,
-            timezone,
-            filters,
-            Number(page),
-        ),
-        page: Number(page),
-    };
+    return breakdownLoader(context, request, "event:name", "events");
 }
 
 export function EventsCard({

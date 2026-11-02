@@ -13,6 +13,7 @@ declare namespace Cloudflare {
         R2_SQL_BUCKET?: string;
         R2_SQL_TABLE?: string;
         R2_SQL_TOKEN?: string;
+        R2_SQL_IMPORT_TABLE?: string;
     }
 }
 

@@ -23,10 +23,47 @@ export interface BasicMetricsRow {
 export type SessionDimension =
     | "event:page"
     | "event:hostname"
+    | "event:name"
+    | "visit:referrer"
+    | "visit:utm_source"
+    | "visit:utm_medium"
+    | "visit:utm_campaign"
+    | "visit:utm_term"
+    | "visit:utm_content"
+    | "visit:country"
+    | "visit:browser"
+    | "visit:browser_version"
+    | "visit:device_type"
+    | "visit:device_model"
     | "time:hour"
     | "time:day"
     | "time:week"
     | "time:month";
+
+// Event (row-level) dimension columns, usable with getBasicMetrics.
+const EVENT_DIMENSIONS: Partial<Record<SessionDimension, string>> = {
+    "event:page": "pathname",
+    "event:hostname": "hostname",
+    "event:name": "event_name",
+};
+
+// Visit (session) dimension columns, attributed from the session's first
+// pageview (Plausible visit semantics) via getSessionBreakdown.
+const VISIT_DIMENSIONS: Partial<Record<SessionDimension, string>> = {
+    "event:page": "pathname",
+    "event:hostname": "hostname",
+    "visit:referrer": "referrer",
+    "visit:utm_source": "utm_source",
+    "visit:utm_medium": "utm_medium",
+    "visit:utm_campaign": "utm_campaign",
+    "visit:utm_term": "utm_term",
+    "visit:utm_content": "utm_content",
+    "visit:country": "country",
+    "visit:browser": "browser",
+    "visit:browser_version": "browser_version",
+    "visit:device_type": "device_type",
+    "visit:device_model": "device_model",
+};
 
 export interface R2StatsFilter {
     field: keyof SearchFilters;
@@ -91,6 +128,18 @@ const FILTER_COLUMNS: Partial<Record<keyof SearchFilters, string>> = {
 };
 
 const FILTER_COLUMN_LIST = Object.values(FILTER_COLUMNS);
+
+// Canonical event columns shared by the live table and the optional import
+// table; kept in sync with packages/server/pipelines/events.schema.json.
+const DURABLE_EVENT_COLUMNS = [
+    "schema_version", "event_id", "received_at", "site_id", "event_type",
+    "event_name", "event_properties", "url", "hostname", "pathname",
+    "referrer", "interactive", "revenue_amount", "revenue_currency",
+    "engagement_time", "scroll_depth", "country", "region", "city",
+    "browser", "browser_version", "operating_system",
+    "operating_system_version", "device_type", "device_model", "utm_source",
+    "utm_medium", "utm_campaign", "utm_term", "utm_content", "visitor_id",
+] as const;
 
 const KEEP_DEDUPLICATED_ROW = "(COALESCE(event_id, '') = '' OR duplicate_rank = 1)";
 
@@ -242,15 +291,29 @@ export class R2SQLAPI {
         private readonly apiToken: string,
         table: string,
         private readonly fetcher: typeof fetch = fetch,
+        importTable?: string,
     ) {
         this.endpoint =
             "https://api.sql.cloudflarestorage.com/api/v1/accounts/" +
-            `${encodeURIComponent(accountId)}/r2-sql/query/${encodeURIComponent(bucket)}`;
+            `${encodeURIComponent(accountId)}/basin-sql/query/${encodeURIComponent(bucket)}`;
         this.warehouse = `${accountId}_${bucket}`;
-        this.table = validateTableName(table);
+        const main = validateTableName(table);
+        const imported = importTable ? validateTableName(importTable) : undefined;
+        this.table = imported
+            ? `(SELECT ${DURABLE_EVENT_COLUMNS.join(", ")} FROM ${main}
+                UNION ALL
+                SELECT ${DURABLE_EVENT_COLUMNS.join(", ")} FROM ${imported})`
+            : main;
     }
 
-    async query<Row>(query: string): Promise<Row[]> {
+    async query<Row>(query: string, rangeEndMs?: number): Promise<Row[]> {
+        if (rangeEndMs !== undefined) this.lastRangeEnd = rangeEndMs;
+        const cacheKey = await this.cacheKey(query);
+        const cache = cacheKey ? (caches as unknown as { default: Cache }).default : undefined;
+        const hit = cache && cacheKey ? await cache.match(cacheKey) : undefined;
+        if (hit) {
+            return (await hit.json()) as Row[];
+        }
         const response = await this.fetcher.call(globalThis, this.endpoint, {
             method: "POST",
             headers: {
@@ -274,7 +337,47 @@ export class R2SQLAPI {
                 `R2 SQL query failed: ${errors || "unknown error"}`,
             );
         }
-        return getRows(payload);
+        const rows = getRows(payload);
+        if (cache && cacheKey) {
+            const ttl =
+                Date.now() - this.lastRangeEnd >= 10 * 60 * 1000
+                    ? 24 * 60 * 60
+                    : 60;
+            const cached = new Response(JSON.stringify(rows), {
+                headers: {
+                    "content-type": "application/json",
+                    "cache-control": `public, max-age=${ttl}`,
+                },
+            });
+            this.ctxWaitUntil(cache.put(cacheKey, cached));
+        }
+        return rows;
+    }
+
+    private lastRangeEnd = 0;
+    private ctxWaitUntil(promise: Promise<unknown>): void {
+        try {
+            promise.catch(() => {});
+        } catch {
+            // no execution context in unit tests; fire and forget
+        }
+    }
+
+    private async cacheKey(query: string): Promise<Request | undefined> {
+        try {
+            const digest = await crypto.subtle.digest(
+                "SHA-256",
+                new TextEncoder().encode(`${this.warehouse}:${query}`),
+            );
+            const hex = Array.from(new Uint8Array(digest), (b) =>
+                b.toString(16).padStart(2, "0"),
+            ).join("");
+            return new Request(
+                `https://basin-cache.noomers/${encodeURIComponent(this.table)}/${hex}`,
+            );
+        } catch {
+            return undefined;
+        }
     }
 
     async getSessionMetrics(
@@ -367,7 +470,7 @@ export class R2SQLAPI {
                     SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
                     SUM(CASE WHEN event_type <> 'engagement' AND interactive THEN 1 ELSE 0 END) AS interactive_events,
                     SUM(matches_filter) AS matching_events,
-                    SUM(engagement_time) AS engagement_ms
+                    to_unixtime(MAX(event_ts)) - to_unixtime(MIN(event_ts)) AS duration_seconds
                 FROM numbered
                 GROUP BY visitor_id, session_number
             ),
@@ -385,8 +488,8 @@ export class R2SQLAPI {
                     COUNT(*) AS visits,
                     SUM(CASE WHEN interactive_events <= 1 THEN 1 ELSE 0 END) AS bounces,
                     CASE
-                        WHEN SUM(engagement_ms) > 0
-                        THEN SUM(engagement_ms) / COUNT(*) / 1000
+                        WHEN SUM(duration_seconds) > 0
+                        THEN SUM(duration_seconds) / COUNT(*)
                         ELSE NULL
                     END AS average_visit_duration
                 FROM sessions
@@ -412,7 +515,7 @@ export class R2SQLAPI {
             bounces?: string | number | null;
             average_visit_duration?: string | number | null;
         };
-        const [row = {}] = await this.query<Row>(query);
+        const [row = {}] = await this.query<Row>(query, endDate.getTime());
 
         return {
             views: Number(row.views || 0),
@@ -440,10 +543,7 @@ export class R2SQLAPI {
         const start = sqlString(startDate.toISOString());
         const end = sqlString(endDate.toISOString());
         const filterPredicate = filtersToPredicate(filters);
-        const eventDimension = ({
-            "event:page": "pathname",
-            "event:hostname": "hostname",
-        } as Partial<Record<SessionDimension, string>>)[dimension || "time:day"];
+        const eventDimension = EVENT_DIMENSIONS[dimension || "time:day"];
         const dimensionExpression = dimension
             ? eventDimension || `CASE ${timeBuckets?.map((bucket) =>
                   `WHEN event_ts >= TRY_CAST(${sqlString(bucket.start.toISOString())} AS TIMESTAMP)` +
@@ -457,14 +557,20 @@ export class R2SQLAPI {
                 siteId,
                 start,
                 end,
-                ["pathname", "hostname"],
+                [
+                    "pathname",
+                    "hostname",
+                    ...(eventDimension ? [eventDimension] : []),
+                ],
             )},
             events AS (
                 SELECT
                     visitor_id,
                     event_type,
+                    event_name,
                     pathname,
                     hostname,
+                    ${eventDimension && !["pathname", "hostname", "event_name"].includes(eventDimension) ? eventDimension + "," : ""}
                     TRY_CAST(received_at AS TIMESTAMP) AS event_ts
                 FROM deduplicated_events
                 WHERE ${KEEP_DEDUPLICATED_ROW}
@@ -494,8 +600,7 @@ export class R2SQLAPI {
         let rows: Row[];
         if (!usePagination) {
             rows = await this.query<Row>(
-                `WITH ${eventsCte}${aggregateSelect}${dimensionExpression ? " LIMIT 10001" : ""}`,
-            );
+                `WITH ${eventsCte}${aggregateSelect}${dimensionExpression ? " LIMIT 10001" : ""}`, endDate.getTime());
             if (rows.length > 10_000) {
                 throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
             }
@@ -516,7 +621,7 @@ export class R2SQLAPI {
                 FROM paged
                 WHERE row_num > ${pagination!.offset}
                     AND row_num <= ${pagination!.offset + pagination!.limit}
-                ORDER BY row_num`);
+                ORDER BY row_num`, endDate.getTime());
             if (count && rows.length === 0) {
                 const [countRow = {}] = await this.query<{
                     total?: string | number | null;
@@ -545,6 +650,34 @@ export class R2SQLAPI {
         };
     }
 
+    async getGoalConversions(
+        siteId: string,
+        startDate: Date,
+        endDate: Date,
+        filters: SearchFilters | R2StatsFilter[],
+        goal: { type: string; value: string },
+    ): Promise<number> {
+        const start = sqlString(startDate.toISOString());
+        const end = sqlString(endDate.toISOString());
+        const goalPredicate =
+            goal.type === "pageview"
+                ? `event_type = 'pageview' AND pathname = ${sqlString(goal.value)}`
+                : `event_type <> 'engagement' AND event_name = ${sqlString(goal.value)}`;
+        const rows = await this.query<{ conversions?: string | number | null }>(
+            `WITH ${deduplicatedEventsCte(this.table, siteId, start, end, ["pathname", "event_name", ...FILTER_COLUMN_LIST])}
+            SELECT COUNT(DISTINCT visitor_id) AS conversions
+            FROM deduplicated_events
+            WHERE ${KEEP_DEDUPLICATED_ROW}
+                AND visitor_id <> ''
+                AND ${filtersToPredicate(filters)}
+                AND ${goalPredicate}
+                AND TRY_CAST(received_at AS TIMESTAMP) >= TRY_CAST(${start} AS TIMESTAMP)
+                AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)`,
+            endDate.getTime(),
+        );
+        return Number(rows[0]?.conversions || 0);
+    }
+
     async getSessionBreakdown(
         siteId: string,
         startDate: Date,
@@ -568,10 +701,7 @@ export class R2SQLAPI {
         const start = sqlString(startDate.toISOString());
         const end = sqlString(endDate.toISOString());
         const filterPredicate = filtersToPredicate(filters);
-        const eventDimension = ({
-            "event:page": "pathname",
-            "event:hostname": "hostname",
-        } as Partial<Record<SessionDimension, string>>)[dimension];
+        const eventDimension = VISIT_DIMENSIONS[dimension];
         const timeUnit = dimension.startsWith("time:")
             ? dimension.slice("time:".length)
             : undefined;
@@ -590,7 +720,15 @@ export class R2SQLAPI {
                 siteId,
                 sqlString(lookbackDate.toISOString()),
                 sqlString(lookaheadDate.toISOString()),
-                ["interactive", "engagement_time", "pathname", "hostname", ...FILTER_COLUMN_LIST],
+                [
+                    "interactive",
+                    "engagement_time",
+                    "pathname",
+                    "hostname",
+                    "event_name",
+                    ...(eventDimension ? [eventDimension] : []),
+                    ...FILTER_COLUMN_LIST,
+                ],
             )},
             all_events AS (
                 SELECT
@@ -639,11 +777,11 @@ export class R2SQLAPI {
                     visitor_id,
                     session_number,
                     MIN(CASE WHEN event_type = 'pageview' THEN event_ts END) AS visit_start,
-                    MIN_BY(pathname, event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page,
+                    FIRST_VALUE(${eventDimension || "pathname"} ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page,
                     SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
                     SUM(CASE WHEN event_type <> 'engagement' AND interactive THEN 1 ELSE 0 END) AS interactive_events,
                     SUM(matches_filter) AS matching_events,
-                    SUM(engagement_time) AS engagement_ms
+                    to_unixtime(MAX(event_ts)) - to_unixtime(MIN(event_ts)) AS duration_seconds
                 FROM numbered
                 GROUP BY visitor_id, session_number
             ),
@@ -671,8 +809,8 @@ export class R2SQLAPI {
                     session_dimensions.dimension,
                     COUNT(*) AS visits,
                     SUM(CASE WHEN sessions.interactive_events <= 1 THEN 1 ELSE 0 END) AS bounces,
-                    CASE WHEN SUM(sessions.engagement_ms) > 0
-                        THEN SUM(sessions.engagement_ms) / COUNT(*) / 1000
+                    CASE WHEN SUM(sessions.duration_seconds) > 0
+                        THEN SUM(sessions.duration_seconds) / COUNT(*)
                         ELSE NULL
                     END AS average_visit_duration
                 FROM sessions
@@ -710,7 +848,7 @@ export class R2SQLAPI {
         };
         let rows: Row[];
         if (!pagination) {
-            rows = await this.query<Row>(`${ctes}${finalSelect} LIMIT 10001`);
+            rows = await this.query<Row>(`${ctes}${finalSelect} LIMIT 10001`, endDate.getTime());
             if (rows.length > 10_000) {
                 throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
             }
@@ -731,7 +869,7 @@ export class R2SQLAPI {
                 FROM paged
                 WHERE row_num > ${pagination.offset}
                     AND row_num <= ${pagination.offset + pagination.limit}
-                ORDER BY row_num`);
+                ORDER BY row_num`, endDate.getTime());
             if (count && rows.length === 0) {
                 const [countRow = {}] = await this.query<{
                     total?: string | number | null;

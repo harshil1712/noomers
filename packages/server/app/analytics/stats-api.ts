@@ -1,5 +1,4 @@
 import { ColumnMappings } from "./schema";
-import type { AnalyticsEngineAPI } from "./query";
 import type { R2BreakdownOptions, R2OrderClause, R2OrderField, R2SQLAPI, R2StatsFilter, SessionDimension, SessionMetrics, SessionTimeBucket } from "./r2-sql";
 import type { SearchFilters } from "~/lib/types";
 import dayjs from "dayjs";
@@ -286,7 +285,7 @@ function formatTimeLabel(value: string, dimension: TimeDimension, start: Date, e
         : value.slice(0, 10);
 }
 
-function getTimeBuckets(dimension: TimeDimension, start: Date, end: Date, reportingTimezone: string): SessionTimeBucket[] {
+export function getTimeBuckets(dimension: TimeDimension, start: Date, end: Date, reportingTimezone: string): SessionTimeBucket[] {
     const resolved = resolveTimeDimension(dimension, start, end);
     let cursor = dayjs(start).tz(reportingTimezone);
     if (resolved === "time:hour") cursor = cursor.startOf("hour");
@@ -327,55 +326,6 @@ function getTimeLabels(dimension: TimeDimension, start: Date, end: Date, reporti
     )];
 }
 
-async function getAEBasicMetrics(analytics: AnalyticsEngineAPI, query: StatsQuery & { start: Date; end: Date; reportingTimezone: string }): Promise<{ rows: Array<{ dimension?: string } & BasicMetrics>; totalRows: number }> {
-    const dimension = query.dimensions[0];
-    const dimensionColumn = dimensionExpression(dimension, query.start, query.end, query.reportingTimezone);
-    const predicates = query.filters.map(aeFilterPredicate);
-    const isTimeDimension = dimension && TIME_DIMENSIONS.includes(dimension as TimeDimension);
-    const orderBy = query.order_by[0] ?? [isTimeDimension ? dimension : query.metrics[0], isTimeDimension ? "asc" : "desc"];
-    const orderColumn = orderBy[0] === dimension ? "dimension" : orderBy[0];
-    const limit = query.pagination.offset + query.pagination.limit;
-    const sql = `
-        SELECT ${dimensionColumn ? `${dimensionColumn} AS dimension,` : ""}
-            count(DISTINCT ${ColumnMappings.visitorId}) - (countIf(${ColumnMappings.visitorId} = '') > 0) + sumIf(_sample_interval, ${ColumnMappings.visitorId} = '' AND ${ColumnMappings.newVisitor} = 1) AS visitors,
-            sumIf(_sample_interval, ${ColumnMappings.eventName} = '') AS pageviews,
-            SUM(_sample_interval) AS events
-        ${analytics.fromClause}
-        WHERE timestamp >= toDateTime64(${sqlString(sqlDate(query.start))}, 3)
-            AND timestamp < toDateTime64(${sqlString(sqlDate(query.end))}, 3)
-            AND ${ColumnMappings.siteId} = ${sqlString(query.site_id)}
-            ${predicates.map((predicate) => `AND ${predicate}`).join("\n")}
-        ${dimensionColumn ? `GROUP BY ${dimensionColumn}` : ""}
-        ORDER BY ${orderColumn} ${orderBy[1].toUpperCase()}${dimensionColumn && orderColumn !== "dimension" ? ", dimension ASC" : ""}
-        LIMIT ${limit}`;
-    const countSql = dimensionColumn && query.include.total_rows ? `
-        SELECT count(DISTINCT ${dimensionColumn}) AS totalRows
-        ${analytics.fromClause}
-        WHERE timestamp >= toDateTime64(${sqlString(sqlDate(query.start))}, 3)
-            AND timestamp < toDateTime64(${sqlString(sqlDate(query.end))}, 3)
-            AND ${ColumnMappings.siteId} = ${sqlString(query.site_id)}
-            ${predicates.map((predicate) => `AND ${predicate}`).join("\n")}` : undefined;
-    const [response, countResponse] = await Promise.all([
-        analytics.query(sql),
-        countSql ? analytics.query(countSql) : undefined,
-    ]);
-    if (!response.ok) throw new Error(response.statusText);
-    const payload = (await response.json()) as AnalyticsResponse<{ dimension?: string; visitors?: number; pageviews?: number; events?: number }>;
-    if (countResponse && !countResponse.ok) throw new Error(countResponse.statusText);
-    const countPayload = countResponse ? (await countResponse.json()) as AnalyticsResponse<{ totalRows?: number }> : undefined;
-    return {
-        rows: payload.data.map((row) => ({
-            dimension: row.dimension && isTimeDimension
-                ? formatTimeLabel(row.dimension, dimension as TimeDimension, query.start, query.end)
-                : row.dimension,
-            visitors: Number(row.visitors || 0),
-            pageviews: Number(row.pageviews || 0),
-            events: Number(row.events || 0),
-        })),
-        totalRows: Number(countPayload?.data[0]?.totalRows ?? payload.data.length),
-    };
-}
-
 function metricValue(metric: Metric, basic: BasicMetrics, sessions?: SessionMetrics): number | null {
     if (metric === "visitors" || metric === "pageviews" || metric === "events") return basic[metric];
     if (!sessions) throw new StatsAPIError("R2 SQL is required for session metrics");
@@ -385,7 +335,8 @@ function metricValue(metric: Metric, basic: BasicMetrics, sessions?: SessionMetr
     return sessions.averageVisitDuration === null ? 0 : Math.round(sessions.averageVisitDuration);
 }
 
-export async function executeStatsQuery(analytics: AnalyticsEngineAPI, sessions: R2SQLAPI | undefined, input: unknown, reportingTimezone = "Etc/UTC") {
+export async function executeStatsQuery(sessions: R2SQLAPI | undefined, input: unknown, reportingTimezone = "Etc/UTC") {
+    if (!sessions) throw new StatsAPIError("Basin SQL is not configured");
     const query = parseQuery(input, reportingTimezone);
     const needsSessions = query.metrics.some((metric) => !["visitors", "pageviews", "events"].includes(metric));
     if (needsSessions && !sessions) throw new StatsAPIError("R2 SQL is required for session metrics");
@@ -471,7 +422,7 @@ export async function executeStatsQuery(analytics: AnalyticsEngineAPI, sessions:
             serverPaged: Boolean(resolvedDimension),
         };
     } else {
-        basicResult = await getAEBasicMetrics(analytics, query);
+        throw new StatsAPIError("Basin SQL is not configured");
     }
     const basicRows = basicResult.rows;
     let results = basicRows.map((row) => {

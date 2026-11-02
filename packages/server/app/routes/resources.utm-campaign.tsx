@@ -1,4 +1,6 @@
 import { useFetcher } from "react-router";
+import { requireAuth } from "~/lib/auth";
+import { breakdownLoader } from "./resources.shared";
 
 import type { LoaderFunctionArgs } from "react-router";
 
@@ -7,23 +9,8 @@ import PaginatedTableCard from "~/components/PaginatedTableCard";
 import { SearchFilters } from "~/lib/types";
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
-    const { analyticsEngine } = context;
-
-    const { interval, site, page = 1 } = paramsFromUrl(request.url);
-    const url = new URL(request.url);
-    const tz = url.searchParams.get("timezone") || "UTC";
-    const filters = getFiltersFromSearchParams(url.searchParams);
-
-    return {
-        countsByProperty: await analyticsEngine.getCountByUtmCampaign(
-            site,
-            interval,
-            tz,
-            filters,
-            Number(page),
-        ),
-        page: Number(page),
-    };
+    await requireAuth(request, context.cloudflare.env);
+    return breakdownLoader(context, request, "visit:utm_campaign", "visits");
 }
 
 export const UtmCampaignCard = ({

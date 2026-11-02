@@ -11,7 +11,7 @@ import { Card, CardContent } from "~/components/ui/card";
 import TimeSeriesChart from "~/components/TimeSeriesChart";
 import { SearchFilters } from "~/lib/types";
 import { requireAuth } from "~/lib/auth";
-import type { ViewsGroupedByInterval } from "~/analytics/query";
+import { getTimeBuckets } from "~/analytics/stats-api";
 
 export async function loader({
     context,
@@ -19,7 +19,6 @@ export async function loader({
 }: LoaderFunctionArgs) {
     await requireAuth(request, context.cloudflare.env);
 
-    const { analyticsEngine } = context;
     const { interval, site } = paramsFromUrl(request.url);
     const url = new URL(request.url);
     const tz = url.searchParams.get("timezone") || "UTC";
@@ -27,15 +26,19 @@ export async function loader({
 
     const intervalType = getIntervalType(interval);
     const { startDate, endDate } = getDateTimeRange(interval, tz);
+    const dimension = intervalType === "HOUR" ? "time:hour" : "time:day";
+    const buckets = getTimeBuckets(dimension, startDate, endDate, tz);
 
-    const viewsGroupedByInterval: ViewsGroupedByInterval =
-        await analyticsEngine.getViewsGroupedByInterval(
+    const { rows } = await context
+        .sessionAnalytics()
+        .getSessionBreakdown(
             site,
-            intervalType,
             startDate,
             endDate,
-            tz,
             filters,
+            dimension,
+            buckets,
+            { orderBy: [{ field: "dimension", direction: "asc" }] },
         );
 
     const chartData: {
@@ -43,19 +46,14 @@ export async function loader({
         views: number;
         visitors: number;
         bounceRate: number;
-    }[] = [];
-    viewsGroupedByInterval.forEach((row) => {
-        const { views, visitors, bounces } = row[1];
-
-        chartData.push({
-            date: row[0],
-            views,
-            visitors,
-            bounceRate: Math.floor(
-                (visitors > 0 ? bounces / visitors : 0) * 100,
-            ),
-        });
-    });
+    }[] = rows.map((row: { dimension: string; views: number; visitors: number; visits: number; bounces: number }) => ({
+        date: row.dimension,
+        views: row.views,
+        visitors: row.visitors,
+        bounceRate: Math.floor(
+            (row.visits > 0 ? row.bounces / row.visits : 0) * 100,
+        ),
+    }));
 
     return {
         chartData: chartData,

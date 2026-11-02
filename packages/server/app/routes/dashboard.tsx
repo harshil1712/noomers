@@ -69,12 +69,12 @@ export const loader = async ({ context, request }: LoaderFunctionArgs) => {
             status: 501,
         });
     }
-    if (!context.cloudflare?.env?.CF_BEARER_TOKEN) {
-        throw new Response("Missing credentials: CF_BEARER_TOKEN is not set.", {
-            status: 501,
-        });
+    if (!context.basinConfigured) {
+        throw new Response(
+            "Basin SQL is not configured: set R2_SQL_BUCKET, R2_SQL_TABLE, and R2_SQL_TOKEN.",
+            { status: 501 },
+        );
     }
-    const { analyticsEngine } = context;
     const registeredSites = new SitesRepository(
         context.cloudflare.env.GOALS_DB,
     )
@@ -90,16 +90,10 @@ export const loader = async ({ context, request }: LoaderFunctionArgs) => {
         interval = "7d";
     }
 
-    // if no siteId is set, redirect to the site with the most hits
-    // during the default interval (e.g. 7d)
+    // if no siteId is set, redirect to the first registered site
     if (url.searchParams.has("site") === false) {
-        const [sitesByHits, sites] = await Promise.all([
-            analyticsEngine.getSitesOrderedByHits(interval),
-            registeredSites,
-        ]);
-
-        // if at least one result
-        const redirectSite = sitesByHits[0]?.[0] || sites[0] || "";
+        const sites = await registeredSites;
+        const redirectSite = sites[0] || "";
         const redirectUrl = new URL(request.url);
         redirectUrl.searchParams.set("site", redirectSite);
         throw redirect(redirectUrl.toString());
@@ -110,31 +104,13 @@ export const loader = async ({ context, request }: LoaderFunctionArgs) => {
 
     const filters = getFiltersFromSearchParams(url.searchParams);
 
-    // initiate requests to AE in parallel
-
-    // sites by hits: This is to populate the "sites" dropdown. We query the full retention
-    //                period (90 days) so that any site that has been active in the past 90 days
-    //                will show up in the dropdown.
-    const sitesByHits = analyticsEngine.getSitesOrderedByHits(
-        `${MAX_RETENTION_DAYS}d`,
-    );
-
     const intervalType = getIntervalType(interval);
-
-    // await all requests to AE then return the results
 
     let out;
     try {
         out = {
             siteId: actualSiteId,
-            sites: [
-                ...new Set([
-                    ...(await sitesByHits).map(
-                        ([site, _]: [string, number]) => site,
-                    ),
-                    ...(await registeredSites),
-                ]),
-            ],
+            sites: await registeredSites,
             intervalType,
             interval,
             filters,
