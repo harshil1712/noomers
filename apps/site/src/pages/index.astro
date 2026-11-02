@@ -18,15 +18,15 @@ const description =
         <a class="btn secondary" href="https://github.com/harshil1712/noomers#readme">Read the docs</a>
       </div>
     </div>
-    <figure class="ring-wrap" aria-hidden="true">
-      <div class="ring-label">00:00 UTC</div>
-      <svg class="ring" viewBox="0 0 260 260" width="260" height="260">
+    <figure class="day-wrap" aria-hidden="true">
+      <div class="day-label">00:00 UTC</div>
+      <svg class="day-ring" viewBox="0 0 260 260" width="260" height="260">
         <circle cx="130" cy="130" r="112" fill="none" stroke="var(--color-kumo-hairline)" stroke-width="2"/>
         <g class="ticks" stroke="var(--color-kumo-control-line)" stroke-width="1.5"></g>
         <g class="dots" fill="var(--color-kumo-brand)"></g>
         <circle cx="130" cy="130" r="5" fill="var(--color-kumo-brand)"/>
       </svg>
-      <figcaption class="ring-cap">Visitor IDs are salted per day and rotate at 00:00 UTC.</figcaption>
+      <figcaption class="day-cap">Visitor IDs are salted per day and rotate at 00:00 UTC.</figcaption>
     </figure>
   </section>
 
@@ -116,17 +116,17 @@ const description =
     align-items: center;
   }
   .btn.cta { height: 44px; display: inline-flex; align-items: center; }
-  .ring-wrap { text-align:center; border: none; margin: 0; }
-  .ring-label {
+  .day-wrap { text-align:center; border: none; margin: 0; }
+  .day-label {
     font-family: var(--font-mono);
     font-size: 0.8rem;
     color: var(--color-kumo-subtle);
     margin-bottom: 0.35rem;
     letter-spacing: 0.05em;
   }
-  .ring { display: block; margin: 0 auto; border: none; outline: none; }
-  .ring-cap { margin-top:.75rem; font-size:.85rem; color: var(--color-kumo-subtle); }
-  .ring .dot { transition: opacity .3s; }
+  .day-ring { display: block; margin: 0 auto; border: none; outline: none; }
+  .day-cap { margin-top:.75rem; font-size:.85rem; color: var(--color-kumo-subtle); }
+  .day-ring .dot { transition: opacity .3s; }
   section { margin: 3rem 0; }
   h2.font-display { font-size: 1.8rem; margin-bottom: 1rem; }
   .stepgrid { list-style:none; padding:0; display:grid; grid-template-columns: repeat(4, 1fr); gap:1.25rem; }
@@ -152,7 +152,7 @@ const description =
      ~12s "day" and fade at 00:00. Reduced-motion: a static partial day. */
 </style>
 <script>
-  const svg = document.querySelector(".ring");
+  const svg = document.querySelector(".day-ring");
   if (svg) {
     const cx = 130, cy = 130, r = 112;
     const ticks = svg.querySelector(".ticks");

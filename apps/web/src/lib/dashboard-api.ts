@@ -26,7 +26,7 @@ export interface RealtimeStats {
   visitors30m: number;
   pageviews30m: number;
   pageviewsPerMinute: number[];
-  topPages: { page: string; visitors: number }[];
+  topPages: { pathname: string; views: number }[];
   topReferrers: { referrer: string; visitors: number }[];
   topCountries: { country: string; visitors: number }[];
 }
@@ -59,6 +59,7 @@ export interface DashboardQuery {
   interval: string;
   timezone: string;
   filters: Record<string, string>;
+  nonce?: number;
   page?: number;
 }
 

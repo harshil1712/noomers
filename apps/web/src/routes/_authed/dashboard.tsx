@@ -67,17 +67,17 @@ type FilterKey = (typeof FILTER_KEYS)[number];
 /** Tabbed breakdown panels — 13 legacy cards collapsed into 6. */
 const PANELS: {
   title: string;
-  tabs: { card: BreakdownCard | "goals" | "props"; label: string; filter?: FilterKey }[];
+  tabs: {
+    card: BreakdownCard | "goals" | "props" | "campaigns";
+    label: string;
+    filter?: FilterKey;
+  }[];
 }[] = [
   {
     title: "Sources",
     tabs: [
       { card: "referrer", label: "Referrers", filter: "referrer" },
-      { card: "utm-source", label: "UTM source", filter: "utmSource" },
-      { card: "utm-medium", label: "UTM medium", filter: "utmMedium" },
-      { card: "utm-campaign", label: "UTM campaign", filter: "utmCampaign" },
-      { card: "utm-term", label: "UTM term", filter: "utmTerm" },
-      { card: "utm-content", label: "UTM content", filter: "utmContent" },
+      { card: "campaigns", label: "Campaigns" },
     ],
   },
   { title: "Pages", tabs: [{ card: "paths", label: "Paths", filter: "path" }] },
@@ -98,6 +98,14 @@ const PANELS: {
       { card: "props", label: "Props" },
     ],
   },
+];
+
+const CAMPAIGN_DIMS: { card: BreakdownCard; label: string; filter: FilterKey }[] = [
+  { card: "utm-source", label: "UTM source", filter: "utmSource" },
+  { card: "utm-medium", label: "UTM medium", filter: "utmMedium" },
+  { card: "utm-campaign", label: "UTM campaign", filter: "utmCampaign" },
+  { card: "utm-term", label: "UTM term", filter: "utmTerm" },
+  { card: "utm-content", label: "UTM content", filter: "utmContent" },
 ];
 
 interface SearchParams {
@@ -224,8 +232,23 @@ function Dashboard() {
     setSearch(empty);
   };
 
-  const query: DashboardQuery = { site, interval, timezone, filters };
+  const [nonce, setNonce] = useState(0);
+  const [failures, setFailures] = useState<Set<string>>(new Set());
+  const reportError = (key: string, failed: boolean) => {
+    setFailures((prev) => {
+      const next = new Set(prev);
+      if (failed) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
+  const basinDown = failures.size >= 3;
+  const query: DashboardQuery = { site, interval, timezone, filters, nonce };
   const realtime = useRealtime(site);
+  const retryHistorical = () => {
+    setFailures(new Set());
+    setNonce((n) => n + 1);
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -295,6 +318,15 @@ function Dashboard() {
         <Skeleton h={24} />
       ) : (
         <>
+          {basinDown && (
+            <Surface className="flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
+              <Text variant="secondary" size="sm">
+                Historical data unavailable — Basin SQL didn't respond. Realtime still works.
+              </Text>
+              <Button onClick={retryHistorical}>Retry</Button>
+            </Surface>
+          )}
+          <RealtimePanel realtime={realtime} />
           <SitePanels
             query={query}
             site={site}
@@ -302,6 +334,8 @@ function Dashboard() {
             isDark={isDark}
             realtime={realtime}
             onFilter={setSearch}
+            onError={reportError}
+            quiet={basinDown}
           />
         </>
       )}
@@ -317,6 +351,8 @@ function SitePanels({
   isDark,
   realtime,
   onFilter,
+  onError,
+  quiet,
 }: {
   query: DashboardQuery;
   site: string;
@@ -324,12 +360,20 @@ function SitePanels({
   isDark: boolean;
   realtime: ReturnType<typeof useRealtime>;
   onFilter: (patch: Partial<SearchParams>) => void;
+  onError: (key: string, failed: boolean) => void;
+  quiet: boolean;
 }) {
+  void realtime; // realtime panel renders above, directly under the notice
   return (
     <>
-      <StatStrip query={query} />
-      <TimeseriesPanel query={query} isDark={isDark} timezone={timezone} />
-      <RealtimePanel realtime={realtime} />
+      <StatStrip query={query} onError={onError} quiet={quiet} />
+      <TimeseriesPanel
+        query={query}
+        isDark={isDark}
+        timezone={timezone}
+        onError={onError}
+        quiet={quiet}
+      />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {PANELS.map((panel) => (
           <BreakdownPanel
@@ -338,6 +382,8 @@ function SitePanels({
             query={query}
             onFilter={onFilter}
             site={site}
+            onError={onError}
+            quiet={quiet}
           />
         ))}
       </div>
@@ -362,7 +408,15 @@ function LivePill({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
 }
 
 /* ---------- stat strip ---------- */
-function StatStrip({ query }: { query: DashboardQuery }) {
+function StatStrip({
+  query,
+  onError,
+  quiet,
+}: {
+  query: DashboardQuery;
+  onError?: (key: string, failed: boolean) => void;
+  quiet?: boolean;
+}) {
   const [data, setData] = useState<Awaited<ReturnType<typeof dashboardApi.stats>> | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -370,15 +424,27 @@ function StatStrip({ query }: { query: DashboardQuery }) {
     setError(false);
     dashboardApi
       .stats(query)
-      .then((d) => !cancelled && setData(d))
-      .catch(() => !cancelled && setError(true));
+      .then((d) => {
+        if (!cancelled) {
+          setData(d);
+          onError?.("stats", false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError(true);
+          onError?.("stats", true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters]);
+  }, [query.site, query.interval, query.timezone, query.filters, query.nonce]);
 
   if (error) {
-    return (
+    return quiet ? (
+      <div className="h-24 rounded-xl bg-kumo-recessed" aria-hidden="true" />
+    ) : (
       <StateBlock
         title="Stats unavailable"
         body="Basin SQL didn't respond — historical metrics can't be computed right now."
@@ -429,10 +495,14 @@ function TimeseriesPanel({
   query,
   isDark,
   timezone,
+  onError,
+  quiet,
 }: {
   query: DashboardQuery;
   isDark: boolean;
   timezone: string;
+  onError?: (key: string, failed: boolean) => void;
+  quiet?: boolean;
 }) {
   const [data, setData] = useState<
     { name: string; color: string; data: [number, number][] }[] | null
@@ -475,14 +545,21 @@ function TimeseriesPanel({
           setMidnightMs(null);
         }
       })
-      .catch(() => !cancelled && setError(true));
+      .catch(() => {
+        if (!cancelled) {
+          setError(true);
+          onError?.("timeseries", true);
+        }
+      });
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters, timezone]);
+  }, [query.site, query.interval, query.timezone, query.filters, query.nonce, timezone]);
 
   if (error) {
-    return (
+    return quiet ? (
+      <div className="h-[300px] rounded-xl bg-kumo-recessed" aria-hidden="true" />
+    ) : (
       <StateBlock
         title="History unavailable"
         body="Basin SQL didn't respond. Realtime numbers still work; historical charts need the pipeline configured."
@@ -558,9 +635,9 @@ function RealtimePanel({ realtime }: { realtime: ReturnType<typeof useRealtime> 
           <div className="text-xs text-kumo-subtle">Top pages</div>
           <ul className="mt-2 space-y-1">
             {stats.topPages.slice(0, 5).map((page) => (
-              <li key={page.page} className="flex justify-between text-sm">
-                <span className="truncate">{page.page}</span>
-                <span className="font-mono">{page.visitors}</span>
+              <li key={page.pathname} className="flex justify-between text-sm">
+                <span className="truncate">{page.pathname}</span>
+                <span className="font-mono">{page.views}</span>
               </li>
             ))}
           </ul>
@@ -576,17 +653,21 @@ function BreakdownPanel({
   query,
   onFilter,
   site,
+  onError,
+  quiet,
 }: {
   panel: (typeof PANELS)[number];
   query: DashboardQuery;
   onFilter: (patch: Partial<SearchParams>) => void;
   site: string;
+  onError?: (key: string, failed: boolean) => void;
+  quiet?: boolean;
 }) {
   const [tab, setTab] = useState(panel.tabs[0].card);
   const active = panel.tabs.find((t) => t.card === tab) ?? panel.tabs[0];
   return (
     <Surface className="rounded-xl p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <Text variant="secondary" size="sm">
           {panel.title}
         </Text>
@@ -605,6 +686,8 @@ function BreakdownPanel({
         query={query}
         onFilter={onFilter}
         site={site}
+        onError={onError}
+        quiet={quiet}
       />
     </Surface>
   );
@@ -616,20 +699,29 @@ function BreakdownTable({
   query,
   onFilter,
   site,
+  onError,
+  quiet,
 }: {
-  card: BreakdownCard | "goals" | "props";
+  card: BreakdownCard | "goals" | "props" | "campaigns";
   filter?: FilterKey;
   query: DashboardQuery;
   onFilter: (patch: Partial<SearchParams>) => void;
   site: string;
+  onError?: (key: string, failed: boolean) => void;
+  quiet?: boolean;
 }) {
+  const [dim, setDim] = useState(CAMPAIGN_DIMS[0]);
+  const isCampaigns = card === "campaigns";
+  const realCard = (isCampaigns ? dim.card : card) as BreakdownCard;
+  const realFilter = isCampaigns ? dim.filter : filter;
+  const errKey = `bd:${realCard}`;
   const [page, setPage] = useState(1);
   const [data, setData] = useState<BreakdownResponse | null>(null);
   const [error, setError] = useState(false);
   const isGoals = card === "goals";
-
-  useEffect(() => setPage(1), [card, query.site, query.interval, query.filters]);
   const isProps = card === "props";
+
+  useEffect(() => setPage(1), [realCard, query.site, query.interval, query.filters]);
   useEffect(() => {
     let cancelled = false;
     setError(false);
@@ -650,36 +742,92 @@ function BreakdownTable({
             ]),
             page: 1,
           });
+          onError?.(errKey, false);
         })
-        .catch(() => !cancelled && setError(true));
+        .catch(() => {
+          if (!cancelled) {
+            setError(true);
+            onError?.(errKey, true);
+          }
+        });
     } else {
       dashboardApi
-        .breakdown(card, { ...query, page })
-        .then((d) => !cancelled && setData(d))
-        .catch(() => !cancelled && setError(true));
+        .breakdown(realCard, { ...query, page })
+        .then((d) => {
+          if (!cancelled) {
+            setData(d);
+            onError?.(errKey, false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setError(true);
+            onError?.(errKey, true);
+          }
+        });
     }
     return () => {
       cancelled = true;
     };
-  }, [card, isGoals, query.site, query.interval, query.timezone, query.filters, page]);
+  }, [
+    realCard,
+    isGoals,
+    query.site,
+    query.interval,
+    query.timezone,
+    query.filters,
+    page,
+    query.nonce,
+  ]);
 
+  const dimSelect = isCampaigns ? (
+    <div className="mt-3 mb-1">
+      <Select
+        value={dim.card}
+        onValueChange={(v) => {
+          const next = CAMPAIGN_DIMS.find((d) => d.card === v);
+          if (next) setDim(next);
+        }}
+        renderValue={() => dim.label}
+      >
+        {CAMPAIGN_DIMS.map((d) => (
+          <Select.Option key={d.card} value={d.card}>
+            {d.label}
+          </Select.Option>
+        ))}
+      </Select>
+    </div>
+  ) : null;
   if (error) {
-    return (
-      <div className="py-6 text-center text-sm text-kumo-subtle">
-        Couldn't load — Basin SQL may be unconfigured.
-      </div>
+    return quiet ? (
+      <MutedRows />
+    ) : (
+      <>
+        {dimSelect}
+        <div className="py-6 text-center text-sm text-kumo-subtle">
+          Couldn't load — Basin SQL may be unconfigured.
+        </div>
+      </>
     );
   }
   if (!data) {
     return (
-      <div className="flex justify-center py-8">
-        <Loader />
-      </div>
+      <>
+        {dimSelect}
+        <div className="flex justify-center py-8">
+          <Loader />
+        </div>
+      </>
     );
   }
   const rows = data.countsByProperty;
   if (rows.length === 0) {
-    return isProps ? (
+    return dimSelect ? (
+      <>
+        {dimSelect}
+        <EmptyRows site={site} />
+      </>
+    ) : isProps ? (
       <div className="py-6 text-center text-sm text-kumo-subtle">
         Custom-event property breakdown needs an event name and property key — the Sites API lists
         events at /api/v1/sites.
@@ -694,13 +842,14 @@ function BreakdownTable({
 
   return (
     <div className="mt-3">
+      {dimSelect}
       <ul className="space-y-1">
         {rows.map((row, index) => (
           <li key={`${String(row[0])}-${index}`}>
             <button
               type="button"
-              disabled={!filter}
-              onClick={() => filter && onFilter({ [filter]: value(row[0]) })}
+              disabled={!realFilter}
+              onClick={() => realFilter && onFilter({ [realFilter]: value(row[0]) })}
               className="relative flex w-full items-center justify-between overflow-hidden rounded px-2 py-1.5 text-left text-sm disabled:cursor-default"
             >
               <span
@@ -730,6 +879,16 @@ function BreakdownTable({
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function MutedRows() {
+  return (
+    <div className="mt-3 space-y-2 py-1" aria-hidden="true">
+      {[0.9, 0.7, 0.55, 0.4].map((w) => (
+        <div key={w} className="h-5 rounded bg-kumo-recessed" style={{ width: `${w * 100}%` }} />
+      ))}
     </div>
   );
 }
