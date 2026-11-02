@@ -129,6 +129,18 @@ export function validatePlausibleScriptId(
 export class SitesRepository {
     constructor(private database: D1Database) {}
 
+    async getByPlausibleScriptId(scriptId: string): Promise<Site | null> {
+        const row = await this.database
+            .prepare(
+                `SELECT domain, tracker_id, plausible_script_id, timezone,
+                        tracker_script_configuration, '[]' AS custom_properties
+                 FROM sites WHERE plausible_script_id = ?`,
+            )
+            .bind(scriptId)
+            .first<SiteRow>();
+        return row ? toSite(row) : null;
+    }
+
     async get(domain: string): Promise<Site | null> {
         const row = await this.database
             .prepare(
