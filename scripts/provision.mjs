@@ -11,7 +11,10 @@ import {
     writeFileSync,
     chmodSync,
 } from "node:fs";
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes } from "node:crypto";
+import { createRequire } from "node:module";
+const require = createRequire(path.join(ROOT, "packages/cli/package.json"));
+const bcrypt = require("bcryptjs");
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -188,8 +191,17 @@ const cfgPath = path.join(SERVER, `wrangler.${env}.json`);
 writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
 console.log(`wrote ${cfgPath}`);
 
-// 7. Migrations
-run(["d1", "migrations", "apply", names.d1, "--remote", "-c", cfgPath]);
+// 7. Migrations (interactive confirm → pipe "y")
+execFileSync(
+    wranglerBin,
+    ["d1", "migrations", "apply", names.d1, "--remote", "-c", cfgPath],
+    {
+        cwd: SERVER,
+        env: { ...process.env, CLOUDFLARE_ACCOUNT_ID: ACCOUNT },
+        input: "y\n",
+        stdio: ["pipe", "inherit", "pipe"],
+    },
+);
 
 // 8. Secrets (only if absent)
 const credDir = path.join(os.homedir(), `.noomers-${env}`);
@@ -233,9 +245,7 @@ if (!creds.dashboard_password)
 if (!creds.jwt_secret) creds.jwt_secret = randomBytes(32).toString("hex");
 if (!creds.visitor_salt) creds.visitor_salt = randomBytes(16).toString("hex");
 if (!creds.stats_token) creds.stats_token = randomBytes(24).toString("hex");
-const passwordHash = createHash("sha256")
-    .update(creds.dashboard_password)
-    .digest("hex");
+const passwordHash = bcrypt.hashSync(creds.dashboard_password, 12);
 
 putSecret("R2_SQL_TOKEN", TOKEN);
 putSecret("CF_PASSWORD_HASH", passwordHash);
