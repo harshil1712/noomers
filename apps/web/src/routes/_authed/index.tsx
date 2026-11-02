@@ -133,7 +133,9 @@ function SiteCard({
             }}
           />
           <Globe size={16} aria-hidden="true" className="shrink-0 text-kumo-subtle" />
-          <span className="min-w-0 flex-1 truncate font-medium">{site}</span>
+          <span className="min-w-0 flex-1 truncate font-medium" style={{ fontWeight: 500 }}>
+            {site}
+          </span>
           <Button
             variant="ghost"
             size="xs"
@@ -178,9 +180,7 @@ function SiteCard({
                   {visitors !== undefined ? fmt.format(visitors) : "—"}
                 </Text>
               </span>
-              <Text variant="secondary" size="sm">
-                visitors
-              </Text>
+              <span className="mono-label">visitors</span>
               <DeltaBadge
                 current={visitors}
                 previous={stats?.previous?.visitors}

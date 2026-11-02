@@ -622,9 +622,7 @@ function KpiStrip({
           const selected = t.toggle === metric;
           const inner = (
             <>
-              <Text variant="secondary" size="sm">
-                {t.label}
-              </Text>
+              <span className="mono-label">{t.label}</span>
               <div className="mt-1 flex items-center gap-2">
                 {t.live && <span className="live-dot" aria-hidden="true" title={realtime.status} />}
                 <span className="whitespace-nowrap tabular-nums">
@@ -697,7 +695,7 @@ function TimeseriesPanel({
         if (cancelled) return;
         onError?.("timeseries", false);
         const brand = ChartPalette.categorical(0, isDark);
-        const second = ChartPalette.categorical(1, isDark);
+        const second = "var(--color-kumo-series-2)";
         const muted = "rgba(128,128,128,0.35)";
         const toSeries = (key: "views" | "visitors", name: string, color: string) => ({
           name,
@@ -748,9 +746,7 @@ function TimeseriesPanel({
                 color={ChartPalette.categorical(1, isDark)}
               />
             </div>
-            <Text variant="secondary" size="sm">
-              {timezone}
-            </Text>
+            <span className="mono-label">{timezone}</span>
           </div>
           <TimeseriesChart
             echarts={echarts}
@@ -973,11 +969,15 @@ function BreakdownTable({
       <Table layout="fixed">
         <Table.Header>
           <Table.Row>
-            <Table.Head>Name</Table.Head>
+            <Table.Head>
+              <span className="mono-label">Name</span>
+            </Table.Head>
             <Table.Head className="w-24 text-right">
               {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
             </Table.Head>
-            <Table.Head className="w-14 text-right">%</Table.Head>
+            <Table.Head className="w-14 text-right">
+              <span className="mono-label">%</span>
+            </Table.Head>
           </Table.Row>
         </Table.Header>
         <Table.Body>

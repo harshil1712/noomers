@@ -1,6 +1,44 @@
 @import "tailwindcss";
 @import "@cloudflare/kumo/styles/tailwind";
 @import "@noomers/brand/tokens.css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/inter-tight";
+@import "@fontsource/ibm-plex-mono";
+
+@theme {
+  --font-sans:
+    "Inter Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-display: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    font-family: var(--font-sans);
+  }
+  /* quiet-authority headings: Inter Tight 400, tight tracking, never bold */
+  h1,
+  h2,
+  h3,
+  h4,
+  [data-kumo-component="Text"][data-variant^="heading"] {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+  h1 {
+    letter-spacing: -0.025em;
+  }
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 @source "../../../packages/brand/**/*.{ts,tsx}";
 
@@ -134,4 +172,40 @@
 [data-kumo-component="Select"][data-kumo-part="trigger"] {
   box-shadow: none !important;
   border: 1px solid var(--color-kumo-control-line) !important;
+}
+
+/* uppercase mono metadata label (KPI/table headers, eyebrows, tz caption) */
+.mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-kumo-subtle);
+}
+/* pill-shaped primary buttons + segmented tabs */
+[data-kumo-component="Button"][data-variant="primary"],
+[data-kumo-component="LinkButton"][data-variant="primary"],
+[data-kumo-component="Tabs"][data-variant="segmented"] [role="tab"] {
+  border-radius: 999px !important;
+}
+/* no card shadows: hairlines are the structural device */
+.surface,
+[data-kumo-component="Surface"] {
+  box-shadow: none !important;
+}
+
+/* quiet-authority headings: Inter Tight 400, tight tracking, never bold.
+   Unlayered so they beat Kumo's utility-layer font-weight on Text headings. */
+h1,
+h2,
+h3,
+h4,
+[data-kumo-component="Text"][data-variant^="heading"] {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.02em !important;
+}
+h1 {
+  letter-spacing: -0.025em !important;
 }

@@ -1,11 +1,36 @@
-/* noomers theme — Kumo defaults as shipped. No color or font overrides:
-   visual identity is the component library's, not a bespoke palette.
-   Only two additions Kumo's tokens don't carry on their own. */
+/* noomers theme — warm paper/stone palette over Kumo semantics.
+   light-dark() pairs; one chromatic accent (moss green) for the primary
+   action, selected state, main chart series and keyword highlight. */
 :root {
-  /* text drawn on --color-kumo-brand backgrounds. Kumo's brand blue is
-     dark enough in both modes that white is the readable ink (6.3:1 light,
-     ~7:1 dark); dark text on the dark-mode blue was 3.3:1. */
-  --brand-ink: #fff;
+  --color-kumo-canvas: light-dark(#f7f6f3, #0f0e0d);
+  --color-kumo-base: light-dark(#ffffff, #191816);
+  --color-kumo-elevated: light-dark(#ffffff, #191816);
+  --color-kumo-recessed: light-dark(#f1efeb, #22201e);
+  --color-kumo-overlay: light-dark(#f1efeb, #22201e);
+  --color-kumo-tint: light-dark(#f1efeb, #22201e);
+  --color-kumo-fill-hover: light-dark(#eae7e2, #2a2725);
+
+  --color-kumo-line: light-dark(#e7e4df, #2e2b28);
+  --color-kumo-hairline: light-dark(#eeebe6, #262422);
+  --color-kumo-control-line: light-dark(#8c857e, #6e6862);
+
+  --color-kumo-default: light-dark(#1c1917, #edebe8);
+  --color-kumo-strong: light-dark(#0c0a09, #fafaf9);
+  --color-kumo-subtle: light-dark(#6f6862, #a39d96);
+  --color-kumo-placeholder: light-dark(#7a736c, #8f8982);
+  --color-kumo-inactive: light-dark(#a8a099, #5c564f);
+
+  /* moss green — the only chromatic accent */
+  --color-kumo-brand: light-dark(#1f7a55, #4fc08d);
+  --color-kumo-brand-hover: light-dark(#186446, #6bd0a1);
+  --brand-ink: light-dark(#ffffff, #0f0e0d);
+  --color-kumo-brand-tint: light-dark(#e3f1ea, #16291f);
+  --color-kumo-brand-text: light-dark(#1f7a55, #4fc08d);
+  --color-kumo-focus: var(--color-kumo-brand);
+
+  /* chart series: moss + muted brass */
+  --color-kumo-series-1: var(--color-kumo-brand);
+  --color-kumo-series-2: light-dark(#a08c6e, #8c7b62);
 }
 /* light-dark() resolves from color-scheme; html[data-mode] pins it. */
 :root {
