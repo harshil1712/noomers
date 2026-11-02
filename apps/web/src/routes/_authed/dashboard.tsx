@@ -140,6 +140,30 @@ function userTimezone(): string {
   }
 }
 
+function useRealtime(siteId: string) {
+  const [stats, setStats] = useState<RealtimeStats | null>(null);
+  const [status, setStatus] = useState<"connecting" | "live" | "offline">("connecting");
+  useEffect(() => {
+    if (!siteId) return;
+    setStats(null);
+    setStatus("connecting");
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${location.host}/realtime/${siteId}`);
+    ws.onopen = () => setStatus("live");
+    ws.onclose = () => setStatus("offline");
+    ws.onerror = () => setStatus("offline");
+    ws.onmessage = (event) => {
+      try {
+        setStats(JSON.parse(event.data as string) as RealtimeStats);
+      } catch {
+        // ignore malformed frames
+      }
+    };
+    return () => ws.close();
+  }, [siteId]);
+  return { stats, status };
+}
+
 function useIsDark(): boolean {
   const [dark, setDark] = useState(
     () => typeof document !== "undefined" && document.documentElement.dataset.mode === "dark",
@@ -201,6 +225,7 @@ function Dashboard() {
   };
 
   const query: DashboardQuery = { site, interval, timezone, filters };
+  const realtime = useRealtime(site);
 
   return (
     <div className="flex flex-col gap-5">
@@ -232,7 +257,7 @@ function Dashboard() {
             </Select.Option>
           ))}
         </Select>
-        <LivePill siteId={site} />
+        <LivePill realtime={realtime} />
       </div>
 
       {Object.keys(filters).length > 0 && (
@@ -270,43 +295,59 @@ function Dashboard() {
         <Skeleton h={24} />
       ) : (
         <>
-          <StatStrip query={query} />
-          <TimeseriesPanel query={query} isDark={isDark} timezone={timezone} />
-          <RealtimePanel siteId={site} />
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {PANELS.map((panel) => (
-              <BreakdownPanel
-                key={panel.title}
-                panel={panel}
-                query={query}
-                onFilter={setSearch}
-                site={site}
-              />
-            ))}
-          </div>
+          <SitePanels
+            query={query}
+            site={site}
+            timezone={timezone}
+            isDark={isDark}
+            realtime={realtime}
+            onFilter={setSearch}
+          />
         </>
       )}
     </div>
   );
 }
 
+/* ---------- site panels (one shared realtime connection) ---------- */
+function SitePanels({
+  query,
+  site,
+  timezone,
+  isDark,
+  realtime,
+  onFilter,
+}: {
+  query: DashboardQuery;
+  site: string;
+  timezone: string;
+  isDark: boolean;
+  realtime: ReturnType<typeof useRealtime>;
+  onFilter: (patch: Partial<SearchParams>) => void;
+}) {
+  return (
+    <>
+      <StatStrip query={query} />
+      <TimeseriesPanel query={query} isDark={isDark} timezone={timezone} />
+      <RealtimePanel realtime={realtime} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {PANELS.map((panel) => (
+          <BreakdownPanel
+            key={panel.title}
+            panel={panel}
+            query={query}
+            onFilter={onFilter}
+            site={site}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
 /* ---------- live pill ---------- */
-function LivePill({ siteId }: { siteId: string }) {
-  const [count, setCount] = useState<number | null>(null);
-  useEffect(() => {
-    if (!siteId) return;
-    const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${location.host}/realtime/${siteId}`);
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string) as RealtimeStats;
-        setCount(data.currentVisitors);
-      } catch {
-        // ignore malformed frames
-      }
-    };
-    return () => ws.close();
-  }, [siteId]);
+function LivePill({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
+  const count = realtime.stats?.currentVisitors ?? null;
   if (count === null) return null;
   return (
     <a
@@ -481,25 +522,8 @@ function TimeseriesPanel({
 }
 
 /* ---------- realtime ---------- */
-function RealtimePanel({ siteId }: { siteId: string }) {
-  const [stats, setStats] = useState<RealtimeStats | null>(null);
-  const [status, setStatus] = useState<"connecting" | "live" | "offline">("connecting");
-  useEffect(() => {
-    setStatus("connecting");
-    const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${location.host}/realtime/${siteId}`);
-    ws.onopen = () => setStatus("live");
-    ws.onclose = () => setStatus("offline");
-    ws.onerror = () => setStatus("offline");
-    ws.onmessage = (event) => {
-      try {
-        setStats(JSON.parse(event.data as string) as RealtimeStats);
-      } catch {
-        // ignore malformed frames
-      }
-    };
-    return () => ws.close();
-  }, [siteId]);
+function RealtimePanel({ realtime }: { realtime: ReturnType<typeof useRealtime> }) {
+  const { stats, status } = realtime;
 
   return (
     <Surface id="realtime" className="rounded-xl p-5">
@@ -747,7 +771,7 @@ function EmptyRows({ site }: { site: string }) {
 }
 
 function NoSites() {
-  const snippet = `curl -X POST https://app.noomers.dev/api/v1/sites \\
+  const snippet = `curl -X POST ${location.origin}/api/v1/sites \\
   -H "Authorization: Bearer $SITES_API_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{"domain": "example.com"}'`;

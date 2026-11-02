@@ -15,14 +15,14 @@ const description =
       <p class="sub">Privacy-first analytics you self-host on Cloudflare — a tiny tracker, a realtime dashboard, and Plausible-compatible APIs, running entirely inside your own account.</p>
       <div class="btns">
         <a class="btn cta" href="https://github.com/harshil1712/noomers">Self-host on Cloudflare</a>
-        <a class="btn btn-secondary cta" href="https://github.com/harshil1712/noomers#readme">Read the docs</a>
+        <a class="btn secondary" href="https://github.com/harshil1712/noomers#readme">Read the docs</a>
       </div>
     </div>
     <figure class="ring-wrap" aria-hidden="true">
+      <div class="ring-label">00:00 UTC</div>
       <svg class="ring" viewBox="0 0 260 260" width="260" height="260">
         <circle cx="130" cy="130" r="112" fill="none" stroke="var(--color-kumo-hairline)" stroke-width="2"/>
         <g class="ticks" stroke="var(--color-kumo-control-line)" stroke-width="1.5"></g>
-        <text x="130" y="18" text-anchor="middle" class="ring-label" fill="var(--color-kumo-subtle)">00:00 UTC</text>
         <g class="dots" fill="var(--color-kumo-brand)"></g>
         <circle cx="130" cy="130" r="5" fill="var(--color-kumo-brand)"/>
       </svg>
@@ -57,24 +57,24 @@ const description =
   <section class="api">
     <h2 class="font-display">Plausible-compatible API</h2>
     <p class="lede">A subset of Plausible's Events, Sites and Stats APIs — keep your integrations, dashboards and imports. Exact coverage lives in the <a href="https://github.com/harshil1712/noomers/blob/main/docs/plausible-feature-parity.md">parity document</a>.</p>
-    <pre class="code"><code>curl https://app.noomers.dev/api/v2/query \
+    <pre class="code"><code>curl https://analytics.example.com/api/v2/query \
   -H "Authorization: Bearer $STATS_API_TOKEN" \
   -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</code></pre>
   </section>
 
   <section class="install">
-    <h2 class="font-display">Two lines to track</h2>
+    <h2 class="font-display">Add it to your site</h2>
     <div class="cards">
       <div class="acard">
         <h3>Script tag</h3>
         <pre><code>&lt;script defer
-  src="https://app.noomers.dev/tracker.js"
+  src="https://analytics.example.com/tracker.js"
   data-site-id="example.com"&gt;&lt;/script&gt;</code></pre>
       </div>
       <div class="acard">
         <h3>Plausible-style</h3>
         <pre><code>&lt;script defer
-  src="https://app.noomers.dev/js/pa-XXXX.js"
+  src="https://analytics.example.com/js/pa-XXXX.js"
   data-domain="example.com"&gt;&lt;/script&gt;</code></pre>
       </div>
       <div class="acard">
@@ -107,8 +107,24 @@ const description =
   .btns { display:flex; gap:.75rem; margin-top:1.75rem; flex-wrap:wrap; }
   .btn { display:inline-block; padding:.7rem 1.4rem; border-radius:10px; font-weight:600; text-decoration:none; }
   .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); }
-  .btn.btn-secondary { border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); }
-  .ring-wrap { text-align:center; }
+  .btn.secondary {
+    border: 1px solid var(--color-kumo-control-line);
+    color: var(--color-kumo-default);
+    background: transparent;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn.cta { height: 44px; display: inline-flex; align-items: center; }
+  .ring-wrap { text-align:center; border: none; margin: 0; }
+  .ring-label {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--color-kumo-subtle);
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.05em;
+  }
+  .ring { display: block; margin: 0 auto; border: none; outline: none; }
   .ring-cap { margin-top:.75rem; font-size:.85rem; color: var(--color-kumo-subtle); }
   .ring .dot { transition: opacity .3s; }
   section { margin: 3rem 0; }
@@ -122,8 +138,8 @@ const description =
   .arrow { color: var(--color-kumo-subtle); }
   .lede { color: var(--color-kumo-subtle); max-width: 62ch; }
   .code, .acard pre { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:.82rem; background: var(--color-kumo-recessed); padding:1rem; border-radius:10px; overflow-x:auto; }
-  .cards { display:grid; grid-template-columns: repeat(3,1fr); gap:1rem; }
-  .acard { border:1px solid var(--color-kumo-hairline); border-radius:12px; padding:1.1rem; background: var(--color-kumo-elevated); }
+  .cards { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:1rem; max-width: 100%; }
+  .acard { border:1px solid var(--color-kumo-hairline); border-radius:12px; padding:1.1rem; background: var(--color-kumo-elevated); min-width: 0; }
   .acard h3 { margin:0 0 .6rem; font-size:1rem; }
   .band { display:flex; justify-content:space-between; align-items:center; gap:2rem; background:var(--brand-tint); border-radius:16px; padding:2rem 2.5rem; }
   .btn.inv { background: var(--color-kumo-brand); color: var(--brand-ink); }
@@ -170,14 +186,27 @@ const description =
       return list;
     };
     const els = make();
+    // First paint: a partial day already counted (~2/3 of the ring).
+    const startAt = Math.floor(N * (2 / 3));
+    els.forEach((el, i) => (el.style.opacity = i < startAt ? 1 : 0));
     if (reduced) {
-      els.forEach((el, i) => (el.style.opacity = i < 9 ? 1 : 0.15));
+      // Static partial day for reduced motion.
+      els.forEach((el, i) => (el.style.opacity = i < startAt ? 1 : 0.15));
     } else {
+      // One loop = one ~12s "day": dots light clockwise; at 00:00 the ring
+      // fades to a partial-day baseline and the cycle restarts.
       els.forEach((el, i) => {
-        el.style.opacity = 0;
+        const on = (i / N) * LOOP;
+        const off = LOOP; // fade back to baseline right after midnight
         el.animate(
-          [{ opacity: 0 }, { opacity: 1 }, { opacity: 1, offset: 0.96 }, { opacity: 0 }],
-          { duration: LOOP, iterations: Infinity, delay: (i / N) * LOOP, easing: "linear" },
+          [
+            { opacity: i < startAt ? 1 : 0 },
+            { opacity: i < startAt ? 1 : 0, offset: on / LOOP },
+            { opacity: 1, offset: (on + 120) / LOOP },
+            { opacity: i < startAt ? 1 : 0, offset: 0.995 },
+            { opacity: i < startAt ? 1 : 0 },
+          ],
+          { duration: LOOP, iterations: Infinity, easing: "linear" },
         );
       });
     }

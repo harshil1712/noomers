@@ -53,9 +53,7 @@ export async function signIn(email: string) {
 export async function verifiedSessionCookie(email: string) {
   // Sign-in on an unknown email throws APIError inside the worker, which
   // surfaces to Vitest as an unhandled error — check D1 first instead.
-  const exists = await env.DB.prepare("SELECT 1 FROM user WHERE email = ?")
-    .bind(email)
-    .first();
+  const exists = await env.DB.prepare("SELECT 1 FROM user WHERE email = ?").bind(email).first();
   if (exists) {
     const signedIn = await signIn(email);
     if (signedIn.ok) {

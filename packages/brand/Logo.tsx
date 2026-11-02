@@ -15,7 +15,7 @@ export function Logo({
   const stroke = Math.max(2, size * 0.08);
   const gap = size * 0.1;
   return (
-    <span className={["inline-flex items-center gap-2", className].filter(Boolean).join(" ")}>
+    <span className={["inline-flex items-baseline gap-2", className].filter(Boolean).join(" ")}>
       <svg
         width={r * 4 + gap + stroke}
         height={r * 2 + stroke * 2}

@@ -8,6 +8,7 @@
    One light-dark() declaration per colour; html[data-mode] pins the mode.
    Contrast ratios live in DESIGN.md → "Contrast". */
 :root {
+  color-scheme: light dark;
   --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Martian Mono Variable", ui-monospace, monospace;
   --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
@@ -81,4 +82,12 @@
 .font-mono {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* light-dark() resolves from color-scheme — html[data-mode] pins it. */
+html[data-mode="light"] {
+  color-scheme: light;
+}
+html[data-mode="dark"] {
+  color-scheme: dark;
 }
