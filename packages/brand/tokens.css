@@ -1,114 +1,84 @@
-@import "@fontsource-variable/instrument-sans";
-@import "@fontsource/pixelify-sans";
-@import "@fontsource-variable/jetbrains-mono";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/martian-mono";
 
-/* noomers brand tokens — shared by apps/web (over Kumo) and apps/site.
-   Every colour is ONE light-dark() declaration; the mode comes from
-   `color-scheme`, which html[data-mode] pins (see theme.ts).
-   Declared unlayered on :root so it beats Kumo's `@layer base` / `@theme`
-   defaults (incl. its :root[data-mode="dark"] block) without !important.
-   Contrast ratios (WCAG 2.x) are listed in DESIGN.md → "Contrast". */
+/* noomers brand tokens — "counts the day, forgets the night".
+   Day = light (#F3F4F7 canvas), night = dark (#0E1124 canvas): visitor IDs
+   are salted per day and rotate at 00:00 UTC.
+   One light-dark() declaration per colour; html[data-mode] pins the mode.
+   Contrast ratios live in DESIGN.md → "Contrast". */
 :root {
-  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
-  /* display = same family as body; `.font-display` adds tighter tracking */
-  --font-display: var(--font-sans);
-  --font-pixel: "Pixelify Sans", "JetBrains Mono Variable", monospace;
+  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Martian Mono Variable", ui-monospace, monospace;
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
 
-  /* ---- surfaces (warm neutrals) ---- */
-  --color-kumo-canvas: light-dark(#fbfbf9, #131211);
-  --color-kumo-elevated: light-dark(#ffffff, #1b1a18);
-  --color-kumo-recessed: light-dark(#f3f4f5, #22201e);
-  --color-kumo-line: light-dark(#e7e7e3, #2e2b28);
-  --color-kumo-default: light-dark(#121212, #f3f1ee);
-  --color-kumo-subtle: light-dark(#5f6368, #a39e97);
+  /* ---- surfaces ---- */
+  --color-kumo-canvas: light-dark(#f3f4f7, #0e1124);
+  --color-kumo-elevated: light-dark(#ffffff, #161a31);
+  --color-kumo-base: light-dark(#ffffff, #161a31);
+  --color-kumo-recessed: light-dark(#e9ebf0, #1d2240);
+  --color-kumo-overlay: light-dark(#e9ebf0, #1d2240);
+  --color-kumo-control: light-dark(#ffffff, #1d2240);
+  --color-kumo-tint: light-dark(#eceef4, #232848);
+  --color-kumo-fill-hover: light-dark(#eceef4, #232848);
+  --color-kumo-line: light-dark(#d9dce4, #2a3052);
+  --color-kumo-fill: light-dark(#d9dce4, #2a3052);
+  --color-kumo-hairline: light-dark(#e4e6ec, #232848);
+  --color-kumo-interact: light-dark(#c9cdd9, #39406b);
+  --color-kumo-contrast: light-dark(#161a2e, #e8eaf4);
+  --color-kumo-focus: light-dark(#3d3fd9, #8f93ff);
+  /* ≥3:1 vs surfaces both modes (WCAG 1.4.11) */
+  --color-kumo-control-line: light-dark(#7c8299, #6a7196);
 
-  /* Kumo neutral surfaces, warmed (Kumo ships them at 0 chroma) */
-  --color-kumo-base: light-dark(#ffffff, #1b1a18); /* cards, popovers, dialogs, table th */
-  --color-kumo-control: light-dark(#ffffff, #22201e); /* inputs, select trigger, menus */
-  --color-kumo-overlay: light-dark(#f3f4f5, #2e2b28); /* disabled fields, chips */
-  --color-kumo-tint: light-dark(#f2f1ed, #292724); /* hover / highlighted rows+items */
-  --color-kumo-fill: light-dark(#e7e7e3, #2e2b28); /* th rule, card rings */
-  --color-kumo-fill-hover: light-dark(#f2f1ed, #383532);
-  --color-kumo-hairline: light-dark(#edece8, #292724);
-  --color-kumo-interact: light-dark(#d6d3ce, #45413c);
-  --color-kumo-contrast: light-dark(#121212, #f3f1ee);
-  --color-kumo-focus: light-dark(#22201e, #ebe8e3);
-  /* form-control boundary: ≥3:1 vs elevated/canvas/recessed in both modes (WCAG 1.4.11) */
-  --color-kumo-control-line: light-dark(#8a857e, #75706a);
-
-  /* ---- brand (flare) — dark mode brightens to #ff6b42 with dark text (AA) ---- */
-  --color-kumo-brand: light-dark(#c73d19, #ff6b42);
-  /* hover: darker in light, lighter in dark — keeps --brand-ink AA */
-  --color-kumo-brand-hover: light-dark(#a9330f, #ff8a66);
-  --brand-text: light-dark(#b8360f, #ff7a55);
-  --brand-text-hover: light-dark(#8f2a0b, #ff9c7a);
-  --brand-lite: light-dark(#f08c66, #8a3418);
-  --brand-tint: light-dark(#fbe3dc, #3a1d14);
-  --brand-ink: light-dark(#fff, #121212); /* text on --color-kumo-brand */
-  --highlight: light-dark(#ffc53d, #ffc53d);
-  --color-kumo-danger: light-dark(#b91c1c, #e5484d);
-
-  /* ---- Kumo text namespace (text-kumo-* utilities read these) ---- */
-  --text-color-kumo-default: var(--color-kumo-default);
-  --text-color-kumo-strong: light-dark(#0b0b0a, #fbfaf8);
-  --text-color-kumo-subtle: var(--color-kumo-subtle);
-  --text-color-kumo-placeholder: light-dark(#77726b, #8f8982);
-  --text-color-kumo-inactive: light-dark(#a8a39c, #6b665f); /* disabled only — exempt from AA */
-  --text-color-kumo-inverse: light-dark(#f3f1ee, #121212);
-  --text-color-kumo-brand: var(--brand-text);
+  /* ---- brand (dusk indigo) ---- */
+  --color-kumo-brand: light-dark(#3d3fd9, #8f93ff);
+  --color-kumo-brand-hover: light-dark(#2f31b8, #a9acff);
+  --brand-ink: light-dark(#ffffff, #0e1124);
+  --brand-text: light-dark(#3537c4, #9da0ff);
+  --brand-text-hover: var(--color-kumo-brand-hover);
+  --brand-lite: var(--color-kumo-brand);
+  --brand-tint: light-dark(#e3e4fb, #24275a);
+  --highlight: var(--color-kumo-brand);
+  --text-color-kumo-brand: var(--color-kumo-brand);
   --text-color-kumo-link: var(--brand-text);
 
-  /* ---- status (Badge tints; consumed by site .bg.* and app badges) ---- */
-  --status-active-bg: light-dark(#e2f5ec, #12301f);
+  /* ---- text ---- */
+  --color-kumo-default: light-dark(#161a2e, #e8eaf4);
+  --text-color-kumo-default: var(--color-kumo-default);
+  --text-color-kumo-strong: light-dark(#0b0d1a, #f6f7fc);
+  --color-kumo-subtle: light-dark(#545b73, #9aa0bd);
+  --text-color-kumo-subtle: var(--color-kumo-subtle);
+  --text-color-kumo-placeholder: light-dark(#6b7189, #8a90ae);
+  --text-color-kumo-inactive: light-dark(#a3a8ba, #555b7a);
+  --text-color-kumo-inverse: light-dark(#e8eaf4, #161a2e);
+
+  /* ---- status ---- */
+  --color-kumo-danger: light-dark(#c2362f, #ff7a70);
+  --status-active-bg: light-dark(#dcf4ea, #0f2b1e);
   --status-active-fg: light-dark(#18794e, #5fd49a);
-  --status-paused-bg: light-dark(#f3f4f5, #24221f);
-  --status-paused-fg: light-dark(#5f6368, #b3ada5);
-  --status-archived-bg: light-dark(#fde4e4, #3a1a14);
-  --status-archived-fg: light-dark(#b3261e, #ff8a6e);
+  --status-paused-bg: light-dark(#e9ebf0, #1d2240);
+  --status-paused-fg: light-dark(#545b73, #9aa0bd);
+  --status-archived-bg: light-dark(#f9e0df, #3a1c1a);
+  --status-archived-fg: light-dark(#c2362f, #ff7a70);
 
-  /* ---- crew companions ---- */
-  --crew-1: var(--color-kumo-brand);
-  --crew-2: light-dark(#e8a33d, #e8a33d);
-  --crew-3: light-dark(#7c8da6, #8fa3be);
-  --crew-4: light-dark(#55575c, #a9a9a9);
-  --crew-legs: light-dark(#121212, #8a847c);
-  --crew-eye: light-dark(#ffffff, #ffffff); /* eyes/mouth pixels */
-  --crew-accent: var(--highlight); /* antenna / visor pixels */
-  --crew-tag-bg: light-dark(#121212, #f3f1ee); /* carry label */
-  --crew-tag-fg: light-dark(#ffffff, #121212);
+  /* ---- live (amber — realtime only) ---- */
+  --live-dot: light-dark(#e39a14, #f2b33d);
+  --live-text: light-dark(#8a5600, #f2b33d);
+  --live-tint: light-dark(#fbefd6, #3a2e14);
 
-  color-scheme: light dark;
+  /* ---- data ---- */
+  --series-1: var(--color-kumo-brand);
+  --series-2: light-dark(#13877f, #3fd1c4);
+  --chart-grid: var(--color-kumo-hairline);
 }
-html[data-mode="light"] {
-  color-scheme: light;
-}
-html[data-mode="dark"] {
-  color-scheme: dark;
-}
-body {
-  font-family: var(--font-sans);
-}
-/* Display = Instrument Sans with tighter tracking for headings ≥20px. */
+
 .font-display {
   font-family: var(--font-display);
-  letter-spacing: -0.015em;
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.02em;
 }
-/* Pixelify: sprite labels + tiny accents only. Never headings/body/numbers. */
-.font-pixel {
-  font-family: var(--font-pixel);
-}
-
-/* pixel-art mark + sprites keep hard edges */
-.ff-px,
-.sp svg {
-  shape-rendering: crispEdges;
-}
-/* app parity: selection + scrollbar */
-::selection {
-  background: var(--brand-tint);
-}
-* {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-kumo-line) transparent;
+.mono,
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }

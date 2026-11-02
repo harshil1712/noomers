@@ -1,15 +1,27 @@
 ---
-import { LOGO_VIEWBOX, LOGO_WORDMARK, logoRects } from "./logo-cells";
-interface Props { size?: number; wordmark?: boolean }
-const { size = 18, wordmark = false } = Astro.props;
-const { width: W, height: H } = LOGO_VIEWBOX;
-const svg = `<svg width="${size}" height="${size * (H / W)}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" aria-hidden="true" focusable="false">${logoRects()}</svg>`;
+interface Props { size?: number; markOnly?: boolean; class?: string }
+const { size = 24, markOnly = false, class: className } = Astro.props;
+const r = size * 0.29;
+const stroke = Math.max(2, size * 0.08);
+const gap = size * 0.1;
+const w = r * 4 + gap + stroke;
+const h = r * 2 + stroke * 2;
 ---
-{wordmark ? (
-  <span style="display:inline-flex;align-items:center;gap:8px">
-    <Fragment set:html={svg}/>
-    <span class="font-display" style="font-weight:700;font-size:18px">{LOGO_WORDMARK}</span>
-  </span>
-) : (
-  <Fragment set:html={svg}/>
-)}
+<span class:list={["inline-flex items-center gap-2", className]}>
+  <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+    <circle cx={r} cy={r + stroke} r={r} fill="var(--color-kumo-brand)" />
+    <circle
+      cx={r * 3 + gap + stroke / 2}
+      cy={r + stroke}
+      r={r}
+      fill="none"
+      stroke="var(--color-kumo-brand)"
+      stroke-width={stroke}
+    />
+  </svg>
+  {!markOnly && (
+    <span class="font-display text-lg font-bold tracking-tight" style="color: var(--color-kumo-default)">
+      noomers
+    </span>
+  )}
+</span>

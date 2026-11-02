@@ -1,161 +1,109 @@
-# Design system — Pixel crew, flare brand
+# noomers design system
 
-Component library: `@cloudflare/kumo` (apps/web). Brand layer: `packages/brand`:
+**Direction: "counts the day, forgets the night."** Visitor IDs are salted per
+day and rotate at 00:00 UTC — noomers counts visits but forgets visitors every
+midnight. Light mode is day; dark mode is night. Default follows system; the
+theme toggle overrides it.
 
-| Export                       | What                                                     |
-| ---------------------------- | -------------------------------------------------------- |
-| `tokens.css`                 | every colour/font token, Kumo overrides, `.font-display` |
-| `logo-cells`                 | the logo's 8×10 cell map (single source)                 |
-| `Logo.tsx` / `Logo.astro`    | mark + lowercase wordmark, rendered from `logo-cells`    |
-| `logo.svg`                   | static mark (resolved light values)                      |
-| `theme`                      | theme persistence + boot script (both apps)              |
-| `crew/crew`, `crew/crew.css` | sprite art + vanilla/Astro renderer + motion CSS         |
-| `crew/CrewSprite`            | React sprite built from the same art                     |
+## Palette
 
-## Tokens
+Every color is a single `light-dark()` declaration in `packages/brand/tokens.css`
+(Kumo token names kept; `html[data-mode]` pins the mode).
 
-`packages/brand/tokens.css` declares everything once inside `light-dark()`. No `dark:` classes anywhere. It's unlayered on `:root`, so it beats Kumo's `@layer base` and `@theme` defaults (including Kumo's `:root[data-mode="dark"]` block) without `!important`. Apps reference tokens by name and never by resolved hex.
-
-### Surfaces and neutrals (warm, not Kumo's 0-chroma grey)
-
-| Token                       | Light     | Dark      | Used by (Kumo)                                 |
-| --------------------------- | --------- | --------- | ---------------------------------------------- |
-| `--color-kumo-canvas`       | `#FBFBF9` | `#131211` | page                                           |
-| `--color-kumo-elevated`     | `#FFFFFF` | `#1B1A18` | raised surfaces, compact table header          |
-| `--color-kumo-recessed`     | `#F3F4F5` | `#22201E` | wells, segmented tabs, mobile scrim            |
-| `--color-kumo-base`         | `#FFFFFF` | `#1B1A18` | LayerCard, Popover, Dialog, Select popup, `th` |
-| `--color-kumo-control`      | `#FFFFFF` | `#22201E` | Input, Select trigger, DropdownMenu            |
-| `--color-kumo-overlay`      | `#F3F4F5` | `#2E2B28` | disabled fields, chips                         |
-| `--color-kumo-tint`         | `#F2F1ED` | `#292724` | hover / highlighted items, active nav          |
-| `--color-kumo-fill`         | `#E7E7E3` | `#2E2B28` | `th` rule, card rings                          |
-| `--color-kumo-fill-hover`   | `#F2F1ED` | `#383532` |                                                |
-| `--color-kumo-line`         | `#E7E7E3` | `#2E2B28` | decorative borders (cards, sidebar)            |
-| `--color-kumo-hairline`     | `#EDECE8` | `#292724` | separators                                     |
-| `--color-kumo-interact`     | `#D6D3CE` | `#45413C` | checked card borders                           |
-| `--color-kumo-contrast`     | `#121212` | `#F3F1EE` | checked checkbox                               |
-| `--color-kumo-focus`        | `#22201E` | `#EBE8E3` | focus ring (non-brand)                         |
-| `--color-kumo-control-line` | `#8A857E` | `#75706A` | input / select borders (≥3:1, see below)       |
-
-### Text (Kumo's `--text-color-kumo-*` namespace, which drives `text-kumo-*`)
-
-| Token                                                                 | Light     | Dark                      |
-| --------------------------------------------------------------------- | --------- | ------------------------- |
-| `--color-kumo-default` → `--text-color-kumo-default`                  | `#121212` | `#F3F1EE`                 |
-| `--text-color-kumo-strong`                                            | `#0B0B0A` | `#FBFAF8`                 |
-| `--color-kumo-subtle` → `--text-color-kumo-subtle`                    | `#5F6368` | `#A39E97`                 |
-| `--text-color-kumo-placeholder`                                       | `#77726B` | `#8F8982`                 |
-| `--text-color-kumo-inactive`                                          | `#A8A39C` | `#6B665F` (disabled only) |
-| `--text-color-kumo-inverse`                                           | `#F3F1EE` | `#121212`                 |
-| `--text-color-kumo-brand` = `--text-color-kumo-link` = `--brand-text` | `#B8360F` | `#FF7A55`                 |
-| `--brand-text-hover`                                                  | `#8F2A0B` | `#FF9C7A`                 |
-
-### Brand
-
-| Token                      | Light     | Dark      | Notes                                         |
-| -------------------------- | --------- | --------- | --------------------------------------------- |
-| `--color-kumo-brand`       | `#C73D19` | `#FF6B42` | primary fills, focus-visible ring, `--crew-1` |
-| `--color-kumo-brand-hover` | `#A9330F` | `#FF8A66` | darker in light, lighter in dark              |
-| `--brand-ink`              | `#FFFFFF` | `#121212` | text/icons on a brand fill                    |
-| `--brand-text`             | `#B8360F` | `#FF7A55` | brand-coloured text and links                 |
-| `--brand-lite`             | `#F08C66` | `#8A3418` | logo core                                     |
-| `--brand-tint`             | `#FBE3DC` | `#3A1D14` | soft brand backgrounds                        |
-| `--highlight`              | `#FFC53D` | `#FFC53D` | the logo's highlight pixel, crew accents      |
-
-### Status (badge tints)
-
-The site's `.bg.*` badge classes live in the site CSS. Only the colours are shared.
-
-| Token                     | Light                 | Dark                  |
-| ------------------------- | --------------------- | --------------------- |
-| `--status-active-bg/fg`   | `#E2F5EC` / `#18794E` | `#12301F` / `#5FD49A` |
-| `--status-paused-bg/fg`   | `#F3F4F5` / `#5F6368` | `#24221F` / `#B3ADA5` |
-| `--status-archived-bg/fg` | `#FDE4E4` / `#B3261E` | `#3A1A14` / `#FF8A6E` |
-
-### Crew
-
-| Token              | Light                 | Dark                  |
-| ------------------ | --------------------- | --------------------- |
-| `--crew-1`         | = brand               | = brand               |
-| `--crew-2`         | `#E8A33D`             | `#E8A33D`             |
-| `--crew-3`         | `#7C8DA6`             | `#8FA3BE`             |
-| `--crew-4`         | `#55575C`             | `#A9A9A9`             |
-| `--crew-legs`      | `#121212`             | `#8A847C`             |
-| `--crew-eye`       | `#FFFFFF`             | `#FFFFFF`             |
-| `--crew-accent`    | = `--highlight`       | = `--highlight`       |
-| `--crew-tag-bg/fg` | `#121212` / `#FFFFFF` | `#F3F1EE` / `#121212` |
+| Token                           | Day (light)           | Night (dark) |
+| ------------------------------- | --------------------- | ------------ |
+| canvas                          | `#F3F4F7`             | `#0E1124`    |
+| elevated / base                 | `#FFFFFF`             | `#161A31`    |
+| recessed / overlay              | `#E9EBF0`             | `#1D2240`    |
+| control                         | `#FFFFFF`             | `#1D2240`    |
+| tint / fill-hover               | `#ECEEF4`             | `#232848`    |
+| line / fill                     | `#D9DCE4`             | `#2A3052`    |
+| hairline                        | `#E4E6EC`             | `#232848`    |
+| control-line                    | `#7C8299`             | `#6A7196`    |
+| text default                    | `#161A2E`             | `#E8EAF4`    |
+| text strong                     | `#0B0D1A`             | `#F6F7FC`    |
+| text subtle                     | `#545B73`             | `#9AA0BD`    |
+| placeholder                     | `#6B7189`             | `#8A90AE`    |
+| inactive                        | `#A3A8BA`             | `#555B7A`    |
+| brand                           | `#3D3FD9`             | `#8F93FF`    |
+| brand-hover                     | `#2F31B8`             | `#A9ACFF`    |
+| brand-ink (text on brand)       | `#FFFFFF`             | `#0E1124`    |
+| brand-text                      | `#3537C4`             | `#9DA0FF`    |
+| brand-tint                      | `#E3E4FB`             | `#24275A`    |
+| live dot / text (realtime only) | `#E39A14` / `#8A5600` | `#F2B33D`    |
+| live-tint                       | `#FBEFD6`             | `#3A2E14`    |
+| series-1                        | brand                 | brand        |
+| series-2                        | `#13877F`             | `#3FD1C4`    |
+| danger                          | `#C2362F`             | `#FF7A70`    |
+| success                         | `#18794E`             | `#5FD49A`    |
 
 ### Contrast (WCAG 2.x, measured)
 
-All text tokens pass AA (≥4.5:1) on canvas, elevated and recessed in both modes:
+| Pair                     | Ratio | Pair                          | Ratio |
+| ------------------------ | ----- | ----------------------------- | ----- |
+| default on canvas        | 15.63 | dark default on canvas        | 15.57 |
+| default on elevated      | 17.19 | dark default on elevated      | 14.28 |
+| strong on elevated       | 19.32 | dark strong on elevated       | 16.01 |
+| subtle on canvas         | 6.12  | dark subtle on canvas         | 7.24  |
+| subtle on elevated       | 6.73  | dark subtle on elevated       | 6.64  |
+| placeholder on elevated  | 4.83  | dark placeholder on elevated  | 5.45  |
+| brand-text on elevated   | 8.42  | dark brand-text on elevated   | 7.26  |
+| brand on canvas          | 6.56  | dark brand on canvas          | 6.92  |
+| brand-ink on brand       | 7.21  | dark brand-ink on brand       | 6.92  |
+| control-line on elevated | 3.81  | dark control-line on elevated | 3.60  |
+| live-text on live-tint   | 5.40  | dark live-text on live-tint   | 7.14  |
+| danger on elevated       | 5.44  | dark danger on elevated       | 6.74  |
 
-| Pair                              | Light canvas / white / recessed | Dark canvas / elevated / recessed |
-| --------------------------------- | ------------------------------- | --------------------------------- |
-| default text                      | 18.1 / 18.7 / 17.0              | 16.6 / 15.4 / 14.4                |
-| strong text                       | 19.0 / 19.7 / —                 | 17.9 / 16.7 / —                   |
-| subtle text                       | 5.84 / 6.05 / 5.49              | 7.03 / 6.54 / 6.10                |
-| brand-text / link                 | 5.67 / 5.88 / 5.34              | 7.28 / 6.76 / 6.31                |
-| link hover (`--brand-text-hover`) | 8.09 / 8.39 / —                 | 9.17 / 8.52 / —                   |
-| placeholder (on control)          | 4.60 / 4.77 / —                 | 5.41 / 5.03 / 4.69 (control bg)   |
-| inactive (disabled, exempt)       | ≈2.4                            | ≈3.3                              |
-
-Text on brand fills: light `#FFF` on `#C73D19` **5.11**, on hover `#A9330F` **6.63**. Dark `#121212` on `#FF6B42` **6.63**, on hover `#FF8A66` **8.10**.
-
-Non-text (1.4.11), `--color-kumo-control-line`: light 3.66 on white, 3.53 on canvas, 3.32 on recessed. Dark 3.55 on elevated (inputs on cards), 3.82 on canvas, 3.31 on control/recessed.
-
-## Buttons
-
-- **Primary** = Kumo `Button variant="primary"`: a **flat** `--color-kumo-brand` fill with `--brand-ink` text, and hover goes to `--color-kumo-brand-hover`. No gradient. Kumo injects its emphasis gradient as an inline style, so `apps/web/src/index.css` carries one documented, element-scoped override for primaries (the only Kumo patch besides control borders and the plain-link hover). Don't add more.
-- Use one primary per view. Everything else is `secondary`, `ghost` or `outline`. Destructive actions use `secondary-destructive`, or `destructive` inside a confirm dialog.
-- A full-width button needs `w-full justify-center`.
-- The site's `.btn` mirrors this: a brand fill with `--brand-ink`, and hover uses `--color-kumo-brand-hover`.
-
-## Theme
-
-`@noomers/brand/theme` is the only theme logic in both apps:
-
-```ts
-THEME_STORAGE_KEY            // "noomers-theme"
-type ThemeMode = "light" | "dark" | "system"
-readTheme(): ThemeMode       // saved value, else "system"
-resolveTheme(mode): "light" | "dark"
-applyTheme(mode): void       // sets <html data-mode>, persists ("system" clears), follows OS while "system"
-THEME_BOOT_SCRIPT: string    // inline <head> script, runs before first paint
-```
-
-`html[data-mode]` sets `color-scheme`, and `light-dark()` does the rest.
+Non-text data colors are exempt by role: `inactive` (2.37 / 2.58 — decorative
+disabled state, not required text) and `series-2` (4.38 light / 9.08 dark —
+chart data color, never body copy).
 
 ## Type
 
-- Display and body: **Instrument Sans** (`@fontsource-variable/instrument-sans`). `--font-display` is the same family. `.font-display` only tightens tracking (`-0.015em`) for headings of 20px and up.
-- Code and mono: **JetBrains Mono** (`@fontsource-variable/jetbrains-mono`).
-- **Pixelify Sans** (`@fontsource/pixelify-sans`, `.font-pixel`) is for sprite carry labels only. Never use it for headings (404s included), body text or numbers.
+- **Display:** Bricolage Grotesque Variable (`@fontsource-variable/bricolage-grotesque` 5.3.0, published 2026-07-19). Headings ≥20px and the wordmark only; weight 600–700, `letter-spacing: -0.02em`, `opsz` axis used (`.font-display`).
+- **Body/UI:** Hanken Grotesk Variable (5.3.0, 2026-07-19).
+- **Data/mono:** Martian Mono Variable (5.3.0, 2026-07-19) with `font-variant-numeric: tabular-nums` (`.mono`, `.font-mono`) — stat values, table counts, chart axes, code. This is data, not a costume.
+- Removed: Instrument Sans, JetBrains Mono, Pixelify Sans.
 
 ## Logo
 
-A pixel-flame mark on an **8×10** cell grid: a pointed tip, a `--brand-text` base, a `--brand-lite` core and one `--highlight` pixel. All other cells are `--color-kumo-brand`. The cell map lives in `logo-cells.ts`. `Logo.tsx` and `Logo.astro` render it with token fills (so it follows the mode), and `logo.svg` is the static light rendering. It's crisp at 16, 24 and 32px. Use `<Logo wordmark />` for the wordmark everywhere; don't restyle it inline.
+Two circles side by side, slightly overlapping: left filled in brand = today's
+visitor ID; right outlined in brand = yesterday's forgotten one. Wordmark
+"noomers" lowercase in Bricolage 700 beside it (not all-caps, not pixel).
+`packages/brand/logo.svg`, `Logo.tsx` (props `size`, `markOnly`), `Logo.astro`,
+`favicon.svg` + 32px PNG + 180px apple-touch in both apps' public dirs.
+The old crew/pixel sprite system is deleted.
 
-## Crew sprites
+## Signature
 
-The art has one source: `CREW_SILHOUETTES` in `crew/crew.ts`.
+Two uses of the same fact — one ornamented, one functional:
 
-- Site / vanilla: `crewHTML(robot, colorVar, carry, flip, cls)` + `crew.css` (`.sp`, steps() animations).
-- React: `<CrewSprite robot={0..3} color="--crew-2" size={48} carry="label" flip className />`. It's a static SVG with `crispEdges` and `aria-hidden`, and it draws eyes, accents and legs from `--crew-eye`, `--crew-accent` and `--crew-legs`.
+- **Site hero:** a 24-hour ring. 24 ticks, "00:00 UTC" on top, dots appear
+  clockwise over a ~12s "day" and fade out as the loop passes midnight
+  (WAAPI; `prefers-reduced-motion` gets a static partial-day ring).
+  Caption in view: "Visitor IDs are salted per day and rotate at 00:00 UTC."
+- **Dashboard chart:** on hourly intervals, a markLine at 00:00 UTC (converted
+  to the site timezone) labeled "IDs reset · 00:00 UTC" — drawn only when the
+  midnight boundary falls inside the range.
 
-Rules:
+## Dashboard (Operate mode)
 
-- Sprites are decorative only (`aria-hidden`). Never put them over content or text, and never put meaning in one. Show at most one cluster per screen.
-- **Marketing site (Persuade):** playful is fine. The hero crew, cheers and the gutter escort (≥1400px only) must never block a CTA or navigation and must never hide the cursor.
-- **App (Operate):** only in empty states (`Empty`), the 404 page and the auth card. No decorative hover easter eggs, pointer-following or animation anywhere in working UI.
-- Motion: steps() jump/step only, animate transform/opacity, static under `prefers-reduced-motion`, and no pointer-follow on touch.
+Precision, not decoration: sticky top bar (logo · site switcher · interval ·
+live pill · theme · user menu), filter-chips row sourced from URL search
+params, one-row stat strip in Martian Mono, full-width chart, six tabbed
+breakdown panels (Sources / Pages / Locations / Devices / Goals / Events &
+properties) with brand-tint proportion bars, and one amber-accented realtime
+panel. Realtime is the only place the amber `live` tokens appear.
 
-## Surfaces
+## Motion
 
-- `apps/web` (Operate): Kumo components first, `kumo-*` tokens only.
-- `apps/site` (Persuade): plain CSS on the same tokens. The hero shows the app window mock with the crew walking along its bottom edge.
-- `/blog/*` (Read): `.prose` typography.
+- One authored moment per surface: the ring loop on the site, the pulse on the
+  live dot in the app — both suppressed under `prefers-reduced-motion`.
+- No scattered entrance animations; state changes only (hover, focus rings,
+  loading skeletons).
 
-Hard rules: use Kumo components before custom ones. Use semantic `kumo-*` and brand tokens, never raw palette classes or hex in app code. Merge classes with `cn()` from `@cloudflare/kumo`. Use Phosphor icons only for UI icons (crew sprites are art, not icons).
+## Browser surfaces
 
-## Theme
-
-Light/dark preference is stored per origin (localStorage) — the site and the app are different origins in prod and dev, so a choice on one does not carry to the other. This is by design.
+Themed, not default: `data-mode`-driven `color-scheme`, focus ring =
+`--color-kumo-focus`, tabular numerals on all counts, mono code on
+recessed surfaces.
