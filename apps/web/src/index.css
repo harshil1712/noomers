@@ -127,20 +127,6 @@
   color: var(--brand-text-hover);
 }
 
-/* admin: keep the actions column reachable at <640px */
-.admin-scroll th:last-child,
-.admin-scroll td:last-child {
-  position: sticky;
-  right: 0;
-  background: var(--color-kumo-elevated);
-  box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.25);
-}
-@media (max-width: 639px) {
-  .admin-scroll td:last-child::before {
-    content: "";
-  }
-}
-
 /* live accent — amber dot, pulsing unless reduced motion */
 .live-dot {
   width: 8px;

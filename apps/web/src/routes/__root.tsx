@@ -1,43 +1,16 @@
-import { useRef, type PointerEvent } from "react";
-import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { Button, Link, LinkButton, Text } from "@cloudflare/kumo";
 import { useDocumentTitle } from "../lib/use-document-title";
 import { Logo } from "@noomers/brand/Logo.tsx";
 
 function NotFound() {
   useDocumentTitle("Page not found");
-  const wrapper = useRef<HTMLDivElement>(null);
-
-  // Flashlight follows a mouse only (no pointer-follow on touch), via CSS
-  // vars + transform so it stays on the compositor.
-  const beam = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.pointerType !== "mouse" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    wrapper.current?.style.setProperty("--light-x", `${e.clientX}px`);
-    wrapper.current?.style.setProperty("--light-y", `${e.clientY}px`);
-  };
-
   return (
-    // The wrapper owns the background; `isolate` keeps the glow (z-0) above it
-    // and the content (z-10) above the glow.
-    <div
-      ref={wrapper}
-      onPointerMove={beam}
-      className="relative isolate grid min-h-svh place-items-center overflow-hidden bg-kumo-canvas p-6 text-center text-kumo-default"
-    >
-      <div
-        aria-hidden="true"
-
-        style={{
-          left: 0,
-          top: 0,
-          transform:
-            "translate3d(calc(var(--light-x, 50vw) - 50%), calc(var(--light-y, 40vh) - 50%), 0)",
-        }}
-      />
-      <main className="relative z-10 flex max-w-sm flex-col items-center gap-4">
+    <div className="grid min-h-svh place-items-center bg-kumo-canvas p-6 text-center text-kumo-default">
+      <main className="flex max-w-sm flex-col items-center gap-4">
         <Logo size={40} />
-        <Text variant="mono-secondary">404</Text>
+        <span className="mono-label">404</span>
         <Text variant="heading" size="lg" as="h1">
           Page not found
         </Text>
