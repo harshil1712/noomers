@@ -12,10 +12,13 @@ const isProd = process.env.ALCHEMY_STAGE === "prod";
 // Resources
 // ---------------------------------------------------------------------------
 
-// Analytics/registry database. The name matches the existing production D1
-// ("noomers-goals") so the stack adopts it instead of creating a second DB;
-// migrations 0001–0007 were applied by wrangler and are converted into
-// Alchemy's migration bookkeeping on first deploy.
+// Analytics/registry database. `name` matches the existing production D1
+// ("noomers-goals") so the stack reuses it instead of creating a second DB.
+// Alchemy keeps applied-migration bookkeeping in its own
+// `__alchemy_migrations` table; a DB previously migrated by
+// `wrangler d1 migrations apply` (the `d1_migrations` table) is converted
+// one-way on first deploy — the wrangler table is left frozen, and 0001–0007
+// are never re-applied.
 const DB = Cloudflare.D1.Database(`${PROJECT.name}-db`, {
   name: "noomers-goals",
   migrations: "./apps/web/migrations",
@@ -117,7 +120,11 @@ export const Web = Cloudflare.Website.Vite(
           "/collect",
           "/realtime/*",
           "/js/*",
+          // Cloudflare `*` crosses `/`, so "/*.js" would also swallow
+          // /assets/*.js (the SPA bundle) — exclude it; the Hono
+          // catch-all below still falls back to assets if it slips.
           "/*.js",
+          "!/assets/*",
           "/favicon",
           "/cache",
         ],
@@ -128,13 +135,15 @@ export const Web = Cloudflare.Website.Vite(
         SITE_EVENTS: Cloudflare.DurableObject("SiteEvents"),
         EVENT_STREAM: eventsStream,
         EMAIL: Cloudflare.Email.SendEmail("email"),
+        // Auth-endpoint throttle (per-IP).
         RATE_LIMITER: Cloudflare.RateLimit("RATE_LIMITER", {
-          namespaceId: 1001,
+          namespaceId: 1002,
           simple: { limit: 60, period: 60 },
         }),
-        // Per-IP throttle on /collect.
+        // Per-IP throttle on /collect — namespace 1001 matches the
+        // wrangler-era binding already in production.
         COLLECT_RATE_LIMIT: Cloudflare.RateLimit("COLLECT_RATE_LIMIT", {
-          namespaceId: 1002,
+          namespaceId: 1001,
           simple: { limit: 100, period: 60 },
         }),
         TURNSTILE_SECRET_KEY: widget ? widget.secret : "1x0000000000000000000000000000000AA",

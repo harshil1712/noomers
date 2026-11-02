@@ -116,4 +116,9 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => {
 
 app.all("/api/*", (c) => c.json({ error: "not found" }, 404));
 
+// Fallback: anything worker-routed but unmatched (e.g. a /*.js slip through
+// runWorkerFirst, or a static file) goes to assets — the SPA/asset layer,
+// not a worker 404.
+app.all("*", (c) => c.env.ASSETS.fetch(c.req.raw));
+
 export default app;
