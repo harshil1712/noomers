@@ -59,7 +59,6 @@ export const meta: MetaFunction = () => {
     ];
 };
 
-const MAX_RETENTION_DAYS = 90;
 
 export const loader = async ({ context, request }: LoaderFunctionArgs) => {
     await requireAuth(request, context.cloudflare.env);

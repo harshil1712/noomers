@@ -1,4 +1,4 @@
-const { stub: siteEventsStub, namespace: siteEventsNamespace } =
+const { stub: siteEventsStub } =
     createSiteEventsStub();
 const siteEventsRecord = siteEventsStub.record;
 

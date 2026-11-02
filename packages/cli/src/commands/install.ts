@@ -23,7 +23,6 @@ import {
     readInitialServerConfig,
     persistDeployment,
     resolvePipelineName,
-    resolveDailyRollupsBucket,
     resolveWorkerAndDataset,
     readPersistedDeploymentConfig,
     suggestPipelineName,
@@ -53,7 +52,6 @@ import {
 import {
     normalizeDomain,
     normalizeTimezone,
-    validateDatasetIdentifier,
 } from "../lib/validation.js";
 
 export function bail() {

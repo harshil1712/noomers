@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-unresolved
 import { DurableObject } from "cloudflare:workers";
 import type { DurableEvent } from "../app/analytics/collect";
 
@@ -107,7 +108,6 @@ export class SiteEvents extends DurableObject<Env> {
         const now = Date.now();
 
         if (this.env.EVENT_STREAM) {
-            let failures = 0;
             for (let batch = 0; batch < SHIP_MAX_BATCHES_PER_ALARM; batch++) {
                 const current = Number(this.metaGet("shipped_seq") ?? 0);
                 const rows = this.ctx.storage.sql
@@ -131,7 +131,6 @@ export class SiteEvents extends DurableObject<Env> {
                     this.metaSet("shipped_seq", rows[rows.length - 1].seq);
                     this.metaSet("send_failures", 0);
                 } catch (error) {
-                    failures++;
                     const attempts = Number(
                         this.metaGet("send_failures") ?? 0,
                     );
@@ -170,14 +169,12 @@ export class SiteEvents extends DurableObject<Env> {
 
         // Prune shipped rows past the realtime window. seq order equals time
         // order; AUTOINCREMENT keeps seq monotonic across full prunes.
-        const remaining = this.ctx.storage.sql
-            .exec(
-                `DELETE FROM events
-                 WHERE seq <= ? AND received_ms < ?`,
-                shippedSeq,
-                now - RETENTION_MS,
-            )
-            .rowsWritten;
+        this.ctx.storage.sql.exec(
+            `DELETE FROM events
+             WHERE seq <= ? AND received_ms < ?`,
+            shippedSeq,
+            now - RETENTION_MS,
+        );
 
         const unshipped = this.ctx.storage.sql
             .exec("SELECT seq FROM events WHERE seq > ? LIMIT 1", shippedSeq)

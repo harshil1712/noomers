@@ -9,10 +9,8 @@ export interface SiteEventsStub {
 
 export function createSiteEventsStub(): {
     stub: SiteEventsStub;
-    namespace: {
-        idFromName: (name: string) => string;
-        get: () => SiteEventsStub;
-    };
+    // Typed as a real namespace so test envs can pass it as SITE_EVENTS.
+    namespace: DurableObjectNamespace<import("../../workers/site-events").SiteEvents>;
 } {
     const stub: SiteEventsStub = {
         record: vi.fn((..._args: any[]) => Promise.resolve()),
@@ -32,6 +30,8 @@ export function createSiteEventsStub(): {
     const namespace = {
         idFromName: (name: string) => name,
         get: () => stub,
-    };
+    } as unknown as DurableObjectNamespace<
+        import("../../workers/site-events").SiteEvents
+    >;
     return { stub, namespace };
 }

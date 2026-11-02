@@ -5,7 +5,6 @@ import type { LoaderFunctionArgs } from "react-router";
 import PaginatedTableCard from "~/components/PaginatedTableCard";
 import { requireAuth } from "~/lib/auth";
 import type { SearchFilters } from "~/lib/types";
-import { getFiltersFromSearchParams, paramsFromUrl } from "~/lib/utils";
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
     await requireAuth(request, context.cloudflare.env);

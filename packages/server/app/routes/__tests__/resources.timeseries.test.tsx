@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { ReactNode } from "react";
-import { describe, test, expect, beforeEach, vi, afterEach } from "vitest";
+import { beforeEach, describe, test, expect, vi, afterEach } from "vitest";
 import { render, waitFor, screen } from "@testing-library/react";
 import { loader, TimeSeriesCard } from "../resources.timeseries";
 import * as RemixReact from "react-router";

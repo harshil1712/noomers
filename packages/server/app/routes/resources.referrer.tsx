@@ -6,7 +6,6 @@ import type { LoaderFunctionArgs } from "react-router";
 
 import PaginatedTableCard from "~/components/PaginatedTableCard";
 
-import { paramsFromUrl, getFiltersFromSearchParams } from "~/lib/utils";
 import { SearchFilters } from "~/lib/types";
 
 export async function loader({ context, request }: LoaderFunctionArgs) {

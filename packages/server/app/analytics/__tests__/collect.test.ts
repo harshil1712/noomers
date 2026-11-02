@@ -187,7 +187,7 @@ describe("collectRequestHandler", () => {
         vi.setSystemTime(new Date("2024-01-18T09:33:02").getTime());
     });
 
-    test("invokes writeDataPoint with transformed params", async () => {
+    test("invokes siteEventsStub.record with transformed params", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
         } as unknown as Env;
@@ -199,7 +199,6 @@ describe("collectRequestHandler", () => {
             country: "US",
         });
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
 
         // verify data shows up in the right place
@@ -236,7 +235,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -256,7 +254,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -281,7 +278,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -301,7 +297,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -321,7 +316,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -349,7 +343,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -379,7 +372,6 @@ describe("collectRequestHandler", () => {
 
         await collectRequestHandler(request as any, env as Env);
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
     });
 
@@ -397,7 +389,6 @@ describe("collectRequestHandler", () => {
             country: "US",
         });
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
 
         const ev = (siteEventsStub.record as Mock).mock.calls[0][0];
@@ -429,7 +420,6 @@ describe("collectRequestHandler", () => {
             country: "US",
         });
 
-        const writeDataPoint = siteEventsStub.record;
         expect(siteEventsStub.record).toHaveBeenCalled();
 
         const ev = (siteEventsStub.record as Mock).mock.calls[0][0];

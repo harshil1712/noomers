@@ -53,19 +53,7 @@ interface BasicMetrics {
     events: number;
 }
 
-interface AnalyticsResponse<Row> {
-    data: Row[];
-}
-
 export class StatsAPIError extends Error {}
-
-function sqlString(value: string): string {
-    return `'${value.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
-}
-
-function sqlDate(value: Date): string {
-    return value.toISOString().slice(0, 23).replace("T", " ");
-}
 
 function formatRangeDate(value: Date, reportingTimezone: string, includeMilliseconds = false): string {
     return dayjs(value).tz(reportingTimezone).format(
@@ -235,20 +223,6 @@ function r2BreakdownOptions(query: StatsQuery & { start: Date; end: Date; report
     };
 }
 
-function aeFilterPredicate([operator, dimension, values]: StatsFilter): string {
-    const column = SCALAR_DIMENSIONS[dimension].column;
-    if (operator === "contains" || operator === "contains_not") {
-        const comparisons = values.map((value) =>
-            `position(${column}, ${sqlString(value)}) ${operator === "contains" ? "> 0" : "= 0"}`,
-        );
-        return `(${comparisons.join(operator === "contains" ? " OR " : " AND ")})`;
-    }
-    if (values.length === 1) {
-        return `${column} ${operator === "is" ? "=" : "!="} ${sqlString(values[0])}`;
-    }
-    return `${column} ${operator === "is" ? "IN" : "NOT IN"} (${values.map(sqlString).join(", ")})`;
-}
-
 function resolveTimeDimension(dimension: TimeDimension, start: Date, end: Date): Exclude<TimeDimension, "time"> {
     if (dimension !== "time") return dimension;
     const duration = end.getTime() - start.getTime();
@@ -256,21 +230,6 @@ function resolveTimeDimension(dimension: TimeDimension, start: Date, end: Date):
     if (duration <= 40 * 24 * 60 * 60 * 1000) return "time:day";
     if (duration <= 52 * 7 * 24 * 60 * 60 * 1000) return "time:week";
     return "time:month";
-}
-
-function dimensionExpression(dimension: Dimension | undefined, start: Date, end: Date, reportingTimezone: string): string | undefined {
-    if (!dimension) return undefined;
-    if (Object.hasOwn(SCALAR_DIMENSIONS, dimension)) {
-        return SCALAR_DIMENSIONS[dimension as ScalarDimension].column;
-    }
-    const resolved = resolveTimeDimension(dimension as TimeDimension, start, end);
-    const timezoneArgument = sqlString(reportingTimezone);
-    return {
-        "time:hour": `toStartOfHour(timestamp, ${timezoneArgument})`,
-        "time:day": `toStartOfDay(timestamp, ${timezoneArgument})`,
-        "time:week": `toStartOfWeek(timestamp, 1, ${timezoneArgument})`,
-        "time:month": `toStartOfMonth(timestamp, ${timezoneArgument})`,
-    }[resolved];
 }
 
 function formatTimeLabel(value: string, dimension: TimeDimension, start: Date, end: Date): string {

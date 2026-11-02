@@ -1,3 +1,4 @@
+/* eslint-disable import/no-unresolved */
 /// <reference types="@cloudflare/vitest-pool-workers/types" />
 import { env, runInDurableObject, runDurableObjectAlarm } from "cloudflare:test";
 import { describe, it, expect } from "vitest";

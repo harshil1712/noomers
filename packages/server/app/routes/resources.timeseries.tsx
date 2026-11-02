@@ -1,7 +1,6 @@
+import { getFiltersFromSearchParams, paramsFromUrl } from "~/lib/utils";
 import type { LoaderFunctionArgs } from "react-router";
 import {
-    getFiltersFromSearchParams,
-    paramsFromUrl,
     getIntervalType,
     getDateTimeRange,
 } from "~/lib/utils";

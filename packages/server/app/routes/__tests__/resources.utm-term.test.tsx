@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { vi, test, describe, expect, beforeEach } from "vitest";
+import { vi, test, describe, expect } from "vitest";
 import "vitest-dom/extend-expect";
 
 import { contextWithAnalytics } from "./testutils";
