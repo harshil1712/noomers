@@ -9,87 +9,79 @@ import { getPublishedPosts } from "../lib/posts";
 
 const latest = (await getPublishedPosts()).slice(0, 3);
 const description =
-  "A full-stack SaaS template for Cloudflare Workers: auth, D1, an admin area, per-PR deploys and an SEO blog in one monorepo you rename with one command.";
+  "Privacy-first, self-hosted web analytics on Cloudflare: a lightweight tracker, a realtime dashboard, and Plausible-compatible APIs — all in your own account.";
 ---
-<PageLayout title={`${PROJECT.productName}: a Cloudflare SaaS template`} description={description} width="wide">
+<PageLayout title={`${PROJECT.productName}: privacy-first self-hosted analytics`} description={description} width="wide">
   <section class="hero">
     <div class="copy">
-      <h1 class="font-display">A Cloudflare SaaS template, <em>assembled by a tiny crew</em>.</h1>
-      <p class="sub">Auth, D1, an admin area, per-PR deploys and an SEO blog, already wired together on Workers. Rename the monorepo with one command and start on your own product.</p>
+      <h1 class="font-display">Web analytics <em>that never leave your account</em>.</h1>
+      <p class="sub">noomers is a privacy-first analytics platform you self-host on Cloudflare. A tiny tracker script, a realtime dashboard, and Plausible-compatible APIs — with no cookies, no raw IPs, and visitor IDs that rotate daily.</p>
       <div class="btns">
-        <a class="btn cta" href={APP_URL} data-cta>Get noomers</a>
+        <a class="btn cta" href="https://github.com/harshil1712/noomers">Self-host noomers</a>
         <a class="btn btn-secondary cta" href="/blog/">Read the blog</a>
       </div>
     </div>
     <div class="scene">
       <AppMock />
-      <Crew robot={1} color="--crew-1" carry="AUTH" placement="lane" index={0} />
+      <Crew robot={1} color="--crew-1" carry="DO" placement="lane" index={0} />
       <Crew robot={3} color="--crew-2" carry="D1" flip placement="lane" index={1} />
-      <Crew robot={2} color="--crew-3" carry="ADMIN" flip placement="lane" index={2} />
-      <Crew robot={0} color="--crew-4" carry="SEO" flip placement="lane" index={3} />
+      <Crew robot={2} color="--crew-3" carry="R2" flip placement="lane" index={2} />
+      <Crew robot={0} color="--crew-4" carry="SQL" flip placement="lane" index={3} />
     </div>
   </section>
 
   <section class="ships" id="ships">
     <h2 class="font-display">What ships</h2>
-    <p class="lede">The boring parts, working on day one. Nothing to delete first.</p>
+    <p class="lede">Everything runs on your own Cloudflare account — nothing is proxied through a third party.</p>
     <div class="rows">
-      <div class="row"><b>Accounts</b><p>Email and Google sign-in, mandatory verification, Turnstile, reset flow. Set one env var and you're the admin.</p></div>
-      <div class="row"><b>Database</b><p>D1 behind Drizzle ORM with a real migration chain. One config file names everything.</p></div>
-      <div class="row"><b>Deploys</b><p>Per-PR previews, production from main, smoke tests, automatic rollback.</p></div>
-      <div class="row"><b>Admin</b><p>Users, roles, bans and session revocation in a ready dashboard.</p></div>
-      <div class="row"><b>Blog + SEO</b><p>Markdown posts, JSON-LD, RSS, sitemap, llms.txt, and a CI check that fails on broken SEO.</p></div>
-      <div class="row"><b>Agent access</b><p>Scoped API keys, an OpenAPI 3.1 <code>/api/v1</code> and an MCP server — one service layer behind both.</p></div>
+      <div class="row"><b>Privacy by construction</b><p>No cookies. Raw IPs and full user-agents are never persisted. Visitor IDs are salted, site-scoped and rotate daily in UTC.</p></div>
+      <div class="row"><b>Realtime</b><p>A per-site Durable Object buffers events and streams live aggregates into the dashboard over WebSocket.</p></div>
+      <div class="row"><b>Full history</b><p>Events ship to a Basin Pipeline → R2 → Iceberg and are queried with Basin SQL — no fixed retention limit.</p></div>
+      <div class="row"><b>Dashboard</b><p>Stats, timeseries, realtime visitors, goals, and paginated breakdowns — gated by Better Auth, single-owner admin.</p></div>
+      <div class="row"><b>Plausible-compatible APIs</b><p>A subset of the Sites, Events and Stats APIs — bring your own integrations. See the parity doc for coverage.</p></div>
+      <div class="row"><b>Cloudflare-native</b><p>Workers, D1, Durable Objects, Pipelines, R2/Iceberg, Turnstile and Email — declared as code in one Alchemy stack.</p></div>
     </div>
   </section>
 
-  <section class="agents" id="agents">
-    <h2 class="font-display">Agent-ready</h2>
-    <p class="lede">Users mint scoped keys in Settings, and Claude Code, Cursor and Codex connect over MCP or plain HTTP.</p>
+  <section class="agents" id="install">
+    <h2 class="font-display">Two lines to track</h2>
+    <p class="lede">Register a site through the Sites API, then drop the snippet on your pages.</p>
     <div class="cards">
       <div class="acard">
-        <h3>MCP server</h3>
-        <pre role="region" tabindex="0" aria-label="MCP setup command">claude mcp add --transport http yourapp \
-  https://app.yourapp.com/mcp \
-  --header "Authorization: Bearer no_…"</pre>
+        <h3>Script tag</h3>
+        <pre role="region" tabindex="0" aria-label="Tracker snippet">&lt;script defer
+  src="https://app.noomers.dev/tracker.js"
+  data-site-id="example.com"&gt;&lt;/script&gt;</pre>
       </div>
       <div class="acard">
-        <h3>OpenAPI 3.1</h3>
-        <pre role="region" tabindex="0" aria-label="OpenAPI document endpoint">GET /api/v1/openapi.json
-
-six operations, typed with zod.
-key-gated by default — one flag
-publishes it for clients to find.</pre>
+        <h3>Plausible-style</h3>
+        <pre role="region" tabindex="0" aria-label="Plausible compatible script">&lt;script defer
+  src="https://app.noomers.dev/js/pa-XXXX.js"
+  data-domain="example.com"&gt;&lt;/script&gt;</pre>
       </div>
       <div class="acard">
-        <h3>API keys</h3>
-        <pre role="region" tabindex="0" aria-label="API key behaviour">no_… shown once.
-
-read/write scopes, expiry,
-revoke in Settings. only hashes
-hit D1.</pre>
+        <h3>Server-side</h3>
+        <pre role="region" tabindex="0" aria-label="Server tracking">{'import { track } from "@noomers/tracker/server";'}
+// trusted first-party events with
+// SERVER_EVENTS_TOKEN.</pre>
       </div>
     </div>
   </section>
-
   {latest.length > 0 && (
     <section class="latest">
       <h2 class="font-display">From the blog</h2>
       <PostList posts={latest} size="compact" headingLevel={3} showTags={false} />
     </section>
   )}
-
   <section class="band" aria-labelledby="band-title">
     <div>
-      <h2 class="font-display" id="band-title">Get noomers</h2>
-      <p>One command renames the repo. Merge to main and it deploys to your own Cloudflare account, with smoke tests and automatic rollback.</p>
+      <h2 class="font-display" id="band-title">Self-host noomers</h2>
+      <p>Deploy to your own Cloudflare account through a merged PR — infra declared in one Alchemy stack, smoke-tested, rolled back on failure.</p>
     </div>
-    <a class="btn cta inv" href={APP_URL} data-cta>Get noomers</a>
+    <a class="btn cta inv" href="https://github.com/harshil1712/noomers">Get noomers</a>
   </section>
-
-  <div id="escort" aria-hidden="true"><Crew robot={1} color="--crew-1" carry="AUTH" placement="block" /></div>
+  <div id="escort" aria-hidden="true"><Crew robot={1} color="--crew-1" carry="PRIVACY" placement="block" /></div>
 </PageLayout>
-
 <style>
   .hero {
     display: grid;

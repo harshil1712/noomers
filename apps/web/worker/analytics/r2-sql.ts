@@ -134,7 +134,7 @@ const FILTER_COLUMNS: Partial<Record<keyof SearchFilters, string>> = {
 const FILTER_COLUMN_LIST = Object.values(FILTER_COLUMNS);
 
 // Canonical event columns shared by the live table and the optional import
-// table; kept in sync with packages/server/pipelines/events.schema.json.
+// table; kept in sync with apps/web/pipelines/events.schema.json.
 const DURABLE_EVENT_COLUMNS = [
   "schema_version",
   "event_id",

@@ -5,6 +5,4 @@ export const PRODUCT = {
   domain: "noomers.dev",
   appDomain: "app.noomers.dev",
   emailFrom: "noreply@noomers.dev",
-  apiKeyPrefix: "no_",
-  api: { publicSpec: false, rateLimitPerMinute: 120 },
 } as const;

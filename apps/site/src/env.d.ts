@@ -6,8 +6,6 @@ declare module "#project" {
     domain: string;
     appSubdomain: string;
     emailFrom: string;
-    apiKeyPrefix: string;
-    api: { publicSpec: boolean; rateLimitPerMinute: number };
   };
   export const APP_DOMAIN: string;
 }

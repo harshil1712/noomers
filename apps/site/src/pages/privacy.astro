@@ -3,64 +3,51 @@ import PageLayout from "../components/PageLayout.astro";
 import { formatDate, isoDate } from "../lib/format";
 import { PROJECT } from "#project";
 
-/** Change this when the policy text below changes. */
-const LAST_UPDATED = new Date("2026-10-30");
+const LAST_UPDATED = new Date("2026-11-02");
 ---
 <PageLayout title={`Privacy · ${PROJECT.productName}`} description={`How ${PROJECT.productName} handles your data.`}>
   <h1 class="font-display">Privacy</h1>
   <p class="updated">Last updated <time datetime={isoDate(LAST_UPDATED)}>{formatDate(LAST_UPDATED)}</time></p>
   <div class="sections">
     <section>
-      <h2>What we store</h2>
+      <h2>Your data stays yours</h2>
       <p>
-        Your account details (name, email, password hash) and whatever data the app
-        creates for you. Nothing else is collected on purpose.
-      </p>
-    <p class="subtle" style="margin-top:24px">Sessions use a signed cookie; sign-up and reset flows are protected by Cloudflare Turnstile.</p></section>
-    <section>
-      <h2>What we don't do</h2>
-      <p>
-        No advertising trackers, no selling data, no third-party analytics beyond
-        privacy-preserving server metrics.
+        noomers is self-hosted: every event, dashboard metric and account detail lives in
+        <em>your</em> Cloudflare account — D1, R2/Iceberg and Durable Objects. We have no
+        access to it, and nothing is proxied through a third party.
       </p>
     </section>
     <section>
-      <h2>Deleting your data</h2>
+      <h2>What the tracker collects</h2>
       <p>
-        Delete your account any time in Settings → Delete account — it removes the account and its data immediately. For other requests, email <a href={`mailto:${PROJECT.supportEmail}`}>{PROJECT.supportEmail}</a>. Sessions use a signed cookie; sign-up and reset flows are protected by Cloudflare Turnstile.
+        Pageviews, custom events, engagement and scroll signals, referrer and campaign
+        parameters — normalized before anything is stored. Tracking uses no cookies.
+        Raw IP addresses and full user-agent strings are never persisted; visitor
+        identifiers are site-scoped, hostname-scoped, salted, and rotate daily in UTC,
+        so there is no cross-day, cross-site, or cross-device identity.
+      </p>
+    </section>
+    <section>
+      <h2>Your dashboard account</h2>
+      <p>
+        The dashboard stores your account details (name, email, password hash) managed
+        by Better Auth — sessions use a signed cookie, and sign-up, sign-in and reset
+        flows are protected by Cloudflare Turnstile. Deleting your account removes it
+        and its data immediately.
+      </p>
+    </section>
+    <section>
+      <h2>Deleting analytics data</h2>
+      <p>
+        Deleting a site tombstones it and purges its Durable Object immediately;
+        D1 and DO data are erased, while R2/Iceberg cleanup is a documented manual
+        step in the repo docs. For privacy or data requests, email
+        <a href={`mailto:${PROJECT.supportEmail}`}>{PROJECT.supportEmail}</a>.
       </p>
     </section>
   </div>
 </PageLayout>
 <style>
-  h1 {
-    font-size: 32px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-  .updated {
-    margin-top: 8px;
-    font-size: 14px;
-    color: var(--color-kumo-subtle);
-  }
-  .sections {
-    margin-top: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    font-size: 15px;
-  }
-  h2 {
-    font-size: 17px;
-    font-weight: 600;
-  }
-  p {
-    margin-top: 6px;
-    color: var(--color-kumo-subtle);
-    max-width: 65ch;
-  }
-  a {
-    color: var(--color-kumo-default);
-    text-decoration: underline;
-  }
+  .updated { color: var(--ff-subtle, #666); font-size: 0.9em; }
+  .sections section { margin-bottom: 1.5rem; max-width: 62ch; }
 </style>

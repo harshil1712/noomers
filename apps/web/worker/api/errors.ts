@@ -8,8 +8,8 @@ export interface ErrorDetail {
 }
 
 /**
- * The uniform error envelope from the agent-API spec (docs/specs/agent-api.md
- * §5.2): `{ error: { code, message, requestId, details? } }` on every non-2xx.
+ * Uniform error envelope shared by the API routes:
+`{ error: { code, message, requestId, details? } }` on every non-2xx.
  */
 export function errorJson(
   c: Context,

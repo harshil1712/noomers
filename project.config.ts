@@ -13,11 +13,6 @@ export const PROJECT = {
   emailFrom: "noreply@noomers.dev",
   /** Human-monitored inbox for support + privacy/data requests (site privacy page). */
   supportEmail: "support@noomers.dev",
-  /** API key prefix — keys are shown once and identified in lists by it. */
-  apiKeyPrefix: "no_",
-  /** Agent API (/api/v1 + /mcp). publicSpec exposes openapi.json + discovery
-   * without a key; rateLimitPerMinute is the per-key ceiling. */
-  api: { publicSpec: false, rateLimitPerMinute: 120 },
 } as const;
 
 export const APP_DOMAIN = `${PROJECT.appSubdomain}.${PROJECT.domain}`;

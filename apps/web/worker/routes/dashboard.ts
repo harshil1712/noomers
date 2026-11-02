@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { Hono } from "hono";
+import { createAuth } from "../auth";
+import { sessionAnalyticsFactory } from "../lib/context";
 import {
   getDateTimeRange,
   getFiltersFromSearchParams,
@@ -18,7 +21,7 @@ export type CountRow =
 
 export type Analytics = () => R2SQLAPI;
 
-type Ctx = {
+export type Ctx = {
   env: Env;
   sessionAnalytics: Analytics;
 };
@@ -281,3 +284,37 @@ export function utmTerm(c: Ctx, r: Request) {
 export function utmContent(c: Ctx, r: Request) {
   return breakdown(c, r, "visit:utm_content", "visits");
 }
+
+/**
+ * `/api/dashboard/*` sub-router — session + admin gate first, then the
+ * per-card handlers with a shared Ctx (env + analytics seam).
+ */
+export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>()
+  .use("/api/dashboard/*", async (c, next) => {
+    const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+    if (!session?.user) return c.json({ error: "Unauthorized" }, 401);
+    if (session.user.role !== "admin") return c.json({ error: "Forbidden" }, 403);
+    c.set("ctx", {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    });
+    await next();
+  })
+  .get("/api/dashboard/sites", (c) => listSites(c.get("ctx")))
+  .get("/api/dashboard/stats", (c) => stats(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/timeseries", (c) => timeseries(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/goals", (c) => goals(c.get("ctx"), c.req.raw))
+  .post("/api/dashboard/goals", (c) => mutateGoal(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/props", (c) => props(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/paths", (c) => paths(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/referrer", (c) => referrer(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/events", (c) => events(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/browser", (c) => browser(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/browserversion", (c) => browserVersion(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/country", (c) => country(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/device", (c) => device(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/utm-source", (c) => utmSource(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/utm-medium", (c) => utmMedium(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/utm-campaign", (c) => utmCampaign(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/utm-term", (c) => utmTerm(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/utm-content", (c) => utmContent(c.get("ctx"), c.req.raw));

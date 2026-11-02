@@ -3,55 +3,32 @@
 ## Product
 
 - **Name:** noomers (`noomers.dev`, app on `app.noomers.dev`)
-- **What it is:** a paid full-stack SaaS template for Cloudflare. Buyers get a working monorepo, rename it with one command, and start on their own product instead of the plumbing.
-- **What it also is:** the base the owner uses for every new project of their own.
+- **What it is:** a privacy-first, self-hosted web analytics platform for Cloudflare. Users deploy it to their own Cloudflare account, drop a script tag on their site, and get realtime + full-history analytics without handing visitor data to a third party.
+- **What it also is:** a Plausible-compatible API surface — a subset of the Events, Sites, and Stats APIs (see `docs/plausible-feature-parity.md`; never claim full parity).
 
 ## Audience
 
-- **Primary buyer:** developers, indie hackers and small teams starting a new SaaS on Cloudflare. Technically fluent; they read code before they buy and distrust marketing claims.
-- **Job:** skip weeks of setup (auth, database, admin, deploys, SEO) without inheriting a mess they have to delete first.
-- **End users of a product built on it:** whoever the buyer serves; the template's app UI must look like a credible real product, not a demo.
+- **Primary user:** developers self-hosting their analytics — privacy-conscious site owners who want Cloudflare-scale infra without SaaS analytics bills or data sharing.
+- **Deployment model:** single-owner. One admin (Better Auth, `OWNER_ADMIN_EMAIL` bootstrap) owns the dashboard and all registered sites; sign-ups can be closed with `SIGNUP_DISABLED`.
+- **Job to be done:** know who's visiting, from where, on what — with cookies-free, IP-free tracking and data that stays in the owner's own account.
 
-## What it ships (confirmed)
+## What it ships
 
-- Auth: email/password with required verification, password reset, optional Google sign-in, Turnstile on auth forms, per-IP rate limiting.
-- Admin area: users, roles, bans, session revocation.
-- Data: D1 + Drizzle; one config file (`project.config.ts`) for names and domains; `scripts/init.ts` renames the whole repo.
-- Infra: everything in `alchemy.run.ts`; per-PR preview deployments; production deploys from main with smoke tests and automatic rollback; Workers Observability.
-- Marketing site + Markdown blog built for search and answer engines (JSON-LD, RSS, sitemap, `llms.txt`, an SEO check that runs in CI).
-- Agent-first development: AGENTS.md, project skills, design and copy skills, an anti-slop lint plugin.
-- **Planned (in progress):** a demo resource (Projects), API keys, an OpenAPI 3.1 spec and docs, and a remote MCP server so the buyer's product can be used by AI agents (Claude Code, Cursor, Codex and other MCP clients).
+- Tracker: `tracker.js` loader + ESM/UMD bundles + server-side tracking package; Plausible `pa-*.js` script routes.
+- Collection: `/collect` (native) + `/api/event` (Plausible Events API), fail-closed on the D1 site registry, bot filtering, campaign/UTM + custom event properties.
+- Realtime: per-site SiteEvents Durable Object; `/realtime/:siteId` WebSocket into the dashboard.
+- History: Basin Pipeline → R2 → Iceberg, queried through Basin SQL; optional import table UNION.
+- APIs: Plausible Sites API (`/api/v1/*`), Stats API (`/api/v2/query`), goal/custom-prop management — deployment-wide Bearer tokens.
+- Dashboard: admin-gated SPA — stats, timeseries, realtime, goals, paginated breakdown cards, URL-driven filters.
+- Auth: Better Auth (email verification required, optional Google sign-in, Turnstile, per-IP auth rate limiting, admin plugin).
+- Infra: all in `alchemy.run.ts`; PR previews; production deploys from main with smoke tests; Workers Observability.
 
 ## Positioning
 
-- Cloudflare-native end to end (Workers, D1, R2-ready, Turnstile, Email), not a Vercel template ported over.
-- Agent-ready product out of the box: MCP server + OpenAPI + API keys.
-- Nothing to delete: no demo widgets or fake business logic.
+- Cloudflare-native end to end (Workers, D1, Durable Objects, Pipelines, R2/Iceberg, Basin SQL, Turnstile, Email).
+- Privacy guarantees are architecture, not policy: salted daily-rotating visitor IDs, no raw IP/UA persistence, no cross-day/site/device linking.
+- Self-hosted = data sovereignty: events never leave the owner's Cloudflare account.
 
-## Voice
+## Non-goals
 
-Plain, specific, a little playful. Sentence case. Concrete nouns, commands and file paths over adjectives. No AI tells (see `.devin/skills/write-post` for the banned list).
-
-## Surfaces
-
-- `apps/site` (noomers.dev): Persuade. Sells the template.
-- `apps/web` (app.noomers.dev): Operate. Dashboard, projects, settings, API keys, admin.
-- `/blog/*`: Read. Long-form, answer-first.
-
-## Platform
-
-web
-
-## Constraints
-
-- App UI is built on Cloudflare Kumo; visual identity must be expressible as Kumo semantic token overrides (`packages/brand/tokens.css`, `light-dark()`, no `dark:` classes).
-- Fonts must be open-licensed and available on @fontsource.
-- WCAG AA contrast in light and dark.
-
-## Open decisions
-
-- Pricing, licensing tiers and sales channel are not decided. Do not show prices or license terms; use a neutral "Get noomers" call to action.
-- No customers, testimonials or usage numbers exist yet. Do not invent them.
-- Visual identity: Pixel crew with the Flare palette (see DESIGN.md).
-
-Design system: see DESIGN.md. Design reviews: `impeccable` skill.
+- Multi-tenant/billing/team features, scoped API keys, full Plausible parity, a hosted SaaS offering.

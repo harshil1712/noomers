@@ -2,7 +2,7 @@
 
 Client-side page view tracking library for [noomers](https://noomers.dev).
 
-_For instructions on downloading and deploying the [noomers server](https://github.com/harshil1712/noomers), consult the [project README](https://github.com/harshil1712/noomers/blob/master/packages/server/README.md)._
+_For instructions on downloading and deploying the [noomers server](https://github.com/harshil1712/noomers), consult the [project README](https://github.com/harshil1712/noomers/blob/master/README.md)._
 
 ## Usage
 
