@@ -171,7 +171,7 @@ const base = JSON.parse(
 const cfg = {
     ...base,
     name: names.worker,
-    workers_dev: env === "dev",
+    workers_dev: true,
     account_id: ACCOUNT,
     d1_databases: [
         {
