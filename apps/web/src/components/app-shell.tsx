@@ -173,38 +173,38 @@ function SidebarNav() {
             <AddSiteDialog />
           </Sidebar.Menu>
         </Sidebar.Group>
-      </Sidebar.Content>
-      <Sidebar.Footer>
-        <Sidebar.Menu>
-          <Sidebar.MenuButton
-            icon={Gear}
-            active={pathname.startsWith("/settings")}
-            tooltip="Settings"
-            className={FOCUS_RING}
-            onClick={() => void navigate({ to: "/settings" })}
-          >
-            Settings
-          </Sidebar.MenuButton>
-          {isAdmin && (
+        <Sidebar.Group className="mt-auto">
+          <Sidebar.Menu>
             <Sidebar.MenuButton
-              icon={ShieldCheck}
-              active={pathname.startsWith("/admin")}
-              tooltip="Admin"
+              icon={Gear}
+              active={pathname.startsWith("/settings")}
+              tooltip="Settings"
               className={FOCUS_RING}
-              onClick={() => void navigate({ to: "/admin" })}
+              onClick={() => void navigate({ to: "/settings" })}
             >
-              Admin
+              Settings
             </Sidebar.MenuButton>
-          )}
-        </Sidebar.Menu>
-        <div className="flex min-w-0 items-center justify-between gap-2 px-1 pt-2">
-          {data?.user && (
-            <div className="min-w-0 flex-1">
-              <UserMenu user={data.user} />
-            </div>
-          )}
-          <ThemeToggle />
-        </div>
+            {isAdmin && (
+              <Sidebar.MenuButton
+                icon={ShieldCheck}
+                active={pathname.startsWith("/admin")}
+                tooltip="Admin"
+                className={FOCUS_RING}
+                onClick={() => void navigate({ to: "/admin" })}
+              >
+                Admin
+              </Sidebar.MenuButton>
+            )}
+          </Sidebar.Menu>
+        </Sidebar.Group>
+      </Sidebar.Content>
+      <Sidebar.Footer className="justify-between gap-2">
+        {data?.user && (
+          <div className="min-w-0 flex-1 group-data-[state=collapsed]/sidebar:hidden">
+            <UserMenu user={data.user} />
+          </div>
+        )}
+        <ThemeToggle />
       </Sidebar.Footer>
     </>
   );
@@ -220,7 +220,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div className="fixed left-3 top-3 z-30 md:hidden">
         <Sidebar.Trigger />
       </div>
-      <main className="flex-1 min-w-0 overflow-y-auto bg-kumo-canvas">{children}</main>
+      <main className="flex-1 min-w-0 overflow-y-auto bg-kumo-canvas pt-12 md:pt-0">
+        {children}
+      </main>
       <SiteCommands sites={sites} />
     </Sidebar.Provider>
   );

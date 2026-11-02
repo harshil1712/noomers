@@ -27,16 +27,16 @@ export function UserMenu({ user }: { user: { email: string; name?: string | null
           <Button
             variant="ghost"
             aria-label="Account menu"
-            className="gap-2 rounded-full pr-2 pl-1"
+            className="w-full min-w-0 justify-start gap-2 pr-2 pl-1"
           >
             <span
               aria-hidden
-              className="grid size-7 place-items-center rounded-full bg-kumo-brand text-xs font-semibold text-(--brand-ink)"
+              className="grid size-7 shrink-0 place-items-center rounded-full bg-kumo-brand text-xs font-semibold text-(--brand-ink)"
             >
               {initial}
             </span>
-            <span className="hidden max-w-48 truncate text-sm sm:inline">{user.email}</span>
-            <CaretDown size={12} aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-left text-sm">{user.email}</span>
+            <CaretDown size={12} aria-hidden className="shrink-0" />
           </Button>
         }
       />

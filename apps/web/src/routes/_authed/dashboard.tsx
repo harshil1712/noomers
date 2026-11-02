@@ -630,21 +630,24 @@ function KpiStrip({
               </Text>
               <div className="mt-1 flex items-center gap-2">
                 {t.live && <span className="live-dot" aria-hidden="true" title={realtime.status} />}
-                <span className="tabular-nums">
+                <span className="whitespace-nowrap tabular-nums">
                   <Text variant="heading1" as="h2">
                     {t.value}
                   </Text>
                 </span>
-                {t.live && realtime.status === "connecting" && (
+              </div>
+              <div className="mt-1 min-h-6">
+                {t.live && realtime.status === "connecting" ? (
                   <Text variant="secondary" size="sm">
                     Connecting…
                   </Text>
+                ) : (
+                  t.delta
                 )}
-                {t.delta}
               </div>
             </>
           );
-          const cls = `border-kumo-hairline border-t-2 px-5 py-4 ${
+          const cls = `flex flex-col justify-start border-kumo-hairline border-t-2 px-5 py-4 ${
             selected ? "border-t-kumo-brand bg-kumo-tint" : "border-t-transparent"
           } ${i % 2 === 1 ? "" : "border-r"} sm:border-r ${i === 5 ? "sm:border-r-0" : ""}`;
           return t.toggle ? (
