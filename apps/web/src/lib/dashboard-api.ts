@@ -7,13 +7,17 @@ export interface BreakdownResponse {
   page: number;
 }
 
-export interface StatsResponse {
+export interface StatsMetrics {
   views?: number;
   visitors?: number;
   visits?: number;
   bounceRate?: number;
   averageVisitDuration?: number | null;
   hasSufficientBounceData?: boolean;
+}
+
+export interface StatsResponse extends StatsMetrics {
+  previous?: StatsMetrics;
 }
 
 export interface TimeseriesResponse {

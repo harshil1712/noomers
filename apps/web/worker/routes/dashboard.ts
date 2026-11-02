@@ -135,8 +135,8 @@ export async function stats(c: Ctx, request: Request) {
   const tz = searchParams(request).get("timezone") || "UTC";
   const filters = getFiltersFromSearchParams(searchParams(request));
   const { startDate, endDate } = getDateTimeRange(interval, tz);
-  const m = await c.sessionAnalytics().getSessionMetrics(site, startDate, endDate, filters);
-  return Response.json({
+  const analytics = c.sessionAnalytics();
+  const toStatsMetrics = (m: Awaited<ReturnType<typeof analytics.getSessionMetrics>>) => ({
     views: m.views,
     visitors: m.visitors,
     visits: m.visits,
@@ -144,6 +144,13 @@ export async function stats(c: Ctx, request: Request) {
     averageVisitDuration: m.averageVisitDuration,
     hasSufficientBounceData: true,
   });
+  const span = endDate.getTime() - startDate.getTime();
+  const prevStart = new Date(startDate.getTime() - span);
+  const [m, prev] = await Promise.all([
+    analytics.getSessionMetrics(site, startDate, endDate, filters),
+    analytics.getSessionMetrics(site, prevStart, startDate, filters),
+  ]);
+  return Response.json({ ...toStatsMetrics(m), previous: toStatsMetrics(prev) });
 }
 
 /** GET /api/dashboard/timeseries */

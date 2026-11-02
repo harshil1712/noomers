@@ -145,23 +145,57 @@ describe("dashboard handlers (ported loader tests)", () => {
     );
   });
 
-  test("stats returns the legacy metric keys", async () => {
-    const getSessionMetrics = vi.fn().mockResolvedValue({
-      views: 10,
-      visitors: 5,
-      visits: 4,
-      bounces: 2,
-      averageVisitDuration: 42,
-    });
+  test("stats returns metrics plus the previous period", async () => {
+    const getSessionMetrics = vi
+      .fn()
+      .mockResolvedValueOnce({
+        views: 10,
+        visitors: 5,
+        visits: 4,
+        bounces: 2,
+        averageVisitDuration: 42,
+      })
+      .mockResolvedValueOnce({
+        views: 8,
+        visitors: 4,
+        visits: 3,
+        bounces: 1,
+        averageVisitDuration: 30,
+      });
     const res = await stats(ctx({ getSessionMetrics }), url("stats?site=x&interval=7d"));
-    expect(await res.json()).toEqual({
-      views: 10,
-      visitors: 5,
-      visits: 4,
-      bounceRate: 0.5,
-      averageVisitDuration: 42,
+    const body = await res.json();
+    expect(body.visitors).toBe(5);
+    expect(body.previous).toEqual({
+      views: 8,
+      visitors: 4,
+      visits: 3,
+      bounceRate: 1 / 3,
+      averageVisitDuration: 30,
       hasSufficientBounceData: true,
     });
+  });
+
+  test("stats queries the preceding equal-length window with the same filters", async () => {
+    const getSessionMetrics = vi.fn().mockResolvedValue({
+      views: 0,
+      visitors: 0,
+      visits: 0,
+      bounces: 0,
+      averageVisitDuration: null,
+    });
+    await stats(
+      ctx({ getSessionMetrics }),
+      url("stats?site=x&interval=7d&timezone=UTC&referrer=google.com"),
+    );
+    expect(getSessionMetrics).toHaveBeenCalledTimes(2);
+    const [, start1, end1, filters1] = getSessionMetrics.mock.calls[0];
+    const [, start2, end2, filters2] = getSessionMetrics.mock.calls[1];
+    const span = end1.getTime() - start1.getTime();
+    // previous = [start - span, start), half-open
+    expect(end2.getTime()).toBe(start1.getTime());
+    expect(start1.getTime() - start2.getTime()).toBe(span);
+    expect(filters2).toEqual(filters1);
+    expect(filters2).toMatchObject({ referrer: "google.com" });
   });
 
   test("timeseries picks hour/day buckets by interval", async () => {
