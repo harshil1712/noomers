@@ -12,6 +12,8 @@ const WS_BROADCAST_MIN_MS = 2_000;
 const MAX_BACKOFF_MS = 5 * 60 * 1000;
 
 export interface RealtimeStats {
+    debugUnshipped?: number;
+    debugSendFailures?: number;
     currentVisitors: number;
     visitors30m: number;
     pageviews30m: number;
@@ -250,7 +252,14 @@ export class SiteEvents extends DurableObject<Env> {
                 .slice(0, 10)
                 .map(([k, views]) => ({ [key]: k, views }));
 
+        const shippedSeq = Number(this.metaGet("shipped_seq") ?? 0);
+        const lastSeq =
+            (this.ctx.storage.sql
+                .exec("SELECT MAX(seq) AS m FROM events")
+                .toArray()[0] as { m: number } | undefined)?.m ?? 0;
         return {
+            debugUnshipped: Math.max(0, lastSeq - shippedSeq),
+            debugSendFailures: Number(this.metaGet("send_failures") ?? 0),
             currentVisitors: currentVisitors.size,
             visitors30m: visitors30m.size,
             pageviews30m,
