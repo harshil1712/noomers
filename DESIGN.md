@@ -73,3 +73,12 @@ badges and errors (subtle badge variants).
 - Site: alternating canvas/white bands (96px rhythm), mono eyebrows, ONE
   brand-tint keyword in the hero headline, soft shadow only on the product
   screenshot frame (hairline only in dark).
+
+## Custom pieces (no Kumo equivalent — deliberate exceptions)
+
+- Table proportion bars (`bg-kumo-tint` bar behind each row, sized to share).
+- KPI toggle tiles (metric selector: `bg-kumo-tint` + 2px brand top border).
+- `.live-dot` pulse for realtime (CSS, suppressed under reduced-motion).
+- Sparkline `Chart` config (raw `options` for a minimal visitors line +
+  tint area; Kumo TimeseriesChart can't be made minimal cleanly).
+- `.mono-label` uppercase metadata text (tokens + CSS, not a component).

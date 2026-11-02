@@ -9,7 +9,7 @@ import AuthCard from "../components/auth-card";
 import { AuthLink } from "../components/auth-link";
 import { FormError } from "../components/form-error";
 import { GoogleSignInButton } from "../components/google-sign-in";
-import { PasswordInput } from "../components/password-input";
+import { SensitiveInput } from "@cloudflare/kumo";
 
 export const Route = createFileRoute("/sign-up")({
   component: SignUp,
@@ -40,7 +40,6 @@ function SignUp() {
       onSuccess: () => navigate({ to: "/check-email", search: { email, reason: undefined } }),
     },
   );
-  const invalid = authErrorFields(form.error);
   const exists =
     form.error?.code === "USER_ALREADY_EXISTS" ||
     form.error?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL";
@@ -69,16 +68,15 @@ function SignUp() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
-          aria-invalid={invalid.has("email") || undefined}
+          aria-
         />
-        <PasswordInput
+        <SensitiveInput
           label="Password"
           description="At least 8 characters"
           value={password}
           onValueChange={setPassword}
           autoComplete="new-password"
           minLength={8}
-          invalid={invalid.has("password")}
         />
         {form.captcha}
         <FormError

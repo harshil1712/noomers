@@ -1,25 +1,37 @@
 import type { ReactNode } from "react";
-import { Text } from "@cloudflare/kumo";
+import { Breadcrumbs, Text } from "@cloudflare/kumo";
 
-/** Page title row: h1, optional description, optional actions on the right. */
+/** Shared page header: breadcrumb trail + title + right-side actions. */
 export function PageHeader({
+  crumbs,
   title,
-  description,
   actions,
 }: {
+  crumbs?: { label: string; to?: string }[];
   title: string;
-  description?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="flex min-w-0 flex-col gap-1">
-        <Text variant="heading" size="lg" as="h1">
+    <div className="flex flex-col gap-3">
+      {crumbs && crumbs.length > 0 && (
+        <Breadcrumbs size="sm">
+          {crumbs.map((c) =>
+            c.to ? (
+              <Breadcrumbs.Link key={c.label} href={c.to}>
+                {c.label}
+              </Breadcrumbs.Link>
+            ) : (
+              <Breadcrumbs.Current key={c.label}>{c.label}</Breadcrumbs.Current>
+            ),
+          )}
+        </Breadcrumbs>
+      )}
+      <div className="flex flex-wrap items-center gap-3">
+        <Text variant="heading1" as="h1">
           {title}
         </Text>
-        {description && <Text variant="secondary">{description}</Text>}
+        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex w-full items-center gap-2 sm:w-auto">{actions}</div>}
     </div>
   );
 }

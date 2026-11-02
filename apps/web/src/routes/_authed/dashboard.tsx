@@ -12,9 +12,11 @@ import {
   Button,
   ChartLegend,
   Code,
+  ClipboardText,
   Dialog,
   Empty,
   Grid,
+  Pagination,
   Select,
   Surface,
   Table,
@@ -23,7 +25,7 @@ import {
   TimeseriesChart,
   Tooltip,
 } from "@cloudflare/kumo";
-import { ArrowSquareOut, CaretLeft, CaretRight, Globe, X } from "@phosphor-icons/react";
+import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
 import {
@@ -259,7 +261,7 @@ function Dashboard() {
       {/* page header */}
       <div className="flex flex-col gap-3">
         <Breadcrumbs size="sm">
-          <Breadcrumbs.Link href="/dashboard">Sites</Breadcrumbs.Link>
+          <Breadcrumbs.Link href="/">Sites</Breadcrumbs.Link>
           <Breadcrumbs.Separator />
           <Breadcrumbs.Current>{site || "Dashboard"}</Breadcrumbs.Current>
         </Breadcrumbs>
@@ -269,11 +271,16 @@ function Dashboard() {
               {site || "Dashboard"}
             </Text>
             {site && (
-              <Button
-                variant="ghost"
-                icon={<ArrowSquareOut size={16} />}
-                aria-label={`Open ${site}`}
-                onClick={() => window.open(`https://${site}`, "_blank")}
+              <Tooltip
+                content={`Open ${site}`}
+                render={
+                  <Button
+                    variant="ghost"
+                    icon={<ArrowSquareOut size={16} />}
+                    aria-label={`Open ${site}`}
+                    onClick={() => window.open(`https://${site}`, "_blank")}
+                  />
+                }
               />
             )}
           </div>
@@ -309,6 +316,11 @@ function Dashboard() {
                 </div>
                 <Dialog.Description>Add one of these snippets to your site.</Dialog.Description>
                 <div className="mt-3 flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <span className="mono-label">Site ID</span>
+                    <ClipboardText text={site || "example.com"} size="sm" />
+                    <ClipboardText text={`${location.origin}/tracker.js`} size="sm" />
+                  </div>
                   <div>
                     <Text variant="secondary" size="sm">
                       Script tag
@@ -333,12 +345,17 @@ function Dashboard() {
           {Object.entries(filters).map(([key, value]) => (
             <Badge key={key} variant="primary">
               {key}: {value}
-              <Button
-                variant="ghost"
-                size="xs"
-                icon={<X size={12} />}
-                aria-label={`Remove ${key} filter`}
-                onClick={() => setSearch({ [key]: undefined })}
+              <Tooltip
+                content={`Remove ${key} filter`}
+                render={
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    icon={<X size={12} />}
+                    aria-label={`Remove ${key} filter`}
+                    onClick={() => setSearch({ [key]: undefined })}
+                  />
+                }
               />
             </Badge>
           ))}
@@ -730,7 +747,7 @@ function TimeseriesPanel({
           <PanelError message="Chart didn't load — Basin SQL didn't respond." />
         )
       ) : !data ? (
-        <div className="h-[300px] animate-pulse rounded-lg bg-kumo-recessed" />
+        <div className="skeleton rounded-lg " />
       ) : (
         <>
           <div className="mb-1 flex items-center justify-between">
@@ -933,11 +950,7 @@ function BreakdownTable({
         {dimSelect}
         <div className="mt-3 space-y-2">
           {[0.9, 0.7, 0.55].map((w) => (
-            <div
-              key={w}
-              className="h-5 animate-pulse rounded bg-kumo-recessed"
-              style={{ width: `${w * 100}%` }}
-            />
+            <div key={w} className="skeleton rounded " style={{ width: `${w * 100}%` }} />
           ))}
         </div>
       </>
@@ -1019,23 +1032,13 @@ function BreakdownTable({
         </Table.Body>
       </Table>
       {!isGoals && rows.length >= 8 && (
-        <div className="mt-3 flex items-center justify-end gap-2">
-          <Text variant="secondary" size="sm">
-            {(page - 1) * 10 + 1}–{(page - 1) * 10 + shown.length}
-          </Text>
-          <Button
-            variant="ghost"
-            icon={<CaretLeft size={14} />}
-            aria-label="Previous page"
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-          />
-          <Button
-            variant="ghost"
-            icon={<CaretRight size={14} />}
-            aria-label="Next page"
-            disabled={rows.length < 10}
-            onClick={() => setPage(page + 1)}
+        <div className="mt-3 flex justify-end">
+          <Pagination
+            controls="simple"
+            page={page}
+            setPage={setPage}
+            perPage={10}
+            hasNextPage={rows.length >= 10}
           />
         </div>
       )}
@@ -1116,14 +1119,30 @@ function RealtimeTab({ realtime }: { realtime: ReturnType<typeof useRealtime> })
           <Text variant="heading3" as="h2">
             Top referrers
           </Text>
-          <ul className="mt-3 space-y-1">
-            {stats.topReferrers.slice(0, 5).map((r) => (
-              <li key={r.referrer} className="flex justify-between text-sm">
-                <span className="truncate">{r.referrer || "Direct"}</span>
-                <span className="tabular-nums">{r.visitors}</span>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-3">
+            <Table layout="fixed">
+              <Table.Header>
+                <Table.Row>
+                  <Table.Head>
+                    <span className="mono-label">Referrer</span>
+                  </Table.Head>
+                  <Table.Head className="w-24 text-right">
+                    <span className="mono-label">Visitors</span>
+                  </Table.Head>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {stats.topReferrers.slice(0, 5).map((r) => (
+                  <Table.Row key={r.referrer}>
+                    <Table.Cell>
+                      <span className="truncate">{r.referrer || "Direct"}</span>
+                    </Table.Cell>
+                    <Table.Cell className="tabular-nums text-right">{r.visitors}</Table.Cell>
+                  </Table.Row>
+                ))}
+              </Table.Body>
+            </Table>
+          </div>
         </Surface>
       )}
     </div>
@@ -1132,7 +1151,7 @@ function RealtimeTab({ realtime }: { realtime: ReturnType<typeof useRealtime> })
 
 /* ---------- states ---------- */
 function SkeletonBlock({ h }: { h: number }) {
-  return <div className="animate-pulse rounded-xl bg-kumo-recessed" style={{ height: h }} />;
+  return <div className="skeleton rounded-xl " style={{ height: h }} />;
 }
 
 function MutedRows() {

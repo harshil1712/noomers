@@ -5,23 +5,14 @@ import { LineChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { z } from "zod";
-import {
-  Banner,
-  Breadcrumbs,
-  Button,
-  Empty,
-  Grid,
-  Select,
-  Surface,
-  Text,
-  Chart,
-} from "@cloudflare/kumo";
+import { Banner, Button, Empty, Grid, Select, Surface, Text, Chart } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
 import { useIsDark as dark } from "../../lib/use-is-dark";
 import { dashboardApi, type DashboardQuery } from "../../lib/dashboard-api";
 import { DeltaBadge } from "../../components/dashboard/delta-badge";
+import { PageHeader } from "../../components/page-header";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -150,8 +141,8 @@ function SiteCard({
         </div>
         {loading ? (
           <div className="space-y-2">
-            <div className="h-8 w-24 animate-pulse rounded bg-kumo-recessed" />
-            <div className="h-14 animate-pulse rounded bg-kumo-recessed" />
+            <div className="skeleton rounded " />
+            <div className="skeleton rounded " />
           </div>
         ) : error ? (
           <div className="py-4">
@@ -251,22 +242,16 @@ function SitesOverview() {
 
   return (
     <div className="flex flex-col gap-5 p-6">
-      <div className="flex flex-col gap-3">
-        <Breadcrumbs size="sm">
-          <Breadcrumbs.Current>Sites</Breadcrumbs.Current>
-        </Breadcrumbs>
-        <div className="flex flex-wrap items-center gap-3">
-          <div>
-            <Text variant="heading1" as="h1">
-              Sites
-            </Text>
+      <PageHeader
+        crumbs={[{ label: "Sites" }]}
+        title="Sites"
+        actions={
+          <>
             {sites && (
               <Text variant="secondary" size="sm">
                 {sites.length} site{sites.length === 1 ? "" : "s"} registered
               </Text>
             )}
-          </div>
-          <div className="ml-auto flex items-center gap-2">
             <Select
               value={interval}
               onValueChange={(v) => {
@@ -281,9 +266,9 @@ function SitesOverview() {
               ))}
             </Select>
             <AddSiteDialog />
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {basinDown && (
         <Banner
@@ -311,7 +296,7 @@ function SitesOverview() {
       ) : sites === null ? (
         <div className="grid grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-36 animate-pulse rounded-xl bg-kumo-recessed" />
+            <div key={i} className="skeleton rounded-xl " />
           ))}
         </div>
       ) : sites.length === 0 ? (
