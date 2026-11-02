@@ -7,7 +7,7 @@ import { PROJECT } from "#project";
 const posts = await getPublishedPosts();
 ---
 <PageLayout title={`Blog · ${PROJECT.productName}`} description={`Notes and guides from the ${PROJECT.productName} team.`}>
-  <span class="mono-label eyebrow">Blog</span>
+  <span class="mono-label eyebrow">Notes &amp; guides</span>
   <h1 class="font-display">Blog</h1>
   <p class="sub">Notes and guides from the {PROJECT.productName} team.</p>
   {posts.length === 0 ? <p class="empty">Nothing published yet.</p> : <PostList posts={posts} />}

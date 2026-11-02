@@ -63,7 +63,7 @@ a {
 .btn {
   display: inline-block;
   padding: 10px 18px;
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 500;
   background: var(--color-kumo-brand);
 
@@ -80,7 +80,7 @@ a {
 .btn-secondary {
   background: transparent;
   color: var(--color-kumo-default);
-  border-color: var(--color-kumo-line);
+  border-color: var(--color-kumo-control-line);
 }
 .btn-secondary:hover {
   background: var(--color-kumo-recessed);
