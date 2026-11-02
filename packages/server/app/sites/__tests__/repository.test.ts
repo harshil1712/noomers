@@ -30,6 +30,7 @@ describe("SitesRepository", () => {
         expect(bind).toHaveBeenCalledWith(
             "example.com",
             site.trackerId,
+            null,
             "Europe/London",
             JSON.stringify(site.trackerScriptConfiguration),
         );
