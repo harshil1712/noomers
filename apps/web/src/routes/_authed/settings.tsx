@@ -2,14 +2,44 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useId, useState, type FormEvent, useRef } from "react";
 import { Button, Input, Loader, Text } from "@cloudflare/kumo";
 import { authClient, useSession } from "../../lib/auth-client";
+
+/** Settings card over Kumo LayerCard: title/description/body in Primary,
+   optional actions row in Secondary. */
+function SettingsSection({
+  title,
+  description,
+  children,
+  footer,
+}: {
+  title: string;
+  description?: import("react").ReactNode;
+  children?: import("react").ReactNode;
+  footer?: import("react").ReactNode;
+}) {
+  return (
+    <LayerCard>
+      <LayerCard.Primary>
+        <Text variant="heading3" as="h2">
+          {title}
+        </Text>
+        {description && (
+          <Text variant="secondary" size="sm">
+            {description}
+          </Text>
+        )}
+        {children}
+      </LayerCard.Primary>
+      {footer && <LayerCard.Secondary>{footer}</LayerCard.Secondary>}
+    </LayerCard>
+  );
+}
 import { authErrorMessage, type AuthErrorLike } from "../../lib/auth-errors";
 import { toast } from "../../lib/toast";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { PageHeader } from "../../components/page-header";
-import { SettingsSection } from "../../components/settings-section";
+import { LayerCard, SensitiveInput } from "@cloudflare/kumo";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
-import { PasswordInput } from "../../components/password-input";
 
 export const Route = createFileRoute("/_authed/settings")({ component: Settings });
 
@@ -38,7 +68,7 @@ function Settings() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      <PageHeader title="Settings" description="Your profile, password and sessions." />
+      <PageHeader crumbs={[{ label: "Sites", to: "/" }, { label: "Settings" }]} title="Settings" />
       {!user || hasPassword === null ? (
         <div className="flex justify-center py-12">
           <Loader size="base" aria-label="Loading settings" />
@@ -154,7 +184,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
     >
       <form id={formId} onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         <div ref={currentRef}>
-          <PasswordInput
+          <SensitiveInput
             label="Current password"
             value={current}
             onValueChange={setCurrent}
@@ -162,7 +192,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
             error={wrongCurrent ? "That password isn't right." : undefined}
           />
         </div>
-        <PasswordInput
+        <SensitiveInput
           label="New password"
           description="At least 8 characters"
           value={next}
@@ -250,12 +280,12 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
           trigger={<Button variant="secondary-destructive">Delete account</Button>}
         >
           {hasPassword ? (
-            <PasswordInput
+            <SensitiveInput
               label="Enter your password to confirm"
               value={password}
               onValueChange={setPassword}
               autoComplete="current-password"
-              invalid={Boolean(error)}
+              variant={error ? "error" : "default"}
             />
           ) : (
             <Text variant="secondary" size="sm">

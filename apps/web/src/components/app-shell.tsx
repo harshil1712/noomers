@@ -155,17 +155,7 @@ function SidebarNav() {
           </Sidebar.Menu>
         </Sidebar.Group>
         <Sidebar.Group className="mt-auto">
-          <Sidebar.Menu>
-            <Sidebar.MenuButton
-              icon={Gear}
-              active={pathname.startsWith("/settings")}
-              tooltip="Settings"
-              className={FOCUS_RING}
-              onClick={() => void navigate({ to: "/settings" })}
-            >
-              Settings
-            </Sidebar.MenuButton>
-          </Sidebar.Menu>
+          <Sidebar.Menu></Sidebar.Menu>
         </Sidebar.Group>
       </Sidebar.Content>
       <Sidebar.Footer className="justify-between gap-2">
