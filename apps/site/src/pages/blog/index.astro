@@ -7,14 +7,24 @@ import { PROJECT } from "#project";
 const posts = await getPublishedPosts();
 ---
 <PageLayout title={`Blog · ${PROJECT.productName}`} description={`Notes and guides from the ${PROJECT.productName} team.`}>
+  <span class="mono-label eyebrow">Blog</span>
   <h1 class="font-display">Blog</h1>
+  <p class="sub">Notes and guides from the {PROJECT.productName} team.</p>
   {posts.length === 0 ? <p class="empty">Nothing published yet.</p> : <PostList posts={posts} />}
 </PageLayout>
 <style>
+  .eyebrow { display: block; }
   h1 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
     font-size: 36px;
-    font-weight: 600;
+    font-weight: 400;
     letter-spacing: -0.02em;
+    margin-top: 4px;
+  }
+  .sub {
+    margin-top: 8px;
+    font-size: 17px;
+    color: var(--color-kumo-subtle);
   }
   .empty {
     margin-top: 24px;

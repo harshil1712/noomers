@@ -25,17 +25,20 @@ if (posts.length === 0) return new Response("Not found", { status: 404 });
 ---
 <PageLayout title={`Posts tagged "${tag}" · ${PROJECT.productName}`} description={`${PROJECT.productName} blog posts tagged ${tag}.`}>
   <p class="back"><a href="/blog/">← Blog</a></p>
-  <h1 class="font-display">Posts tagged “{tag}”</h1>
+  <span class="mono-label eyebrow">Tagged</span>
+  <h1 class="font-display">{tag}</h1>
   <PostList posts={posts} />
 </PageLayout>
 <style>
   .back {
     font-size: 14px;
   }
+  .eyebrow { display: block; }
   h1 {
-    font-size: 32px;
-    font-weight: 600;
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 36px;
+    font-weight: 400;
     letter-spacing: -0.02em;
-    margin-top: 12px;
+    margin-top: 4px;
   }
 </style>

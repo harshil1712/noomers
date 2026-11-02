@@ -6,8 +6,9 @@ import { PROJECT } from "#project";
 const LAST_UPDATED = new Date("2026-11-02");
 ---
 <PageLayout title={`Privacy · ${PROJECT.productName}`} description={`How ${PROJECT.productName} handles your data.`}>
+  <span class="mono-label eyebrow">Legal</span>
   <h1 class="font-display">Privacy</h1>
-  <p class="updated">Last updated <time datetime={isoDate(LAST_UPDATED)}>{formatDate(LAST_UPDATED)}</time></p>
+  <p class="updated mono-label">Last updated <time datetime={isoDate(LAST_UPDATED)}>{formatDate(LAST_UPDATED)}</time></p>
   <div class="sections">
     <section>
       <h2>Your data stays yours</h2>
@@ -48,6 +49,39 @@ const LAST_UPDATED = new Date("2026-11-02");
   </div>
 </PageLayout>
 <style>
-  .updated { color: var(--ff-subtle, #666); font-size: 0.9em; }
-  .sections section { margin-bottom: 1.5rem; max-width: 62ch; }
+  .eyebrow { display: block; }
+  h1 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 36px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-top: 4px;
+  }
+  .updated { margin-top: 10px; }
+  .sections {
+    margin-top: 32px;
+    max-width: 68ch;
+  }
+  .sections section {
+    padding: 28px 0;
+    border-top: 1px solid var(--color-kumo-hairline);
+  }
+  .sections section:first-child { border-top: 0; padding-top: 0; }
+  .sections h2 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .sections p {
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--color-kumo-subtle);
+    text-wrap: pretty;
+  }
+  .sections a {
+    color: var(--color-kumo-brand);
+    text-underline-offset: 3px;
+  }
 </style>

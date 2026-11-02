@@ -2,11 +2,11 @@ import type { APIContext } from "astro";
 import { getPublishedPosts } from "../lib/posts";
 import { PROJECT } from "#project";
 
-const SUMMARY = `${PROJECT.productName} is a full-stack SaaS template for Cloudflare: auth, a D1 database, an admin area, a marketing site with a blog, and deploys included.`;
+const SUMMARY = `${PROJECT.productName} is privacy-first, self-hosted web analytics for Cloudflare: a lightweight tracker, a realtime dashboard, and a Plausible-compatible API subset — all inside the owner\u2019s own Cloudflare account.`;
 
 const PAGES: [string, string, string][] = [
   ["/", "Home", SUMMARY],
-  ["/privacy", "Privacy policy", "What data the site and app collect, and why."],
+  ["/privacy", "Privacy policy", "How noomers handles visitor and account data."],
   ["/blog/", "Blog", `Notes and guides from the ${PROJECT.productName} team.`],
 ];
 

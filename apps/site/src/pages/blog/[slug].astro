@@ -82,10 +82,12 @@ if (post.data.faq?.length) {
 >
   <p class="back"><a href="/blog/">← Blog</a></p>
   <h1 class="font-display">{post.data.title}</h1>
-  <p class="meta">
-    {post.data.author} · <time datetime={isoDate(pubDate)}>{formatDate(pubDate)}</time>
+  <p class="meta mono-label">
+    <time datetime={isoDate(pubDate)}>{formatDate(pubDate)}</time>
+    {post.data.tags.length > 0 && <> · {post.data.tags.join(", ")}</>}
+    {post.data.author && <> · {post.data.author}</>}
     {showUpdated && updatedDate && (
-      <> · Updated <time datetime={isoDate(updatedDate)}>{formatDate(updatedDate)}</time></>
+      <> · updated <time datetime={isoDate(updatedDate)}>{formatDate(updatedDate)}</time></>
     )}
   </p>
   <TagList tags={post.data.tags} />
@@ -117,11 +119,11 @@ if (post.data.faq?.length) {
     </section>
   )}
   <section class="cta" aria-labelledby="post-cta">
-    <h2 class="font-display" id="post-cta">Start your SaaS on {PROJECT.productName}</h2>
-    <p>Auth, D1, an admin area, per-PR deploys and a blog like this one, already working on Cloudflare. Rename the repo with one command.</p>
+    <h2 class="font-display" id="post-cta">Run your own analytics</h2>
+    <p>Privacy-first web analytics that run entirely in your own Cloudflare account — a lightweight tracker, a realtime dashboard and Plausible-compatible APIs.</p>
     <div class="cta-links">
-      <a class="btn" href={APP_URL}>Get {PROJECT.productName}</a>
-      <a class="btn btn-secondary" href="/#ships">See what ships</a>
+      <a class="btn" href="https://github.com/harshil1712/noomers#deploy">Deploy to your Cloudflare account</a>
+      <a class="btn btn-secondary" href="https://github.com/harshil1712/noomers">View on GitHub</a>
     </div>
   </section>
 </PageLayout>
@@ -130,8 +132,9 @@ if (post.data.faq?.length) {
     font-size: 14px;
   }
   h1 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
     font-size: 34px;
-    font-weight: 600;
+    font-weight: 400;
     letter-spacing: -0.02em;
     line-height: 1.15;
     margin-top: 16px;
@@ -150,9 +153,69 @@ if (post.data.faq?.length) {
   }
   .body {
     margin-top: 32px;
+    font-size: 18px;
+    line-height: 1.7;
+    max-width: 68ch;
   }
-  .faq {
-    margin-top: 40px;
+  .body :global(h2), .body :global(h3) {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-top: 2em;
+    margin-bottom: 0.6em;
+    line-height: 1.25;
+  }
+  .body :global(h2) { font-size: 26px; }
+  .body :global(h3) { font-size: 20px; }
+  .body :global(p) { margin: 1em 0; text-wrap: pretty; }
+  .body :global(a) {
+    color: var(--color-kumo-brand);
+    text-underline-offset: 3px;
+  }
+  .body :global(code) {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--color-kumo-recessed);
+    border: 1px solid var(--color-kumo-hairline);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+  }
+  .body :global(pre) {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    background: var(--color-kumo-recessed);
+    border: 1px solid var(--color-kumo-hairline);
+    border-radius: 10px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 1.5em 0;
+  }
+  .body :global(pre code) {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+  }
+  .body :global(blockquote) {
+    border-left: 3px solid var(--color-kumo-brand);
+    padding-left: 1em;
+    margin: 1.5em 0;
+    color: var(--color-kumo-subtle);
+  }
+  .faq, .related {
+    margin-top: 48px;
+    border-top: 1px solid var(--color-kumo-hairline);
+    padding-top: 28px;
+  }
+  .faq > h2, .related > h2 {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-kumo-subtle);
+    margin: 0 0 20px;
   }
   .qa {
     margin-top: 20px;
@@ -160,15 +223,11 @@ if (post.data.faq?.length) {
   .qa h3 {
     font-size: 17px;
   }
-  .related {
-    margin-top: 48px;
-    border-top: 1px solid var(--color-kumo-line);
-    padding-top: 24px;
-  }
-  .related h2,
   .cta h2 {
-    font-size: 20px;
-    font-weight: 600;
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
   }
   .related ul {
     list-style: none;

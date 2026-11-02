@@ -32,41 +32,43 @@ const { posts, showTags = true, size = "default", headingLevel = 2 } = Astro.pro
     list-style: none;
     padding: 0;
     margin-top: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
   }
+  .posts li {
+    padding: 24px 0;
+    border-top: 1px solid var(--color-kumo-hairline);
+  }
+  .posts li:first-child { border-top: 0; padding-top: 0; }
   time {
-    font-size: 13px;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: var(--color-kumo-subtle);
-    font-variant-numeric: tabular-nums;
   }
   .title {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
     line-height: 1.3;
-    margin-top: 2px;
+    margin-top: 6px;
     text-wrap: balance;
   }
   .title a {
     text-decoration: none;
+    color: var(--color-kumo-default);
   }
   .title a:hover {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: var(--color-kumo-brand);
+    text-decoration: none;
   }
   .desc {
     margin-top: 6px;
-    font-size: 15px;
+    font-size: 16px;
     color: var(--color-kumo-subtle);
     max-width: 65ch;
   }
-  .compact {
-    margin-top: 24px;
-    gap: 20px;
-  }
+  .compact li { padding: 16px 0; }
   .compact .title {
     font-size: 17px;
   }
