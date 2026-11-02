@@ -1,6 +1,5 @@
 ---
 import PageLayout from "../components/PageLayout.astro";
-import Crew from "../components/Crew.astro";
 import { PROJECT } from "#project";
 ---
 <PageLayout
@@ -10,10 +9,9 @@ import { PROJECT } from "#project";
   <div class="nf">
     <div class="mark">
       <div class="glow" aria-hidden="true"></div>
-      <Crew robot={1} color="--crew-1" placement="inline" />
     </div>
     <h1 class="font-display">Page not found</h1>
-    <p>The crew can't find that page either. It may have moved, or the link has a typo.</p>
+    <p>That page doesn't exist. It may have moved, or the link has a typo.</p>
     <div class="links">
       <a class="btn" href="/">Back to {PROJECT.domain}</a>
       <a class="btn btn-secondary" href="/blog/">Read the blog</a>

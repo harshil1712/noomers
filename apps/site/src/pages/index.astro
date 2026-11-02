@@ -1,10 +1,7 @@
 ---
 import PageLayout from "../components/PageLayout.astro";
-import AppMock from "../components/AppMock.astro";
-import Crew from "../components/Crew.astro";
 import PostList from "../components/PostList.astro";
-import { PROJECT, APP_DOMAIN } from "#project";
-const APP_URL = import.meta.env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`;
+import { PROJECT } from "#project";
 import { getPublishedPosts } from "../lib/posts";
 
 const latest = (await getPublishedPosts()).slice(0, 3);
@@ -14,56 +11,77 @@ const description =
 <PageLayout title={`${PROJECT.productName}: privacy-first self-hosted analytics`} description={description} width="wide">
   <section class="hero">
     <div class="copy">
-      <h1 class="font-display">Web analytics <em>that never leave your account</em>.</h1>
-      <p class="sub">noomers is a privacy-first analytics platform you self-host on Cloudflare. A tiny tracker script, a realtime dashboard, and Plausible-compatible APIs — with no cookies, no raw IPs, and visitor IDs that rotate daily.</p>
+      <h1 class="font-display">Count every visit. <em>Forget every visitor.</em></h1>
+      <p class="sub">Privacy-first analytics you self-host on Cloudflare — a tiny tracker, a realtime dashboard, and Plausible-compatible APIs, running entirely inside your own account.</p>
       <div class="btns">
-        <a class="btn cta" href="https://github.com/harshil1712/noomers">Self-host noomers</a>
-        <a class="btn btn-secondary cta" href="/blog/">Read the blog</a>
+        <a class="btn cta" href="https://github.com/harshil1712/noomers">Self-host on Cloudflare</a>
+        <a class="btn btn-secondary cta" href="https://github.com/harshil1712/noomers#readme">Read the docs</a>
       </div>
     </div>
-    <div class="scene">
-      <AppMock />
-      <Crew robot={1} color="--crew-1" carry="DO" placement="lane" index={0} />
-      <Crew robot={3} color="--crew-2" carry="D1" flip placement="lane" index={1} />
-      <Crew robot={2} color="--crew-3" carry="R2" flip placement="lane" index={2} />
-      <Crew robot={0} color="--crew-4" carry="SQL" flip placement="lane" index={3} />
-    </div>
+    <figure class="ring-wrap" aria-hidden="true">
+      <svg class="ring" viewBox="0 0 260 260" width="260" height="260">
+        <circle cx="130" cy="130" r="112" fill="none" stroke="var(--color-kumo-hairline)" stroke-width="2"/>
+        <g class="ticks" stroke="var(--color-kumo-control-line)" stroke-width="1.5"></g>
+        <text x="130" y="18" text-anchor="middle" class="ring-label" fill="var(--color-kumo-subtle)">00:00 UTC</text>
+        <g class="dots" fill="var(--color-kumo-brand)"></g>
+        <circle cx="130" cy="130" r="5" fill="var(--color-kumo-brand)"/>
+      </svg>
+      <figcaption class="ring-cap">Visitor IDs are salted per day and rotate at 00:00 UTC.</figcaption>
+    </figure>
   </section>
 
-  <section class="ships" id="ships">
-    <h2 class="font-display">What ships</h2>
-    <p class="lede">Everything runs on your own Cloudflare account — nothing is proxied through a third party.</p>
-    <div class="rows">
-      <div class="row"><b>Privacy by construction</b><p>No cookies. Raw IPs and full user-agents are never persisted. Visitor IDs are salted, site-scoped and rotate daily in UTC.</p></div>
-      <div class="row"><b>Realtime</b><p>A per-site Durable Object buffers events and streams live aggregates into the dashboard over WebSocket.</p></div>
-      <div class="row"><b>Full history</b><p>Events ship to a Basin Pipeline → R2 → Iceberg and are queried with Basin SQL — no fixed retention limit.</p></div>
-      <div class="row"><b>Dashboard</b><p>Stats, timeseries, realtime visitors, goals, and paginated breakdowns — gated by Better Auth, single-owner admin.</p></div>
-      <div class="row"><b>Plausible-compatible APIs</b><p>A subset of the Sites, Events and Stats APIs — bring your own integrations. See the parity doc for coverage.</p></div>
-      <div class="row"><b>Cloudflare-native</b><p>Workers, D1, Durable Objects, Pipelines, R2/Iceberg, Turnstile and Email — declared as code in one Alchemy stack.</p></div>
-    </div>
+  <section class="steps">
+    <h2 class="font-display">How it forgets</h2>
+    <ol class="stepgrid">
+      <li><b>1 · A pageview lands</b><p>The tracker sends the event — page, referrer, campaign — with no cookies and no raw IP.</p></li>
+      <li><b>2 · Hashed with today's salt</b><p>The worker turns it into a salted, site-scoped visitor ID. Raw IPs and full user-agents are never persisted.</p></li>
+      <li><b>3 · Durably stored, in your account</b><p>Events stream through a Basin pipeline into your own R2/Iceberg table — full history, no retention cliff.</p></li>
+      <li><b>4 · Midnight, the salt rotates</b><p>At 00:00 UTC the salt changes. Yesterday's visitor IDs can't be linked to today's — by design.</p></li>
+    </ol>
   </section>
 
-  <section class="agents" id="install">
+  <section class="arch">
+    <h2 class="font-display">Runs in your Cloudflare account</h2>
+    <div class="flow" role="img" aria-label="Tracker sends events to a Worker, which writes to a per-site Durable Object for realtime and a Pipeline to R2/Iceberg; Basin SQL feeds the dashboard.">
+      <span class="node">Tracker</span><span class="arrow">→</span>
+      <span class="node">Worker</span><span class="arrow">→</span>
+      <span class="node">Durable Object<br/><small>realtime</small></span><span class="arrow">→</span>
+      <span class="node">Pipeline</span><span class="arrow">→</span>
+      <span class="node">R2 / Iceberg</span><span class="arrow">→</span>
+      <span class="node">Basin SQL</span><span class="arrow">→</span>
+      <span class="node">Dashboard</span>
+    </div>
+    <p class="lede">D1 holds the site registry, a per-site Durable Object serves realtime and buffers events, and Basin SQL answers every historical query.</p>
+  </section>
+
+  <section class="api">
+    <h2 class="font-display">Plausible-compatible API</h2>
+    <p class="lede">A subset of Plausible's Events, Sites and Stats APIs — keep your integrations, dashboards and imports. Exact coverage lives in the <a href="https://github.com/harshil1712/noomers/blob/main/docs/plausible-feature-parity.md">parity document</a>.</p>
+    <pre class="code"><code>curl https://app.noomers.dev/api/v2/query \
+  -H "Authorization: Bearer $STATS_API_TOKEN" \
+  -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</code></pre>
+  </section>
+
+  <section class="install">
     <h2 class="font-display">Two lines to track</h2>
-    <p class="lede">Register a site through the Sites API, then drop the snippet on your pages.</p>
     <div class="cards">
       <div class="acard">
         <h3>Script tag</h3>
-        <pre role="region" tabindex="0" aria-label="Tracker snippet">&lt;script defer
+        <pre><code>&lt;script defer
   src="https://app.noomers.dev/tracker.js"
-  data-site-id="example.com"&gt;&lt;/script&gt;</pre>
+  data-site-id="example.com"&gt;&lt;/script&gt;</code></pre>
       </div>
       <div class="acard">
         <h3>Plausible-style</h3>
-        <pre role="region" tabindex="0" aria-label="Plausible compatible script">&lt;script defer
+        <pre><code>&lt;script defer
   src="https://app.noomers.dev/js/pa-XXXX.js"
-  data-domain="example.com"&gt;&lt;/script&gt;</pre>
+  data-domain="example.com"&gt;&lt;/script&gt;</code></pre>
       </div>
       <div class="acard">
         <h3>Server-side</h3>
-        <pre role="region" tabindex="0" aria-label="Server tracking">{'import { track } from "@noomers/tracker/server";'}
-// trusted first-party events with
-// SERVER_EVENTS_TOKEN.</pre>
+        <pre><code>import &#123; track &#125; from "@noomers/tracker/server";
+// trusted first-party events,
+// gated by SERVER_EVENTS_TOKEN.</code></pre>
       </div>
     </div>
   </section>
@@ -76,206 +94,92 @@ const description =
   <section class="band" aria-labelledby="band-title">
     <div>
       <h2 class="font-display" id="band-title">Self-host noomers</h2>
-      <p>Deploy to your own Cloudflare account through a merged PR — infra declared in one Alchemy stack, smoke-tested, rolled back on failure.</p>
+      <p>Deploy to your own Cloudflare account through a merged PR — one Alchemy stack, smoke-tested, rolled back on failure.</p>
     </div>
     <a class="btn cta inv" href="https://github.com/harshil1712/noomers">Get noomers</a>
   </section>
-  <div id="escort" aria-hidden="true"><Crew robot={1} color="--crew-1" carry="PRIVACY" placement="block" /></div>
 </PageLayout>
 <style>
-  .hero {
-    display: grid;
-    grid-template-columns: 0.9fr 1.1fr;
-    gap: 40px;
-    padding-block: 56px 72px;
-    align-items: center;
+  .hero { display:grid; grid-template-columns: 1.2fr .8fr; gap:3rem; align-items:center; padding: 3rem 0 2rem; }
+  .hero h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); margin:0 0 1rem; line-height:1.05; }
+  .hero h1 em { font-style: normal; color: var(--brand-text); }
+  .sub { font-size:1.15rem; color: var(--color-kumo-subtle); max-width: 46ch; }
+  .btns { display:flex; gap:.75rem; margin-top:1.75rem; flex-wrap:wrap; }
+  .btn { display:inline-block; padding:.7rem 1.4rem; border-radius:10px; font-weight:600; text-decoration:none; }
+  .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); }
+  .btn.btn-secondary { border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); }
+  .ring-wrap { text-align:center; }
+  .ring-cap { margin-top:.75rem; font-size:.85rem; color: var(--color-kumo-subtle); }
+  .ring .dot { transition: opacity .3s; }
+  section { margin: 3rem 0; }
+  h2.font-display { font-size: 1.8rem; margin-bottom: 1rem; }
+  .stepgrid { list-style:none; padding:0; display:grid; grid-template-columns: repeat(4, 1fr); gap:1.25rem; }
+  .stepgrid li b { display:block; margin-bottom:.4rem; color: var(--color-kumo-default); }
+  .stepgrid li p { color: var(--color-kumo-subtle); font-size:.95rem; margin:0; }
+  .flow { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; margin:1.25rem 0; }
+  .node { border:1px solid var(--color-kumo-control-line); background:var(--color-kumo-elevated); border-radius:10px; padding:.55rem .9rem; font-size:.9rem; text-align:center; }
+  .node small { color: var(--live-text); }
+  .arrow { color: var(--color-kumo-subtle); }
+  .lede { color: var(--color-kumo-subtle); max-width: 62ch; }
+  .code, .acard pre { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size:.82rem; background: var(--color-kumo-recessed); padding:1rem; border-radius:10px; overflow-x:auto; }
+  .cards { display:grid; grid-template-columns: repeat(3,1fr); gap:1rem; }
+  .acard { border:1px solid var(--color-kumo-hairline); border-radius:12px; padding:1.1rem; background: var(--color-kumo-elevated); }
+  .acard h3 { margin:0 0 .6rem; font-size:1rem; }
+  .band { display:flex; justify-content:space-between; align-items:center; gap:2rem; background:var(--brand-tint); border-radius:16px; padding:2rem 2.5rem; }
+  .btn.inv { background: var(--color-kumo-brand); color: var(--brand-ink); }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; }
+    .stepgrid, .cards { grid-template-columns: 1fr; }
+    .band { flex-direction:column; align-items:flex-start; }
   }
-  .hero > * {
-    min-width: 0;
-  }
-  h1 {
-    font-size: 64px;
-    font-weight: 700;
-    letter-spacing: -0.035em;
-    line-height: 1.04;
-    text-wrap: balance;
-  }
-  h1 em {
-    font-style: normal;
-    color: var(--brand-text);
-  }
-  .sub {
-    margin-top: 22px;
-    font-size: 19px;
-    color: var(--color-kumo-subtle);
-    line-height: 1.6;
-    max-width: 460px;
-  }
-  .btns {
-    margin-top: 34px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 14px;
-  }
-  .cta {
-    font-size: 16px;
-    font-weight: 600;
-    padding: 14px 28px;
-  }
-  .scene {
-    position: relative;
-    padding-bottom: 64px;
-  }
-
-  .ships,
-  .agents,
-  .latest {
-    padding-block: 60px;
-  }
-  h2 {
-    font-size: 38px;
-    font-weight: 700;
-    letter-spacing: -0.025em;
-    text-wrap: balance;
-  }
-  .lede {
-    margin-top: 12px;
-    color: var(--color-kumo-subtle);
-    max-width: 580px;
-    font-size: 17px;
-  }
-  .rows {
-    margin-top: 36px;
-    border-top: 1px solid var(--color-kumo-line);
-  }
-  .row {
-    display: grid;
-    grid-template-columns: 200px 1fr;
-    gap: 24px;
-    padding: 22px 8px;
-    border-bottom: 1px solid var(--color-kumo-line);
-    transition: background-color 0.15s ease;
-  }
-  .row:hover {
-    background: var(--brand-tint);
-  }
-  .row b {
-    font-size: 17px;
-  }
-  .row p {
-    font-size: 16px;
-    color: var(--color-kumo-subtle);
-    line-height: 1.6;
-    margin: 0;
-  }
-  .row:hover p {
-    color: var(--color-kumo-default);
-  }
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-    gap: 18px;
-    margin-top: 36px;
-  }
-  .acard {
-    min-width: 0;
-    background: var(--color-kumo-elevated);
-    border: 1px solid var(--color-kumo-line);
-    border-radius: 14px;
-    padding: 22px;
-  }
-  .acard h3 {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 700;
-    margin-bottom: 12px;
-  }
-  .acard pre {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    line-height: 1.7;
-    background: var(--color-kumo-canvas);
-    border-radius: 10px;
-    padding: 14px;
-    white-space: pre;
-    overflow-x: auto;
-  }
-  .band {
-    margin-bottom: 72px;
-    background: var(--color-kumo-brand);
-    border-radius: 20px;
-    padding: 52px 48px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 24px;
-  }
-  .band h2,
-  .band p {
-    color: var(--brand-ink);
-  }
-  .band p {
-    margin-top: 8px;
-    max-width: 560px;
-  }
-  /* inverted button: brand-ink surface, brand text. light: #c73d19 on #fff (5.1:1);
-     dark: #ff6b42 on #121212 (6.6:1) */
-  .btn.inv {
-    background: var(--brand-ink);
-    color: var(--color-kumo-brand);
-    border-color: transparent;
-  }
-  .btn.inv:hover {
-    background: color-mix(in oklch, var(--brand-ink), var(--color-kumo-brand) 8%);
-  }
-  .btn.inv:focus-visible {
-    outline-color: var(--brand-ink);
-  }
-
-  #escort {
-    position: fixed;
-    top: 0;
-    right: max(16px, calc((100vw - 1136px) / 2 - 60px - 16px));
-    z-index: 40;
-    display: none;
-    transform: translateY(var(--escort-y, 38vh));
-    transition: transform 0.6s cubic-bezier(0.77, 0, 0.175, 1);
-  }
-  @media (min-width: 1400px) {
-    #escort.on {
-      display: block;
-    }
-  }
-
-  @media (max-width: 900px) {
-    .hero {
-      grid-template-columns: 1fr;
-      padding-block: 32px 56px;
-    }
-    h1 {
-      font-size: 40px;
-    }
-    .row {
-      grid-template-columns: 1fr;
-      gap: 6px;
-    }
-    h2 {
-      font-size: 30px;
-    }
-  }
-  @media (max-width: 600px) {
-    .band {
-      padding: 36px 24px;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #escort {
-      transition: none;
-    }
-  }
+  /* 24-hour ring: ticks + dots drawn by JS below; dots appear clockwise over a
+     ~12s "day" and fade at 00:00. Reduced-motion: a static partial day. */
 </style>
-<script src="../scripts/crew.ts"></script>
+<script>
+  const svg = document.querySelector(".ring");
+  if (svg) {
+    const cx = 130, cy = 130, r = 112;
+    const ticks = svg.querySelector(".ticks");
+    for (let h = 0; h < 24; h++) {
+      const a = (h / 24) * Math.PI * 2 - Math.PI / 2;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      const outer = r, inner = h % 6 === 0 ? r - 12 : r - 7;
+      line.setAttribute("x1", cx + Math.cos(a) * inner);
+      line.setAttribute("y1", cy + Math.sin(a) * inner);
+      line.setAttribute("x2", cx + Math.cos(a) * outer);
+      line.setAttribute("y2", cy + Math.sin(a) * outer);
+      if (h % 6 === 0) line.setAttribute("stroke-width", "2.5");
+      ticks.appendChild(line);
+    }
+    const dots = svg.querySelector(".dots");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const N = 24, LOOP = 12000;
+    const make = () => {
+      const list = [];
+      for (let h = 0; h < N; h++) {
+        const a = (h / N) * Math.PI * 2 - Math.PI / 2;
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", cx + Math.cos(a) * (r - 26));
+        c.setAttribute("cy", cy + Math.sin(a) * (r - 26));
+        c.setAttribute("r", "3.5");
+        c.setAttribute("class", "dot");
+        c.setAttribute("fill", h < 6 ? "var(--color-kumo-brand)" : "var(--series-2)");
+        dots.appendChild(c);
+        list.push(c);
+      }
+      return list;
+    };
+    const els = make();
+    if (reduced) {
+      els.forEach((el, i) => (el.style.opacity = i < 9 ? 1 : 0.15));
+    } else {
+      els.forEach((el, i) => {
+        el.style.opacity = 0;
+        el.animate(
+          [{ opacity: 0 }, { opacity: 1 }, { opacity: 1, offset: 0.96 }, { opacity: 0 }],
+          { duration: LOOP, iterations: Infinity, delay: (i / N) * LOOP, easing: "linear" },
+        );
+      });
+    }
+  }
+</script>

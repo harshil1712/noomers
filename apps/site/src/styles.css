@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@noomers/brand/tokens.css";
-@import "@noomers/brand/crew/crew.css";
 
 .wrap {
   max-width: 1136px;
