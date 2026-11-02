@@ -973,7 +973,9 @@ function BreakdownTable({
               <span className="mono-label">Name</span>
             </Table.Head>
             <Table.Head className="w-24 text-right">
-              {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
+              <span className="mono-label">
+                {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
+              </span>
             </Table.Head>
             <Table.Head className="w-14 text-right">
               <span className="mono-label">%</span>
