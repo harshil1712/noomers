@@ -231,7 +231,9 @@ export async function createGoal(c: C) {
         goal.type === type &&
         goal.value === value.trim() &&
         JSON.stringify(goal.customProps) ===
-          JSON.stringify(Object.fromEntries(Object.entries(customProps).sort(([a], [b]) => a.localeCompare(b)))),
+          JSON.stringify(
+            Object.fromEntries(Object.entries(customProps).sort(([a], [b]) => a.localeCompare(b))),
+          ),
     );
     const goal =
       existing ||

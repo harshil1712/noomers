@@ -3,9 +3,8 @@ import UAParserDefault, { IDevice } from "ua-parser-js";
 // CJS/ESM interop: under workerd the UMD bundle surfaces the parser on the
 // default export (or nested under `.UAParser`); node resolves the named
 // export directly.
-const UAParser = (
-  UAParserDefault as unknown as { UAParser?: typeof UAParserDefault }
-).UAParser ?? UAParserDefault;
+const UAParser =
+  (UAParserDefault as unknown as { UAParser?: typeof UAParserDefault }).UAParser ?? UAParserDefault;
 import { shouldDropBot } from "./bot";
 import { hasServerEventsToken } from "./server-token";
 import { maskBrowserVersion } from "../lib/utils";
