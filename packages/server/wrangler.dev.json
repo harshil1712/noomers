@@ -45,6 +45,7 @@
     "R2_SQL_BUCKET": "noomers-dev-events",
     "R2_SQL_TABLE": "noomers.events",
     "CF_ACCOUNT_ID": "cf583c9be8982922212ed2e432115f57",
-    "CF_AUTH_ENABLED": "true"
+    "CF_AUTH_ENABLED": "true",
+    "R2_SQL_IMPORT_TABLE": "noomers.events_import"
   }
 }
