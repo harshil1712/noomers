@@ -8,6 +8,7 @@ declare namespace Cloudflare {
         CF_TRACKER_SCRIPT_NAME: string;
         CF_STORAGE_ENABLED: string;
         VISITOR_SALT: string;
+        SERVER_EVENTS_TOKEN?: string;
         STATS_API_TOKEN?: string;
         SITES_API_TOKEN?: string;
         R2_SQL_BUCKET?: string;

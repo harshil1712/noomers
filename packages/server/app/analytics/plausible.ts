@@ -7,6 +7,7 @@ import {
     type CollectEnv,
     type EventInput,
 } from "./collect";
+import { hasServerEventsToken } from "./server-token";
 import { shouldDropBot } from "./bot";
 
 const CORS_HEADERS = {
@@ -135,14 +136,19 @@ function isValidIp(value: string): boolean {
     }
 }
 
-function getClientIp(request: Request): string | undefined {
-    const forwarded = request.headers.get("x-forwarded-for");
-    if (forwarded) {
-        const firstValid = forwarded
-            .split(",")
-            .map((value) => value.trim())
-            .find(isValidIp);
-        if (firstValid) return firstValid;
+async function getClientIp(
+    request: Request,
+    env: CollectEnv,
+): Promise<string | undefined> {
+    if (await hasServerEventsToken(request, env)) {
+        const forwarded = request.headers.get("x-forwarded-for");
+        if (forwarded) {
+            const firstValid = forwarded
+                .split(",")
+                .map((value) => value.trim())
+                .find(isValidIp);
+            if (firstValid) return firstValid;
+        }
     }
 
     const connectingIp = request.headers.get("cf-connecting-ip");
@@ -264,7 +270,14 @@ export async function plausibleEventRequestHandler(
         });
     }
 
-    const clientIp = getClientIp(request);
+    if (!env.VISITOR_SALT) {
+        console.error("VISITOR_SALT is not configured; refusing collection");
+        return new Response("Service misconfigured", {
+            status: 503,
+            headers: CORS_HEADERS,
+        });
+    }
+    const clientIp = await getClientIp(request, env);
     if (request.headers.get("x-debug-request") === "true") {
         return new Response(clientIp || "", {
             status: 200,

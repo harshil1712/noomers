@@ -1,5 +1,6 @@
 import { IDevice, UAParser } from "ua-parser-js";
 import { shouldDropBot } from "./bot";
+import { hasServerEventsToken } from "./server-token";
 import { maskBrowserVersion } from "~/lib/utils";
 import { SitesRepository, type SiteCollectionStatus } from "~/sites/repository";
 
@@ -14,7 +15,7 @@ export interface SiteEventsNamespace {
 }
 
 export type CollectEnv = Partial<
-    Pick<Env, "VISITOR_SALT" | "GOALS_DB" | "SITE_EVENTS">
+    Pick<Env, "VISITOR_SALT" | "GOALS_DB" | "SITE_EVENTS" | "SERVER_EVENTS_TOKEN">
 >;
 
 export async function getSiteCollectionStatus(
@@ -310,6 +311,19 @@ async function getDailyVisitorId(
     ).join("");
 }
 
+/** Drop self-referrals: a referrer whose host matches the event host is
+ * navigation-internal, matching Plausible's behaviour. */
+export function stripSelfReferrer(referrer: string, host: string): string {
+    if (!referrer || !host) return referrer;
+    try {
+        const refHost = new URL(referrer).hostname.replace(/^www\./, "");
+        const evHost = host.replace(/^www\./, "");
+        return refHost === evHost ? "" : referrer;
+    } catch {
+        return referrer;
+    }
+}
+
 export async function normalizeEvent(
     request: Request,
     env: CollectEnv,
@@ -340,7 +354,7 @@ export async function normalizeEvent(
         url: input.url || "",
         host: input.host || "",
         path: input.path || "",
-        referrer: input.referrer || "",
+        referrer: stripSelfReferrer(input.referrer || "", input.host || ""),
         interactive: input.interactive !== false,
         revenueAmount: input.revenueAmount || "",
         revenueCurrency: input.revenueCurrency || "",
@@ -582,6 +596,10 @@ export async function collectRequestHandler(
     env: CollectEnv,
     extra: Record<string, string> = {}, // extra request properties (i.e. Cloudflare properties)
 ) {
+    if (!env.VISITOR_SALT) {
+        console.error("VISITOR_SALT is not configured; refusing collection");
+        return new Response("Service misconfigured", { status: 503 });
+    }
     const body =
         request.method === "POST" ? await readCollectBody(request) : "";
     if (body === null) {
@@ -624,6 +642,12 @@ export async function collectRequestHandler(
         return new Response("Invalid engagement parameters", { status: 400 });
     }
 
+    const trustedIp = (await hasServerEventsToken(request, env))
+        ? params.ip && params.ip.length <= 45 && /^[0-9a-f:.]+$/i.test(params.ip)
+            ? params.ip
+            : undefined
+        : undefined;
+
     if (engagement.engagementTime !== undefined) {
         const normalizedEvent = await normalizeEvent(
             request,
@@ -639,13 +663,7 @@ export async function collectRequestHandler(
                 interactive: false,
                 engagementTime: engagement.engagementTime,
                 scrollDepth: engagement.scrollDepth,
-                suppliedIp:
-                    request.method === "POST" &&
-                    params.ip &&
-                    params.ip.length <= 45 &&
-                    /^[0-9a-f:.]+$/i.test(params.ip)
-                        ? params.ip
-                        : undefined,
+                suppliedIp: trustedIp,
 
                 utmSource: params.us,
                 utmMedium: params.um,
@@ -686,13 +704,7 @@ export async function collectRequestHandler(
             path: params.p,
             referrer: params.r,
             interactive: true,
-            suppliedIp:
-                request.method === "POST" &&
-                params.ip &&
-                params.ip.length <= 45 &&
-                /^[0-9a-f:.]+$/i.test(params.ip)
-                    ? params.ip
-                    : undefined,
+            suppliedIp: trustedIp,
             utmSource: params.us,
             utmMedium: params.um,
             utmCampaign: params.uc,
