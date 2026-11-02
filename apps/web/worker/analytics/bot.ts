@@ -14,15 +14,15 @@ const SERVER_TRACKER_UA_PREFIX = "noomers-tracker-server/";
  * user-agents, or other request metadata.
  */
 export function shouldDropBot(request: Request): boolean {
-    const userAgent = request.headers.get("user-agent") || "";
+  const userAgent = request.headers.get("user-agent") || "";
 
-    if (userAgent.startsWith(SERVER_TRACKER_UA_PREFIX)) {
-        return false;
-    }
+  if (userAgent.startsWith(SERVER_TRACKER_UA_PREFIX)) {
+    return false;
+  }
 
-    if (!userAgent) {
-        return true;
-    }
+  if (!userAgent) {
+    return true;
+  }
 
-    return isbot(userAgent);
+  return isbot(userAgent);
 }

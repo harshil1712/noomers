@@ -14,10 +14,7 @@ function Dashboard() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={firstName ? `Welcome, ${firstName}` : "Welcome"} />
-      <CrewEmpty
-        title="Nothing here yet"
-        description="Your work will show up here."
-      />
+      <CrewEmpty title="Nothing here yet" description="Your work will show up here." />
     </div>
   );
 }

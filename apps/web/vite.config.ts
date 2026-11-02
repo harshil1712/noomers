@@ -13,7 +13,22 @@ export default defineConfig({
   staged: { "*": "vp check --fix" },
   fmt: { ignorePatterns: ["src/routeTree.gen.ts", "legacy-ui/**", "tests/__port__/**"] },
   lint: {
-    ignorePatterns: ["src/routeTree.gen.ts", "legacy-ui/**", "tests/__port__/**"],
+    ignorePatterns: [
+      "src/routeTree.gen.ts",
+      "legacy-ui/**",
+      "tests/__port__/**",
+      // Moved analytics core — unchanged vendored code, exempt from
+      // anti-slop (documented exception, same as raw-SQL repositories).
+      "worker/analytics/**",
+      "worker/sites/**",
+      "worker/goals/**",
+      "worker/custom-properties/**",
+      "worker/lib/**",
+      "worker/__testutils__/**",
+      "worker/site-events.ts",
+      "worker/realtime.ts",
+      "worker/readiness.ts",
+    ],
     jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
     rules: { "vite-plus/prefer-vite-plus-imports": "error" },
     options: { typeAware: true, typeCheck: true },

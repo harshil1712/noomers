@@ -34,7 +34,7 @@ const EventsCatalog = Cloudflare.R2.DataCatalog(`${PROJECT.name}-events-catalog`
 // R2_SQL_TABLE). Schema comes from apps/web/pipelines/events.schema.json.
 const EventsStream = Cloudflare.Pipelines.Stream(`${PROJECT.name}-events-stream`, {
   name: "noomers_events_stream",
-  schema: eventsSchema,
+  schema: eventsSchema as Cloudflare.Pipelines.StreamFieldsSchema,
   // No public HTTP ingest — the DO writes via the worker binding only.
   http: false,
 });
@@ -200,6 +200,10 @@ export default Alchemy.Stack(
   PROJECT.name,
   { providers: Cloudflare.providers(), state: Cloudflare.state() },
   Effect.gen(function* () {
+    // The pipeline resources aren't referenced by a binding, so yield them
+    // explicitly — unreferenced resource Effects are never applied.
+    yield* EventsSink;
+    yield* EventsPipeline;
     const web = yield* Web;
     const site = yield* Site;
     return { url: web.url, siteUrl: site.url };

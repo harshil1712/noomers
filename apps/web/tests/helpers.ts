@@ -68,7 +68,13 @@ export async function seedSite(
 
 export async function seedGoal(
   siteId: string,
-  goal: { id?: string; name: string; type: "event" | "pageview"; value: string; customProps?: object },
+  goal: {
+    id?: string;
+    name: string;
+    type: "event" | "pageview";
+    value: string;
+    customProps?: object;
+  },
 ) {
   const id = goal.id ?? crypto.randomUUID();
   await env.DB.prepare(

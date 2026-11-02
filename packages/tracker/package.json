@@ -10,7 +10,7 @@
         "node": ">=20.0.0"
     },
     "scripts": {
-        "build": "vp build -c vite.loader.config.ts && vp build -c vite.module.config.ts && vp build -c vite.server.config.ts",
+        "build": "vp build -c vite.loader.config.ts && vp build -c vite.module.config.ts && tsc -p tsconfig.module.types.json && vp build -c vite.server.config.ts && tsc -p tsconfig.server.types.json",
         "test": "TZ=EST vp test",
         "test:integration": "playwright test && vitest run --config vitest.integration.config.ts",
         "start": "node ./integration/server.js",
@@ -24,7 +24,6 @@
         "jsdom": "^23.2.0",
         "typescript": "7.0.2",
         "vite": "catalog:",
-        "vite-plugin-dts": "^4.4.0",
         "vite-tsconfig-paths": "^5.1.4",
         "vitest": "catalog:"
     },
@@ -41,7 +40,7 @@
             "default": "./dist/module/index.js"
         },
         "./server": {
-            "types": "./dist/server/index.d.ts",
+            "types": "./dist/server/server/index.d.ts",
             "default": "./dist/server/index.js"
         }
     }

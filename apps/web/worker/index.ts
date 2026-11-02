@@ -79,13 +79,19 @@ app.route("/", sitesApi);
 
 // --- Stats API (v2) ----------------------------------------------------------
 app.post("/api/v2/query", (c) =>
-  handleStatsQuery(c.req.raw, c.env, sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p))),
+  handleStatsQuery(
+    c.req.raw,
+    c.env,
+    sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+  ),
 );
 app.all("/api/v2/query", v2MethodNotAllowed);
 
 // --- Tracker scripts --------------------------------------------------------
 app.get("/js/:script", (c) => handlePlausibleScript(c.req.raw, c.env, c.req.param("script")));
-app.get("/:script{[^/]+\\.js$}", (c) => handleTrackerScript(c.req.raw, c.env, c.req.param("script")));
+app.get("/:script{[^/]+\\.js$}", (c) =>
+  handleTrackerScript(c.req.raw, c.env, c.req.param("script")),
+);
 
 // --- Misc ----------------------------------------------------------------------
 app.get("/favicon", (c) => handleFavicon(c.req.raw, (p) => c.executionCtx.waitUntil(p)));

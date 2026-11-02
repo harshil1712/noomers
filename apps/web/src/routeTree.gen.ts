@@ -18,7 +18,6 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as AuthedAdminRouteImport } from './routes/_authed/admin'
 import { Route as AuthedDashboardRouteImport } from './routes/_authed/dashboard'
-import { Route as AuthedProjectsRouteImport } from './routes/_authed/projects'
 import { Route as AuthedSettingsRouteImport } from './routes/_authed/settings'
 
 const IndexRoute = IndexRouteImport.update({
@@ -65,11 +64,6 @@ const AuthedDashboardRoute = AuthedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthedRoute,
 } as any)
-const AuthedProjectsRoute = AuthedProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => AuthedRoute,
-} as any)
 const AuthedSettingsRoute = AuthedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -85,7 +79,6 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/admin': typeof AuthedAdminRoute
   '/dashboard': typeof AuthedDashboardRoute
-  '/projects': typeof AuthedProjectsRoute
   '/settings': typeof AuthedSettingsRoute
 }
 export interface FileRoutesByTo {
@@ -97,7 +90,6 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/admin': typeof AuthedAdminRoute
   '/dashboard': typeof AuthedDashboardRoute
-  '/projects': typeof AuthedProjectsRoute
   '/settings': typeof AuthedSettingsRoute
 }
 export interface FileRoutesById {
@@ -111,7 +103,6 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/_authed/admin': typeof AuthedAdminRoute
   '/_authed/dashboard': typeof AuthedDashboardRoute
-  '/_authed/projects': typeof AuthedProjectsRoute
   '/_authed/settings': typeof AuthedSettingsRoute
 }
 export interface FileRouteTypes {
@@ -125,7 +116,6 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/admin'
     | '/dashboard'
-    | '/projects'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -137,7 +127,6 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/admin'
     | '/dashboard'
-    | '/projects'
     | '/settings'
   id:
     | '__root__'
@@ -150,7 +139,6 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/_authed/admin'
     | '/_authed/dashboard'
-    | '/_authed/projects'
     | '/_authed/settings'
   fileRoutesById: FileRoutesById
 }
@@ -229,13 +217,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedDashboardRouteImport
       parentRoute: typeof AuthedRoute
     }
-    '/_authed/projects': {
-      id: '/_authed/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof AuthedProjectsRouteImport
-      parentRoute: typeof AuthedRoute
-    }
     '/_authed/settings': {
       id: '/_authed/settings'
       path: '/settings'
@@ -249,14 +230,12 @@ declare module '@tanstack/react-router' {
 interface AuthedRouteChildren {
   AuthedAdminRoute: typeof AuthedAdminRoute
   AuthedDashboardRoute: typeof AuthedDashboardRoute
-  AuthedProjectsRoute: typeof AuthedProjectsRoute
   AuthedSettingsRoute: typeof AuthedSettingsRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAdminRoute: AuthedAdminRoute,
   AuthedDashboardRoute: AuthedDashboardRoute,
-  AuthedProjectsRoute: AuthedProjectsRoute,
   AuthedSettingsRoute: AuthedSettingsRoute,
 }
 

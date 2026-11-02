@@ -27,6 +27,21 @@ export default defineConfig({
       "apps/web/legacy-ui/**",
       "apps/web/tests/__port__/**",
       "packages/tracker/**",
+      // noomers analytics core — vendored code migrated unchanged;
+      // exempt from anti-slop (raw SQL repositories are a documented
+      // exception to the Drizzle rule too).
+      "apps/web/worker/analytics/**",
+      "apps/web/worker/sites/**",
+      "apps/web/worker/goals/**",
+      "apps/web/worker/custom-properties/**",
+      "apps/web/worker/lib/**",
+      "apps/web/worker/__testutils__/**",
+      "apps/web/worker/site-events.ts",
+      "apps/web/worker/realtime.ts",
+      "apps/web/worker/readiness.ts",
+      "apps/web/migrations/**",
+      // Ported legacy test harnesses; new tests should still be clean.
+      "apps/web/tests/**",
     ],
     jsPlugins: [
       { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },

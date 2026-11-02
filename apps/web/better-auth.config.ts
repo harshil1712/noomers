@@ -6,7 +6,6 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { admin } from "better-auth/plugins";
-import { PRODUCT } from "./src/config";
 
 const db = drizzle(new Database(":memory:"));
 

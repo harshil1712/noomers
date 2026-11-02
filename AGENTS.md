@@ -6,12 +6,12 @@ Guidance for coding agents working in this repository.
 
 noomers is a pnpm/Turborepo monorepo for self-hosted web analytics on Cloudflare.
 
-| Package                  | Purpose                                                                                                               |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Package                  | Purpose                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `packages/server`        | React Router application, Worker entry point, dashboard, APIs, D1 migrations, Pipeline schema, and the per-site SiteEvents Durable Object. |
-| `packages/tracker`       | Browser loader, ESM browser package, and server-side tracking package.                                                |
-| `packages/cli`           | Installer and deployment-management CLI built around Wrangler.                                                        |
-| `packages/eslint-config` | Shared ESLint configuration.                                                                                          |
+| `packages/tracker`       | Browser loader, ESM browser package, and server-side tracking package.                                                                     |
+| `packages/cli`           | Installer and deployment-management CLI built around Wrangler.                                                                             |
+| `packages/eslint-config` | Shared ESLint configuration.                                                                                                               |
 
 Read `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, and `docs/convergence-provisioning.md` before changing durable-event provisioning.
 

@@ -39,7 +39,7 @@ If you don't have one already, [create a Cloudflare account here](https://dash.c
 1. Go to your Cloudflare dashboard and, if you do not already have one, set up a [Cloudflare Workers subdomain](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
 1. Enable Basin for your account: an R2 bucket with the Basin Catalog enabled, a stream, a sink, and a pipeline (see `scripts/provision.mjs`, which performs all of this).
 1. Create a [Cloudflare API token](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/). This token needs `Account.Account Analytics` permissions at a minimum ([screenshot](./docs/api-token.png)).
-    - _WARNING: Keep this window open or copy your API token somewhere safe (e.g. a password manager), because if you close this window you will not be able to access this API token again and have to start over._
+   - _WARNING: Keep this window open or copy your API token somewhere safe (e.g. a password manager), because if you close this window you will not be able to access this API token again and have to start over._
 
 ### Deploy noomers
 
@@ -121,10 +121,10 @@ To start reporting website traffic from your web property, copy/paste the follow
 
 ```html
 <script
-    id="noomers-script"
-    data-site-id="your-unique-site-id"
-    src="https://{subdomain-emitted-during-deploy}.workers.dev/tracker.js"
-    defer
+  id="noomers-script"
+  data-site-id="your-unique-site-id"
+  src="https://{subdomain-emitted-during-deploy}.workers.dev/tracker.js"
+  defer
 ></script>
 ```
 
@@ -142,25 +142,25 @@ Initialize noomers with your site ID and the URL of your deployed reporting endp
 import * as noomers from "@noomers/tracker";
 
 noomers.init({
-    siteId: "your-unique-site-id",
-    reporterUrl:
-        "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
+  siteId: "your-unique-site-id",
+  reporterUrl: "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
 });
 
 noomers.trackEvent("Signup", {
-    props: { plan: "pro", trial: true },
+  props: { plan: "pro", trial: true },
 });
 ```
 
 **Available Methods**
-| Method | Parameters | Return Type | Description |
-|--------|------------|-------------|-------------|
-| `init(opts)` | `ClientOpts` | `void` | Initializes the noomers client with site configuration. Creates a global client instance if one doesn't exist. |
-| `isInitialized()` | None | `boolean` | Checks if the noomers client has been initialized. Returns true if client exists, false otherwise. |
-| `getInitializedClient()` | None | `Client \| undefined` | Returns the initialized client instance or undefined if not initialized. |
-| `trackPageview(opts?)` | `TrackPageviewOpts?` | `void` | Tracks a pageview event. Requires client to be initialized first. Automatically detects URL and referrer if not provided. |
-| `trackEvent(name, opts?)` | `string, TrackEventOpts?` | `void` | Tracks a named custom event with optional string, number, or boolean properties. |
-| `cleanup()` | None | `void` | Cleans up the client instance and removes event listeners. Sets global client to undefined. |
+
+| Method                    | Parameters                | Return Type           | Description                                                                                                               |
+| ------------------------- | ------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `init(opts)`              | `ClientOpts`              | `void`                | Initializes the noomers client with site configuration. Creates a global client instance if one doesn't exist.            |
+| `isInitialized()`         | None                      | `boolean`             | Checks if the noomers client has been initialized. Returns true if client exists, false otherwise.                        |
+| `getInitializedClient()`  | None                      | `Client \| undefined` | Returns the initialized client instance or undefined if not initialized.                                                  |
+| `trackPageview(opts?)`    | `TrackPageviewOpts?`      | `void`                | Tracks a pageview event. Requires client to be initialized first. Automatically detects URL and referrer if not provided. |
+| `trackEvent(name, opts?)` | `string, TrackEventOpts?` | `void`                | Tracks a named custom event with optional string, number, or boolean properties.                                          |
+| `cleanup()`               | None                      | `void`                | Cleans up the client instance and removes event listeners. Sets global client to undefined.                               |
 
 #### 3. Server-Side Module
 
@@ -175,38 +175,38 @@ import * as noomers from "@noomers/tracker/server";
 
 // Initialize the tracker
 noomers.init({
-    siteId: "your-unique-site-id",
-    reporterUrl:
-        "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
-    reportOnLocalhost: false, // optional, defaults to false
-    timeout: 2000, // optional, defaults to 1000ms
+  siteId: "your-unique-site-id",
+  reporterUrl: "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
+  reportOnLocalhost: false, // optional, defaults to false
+  timeout: 2000, // optional, defaults to 1000ms
 });
 
 // Track a pageview
 await noomers.trackPageview({
-    url: "https://example.com/page", // or relative: '/page'
-    hostname: "example.com", // required for relative URLs
-    referrer: "https://google.com",
-    utmSource: "social",
-    utmMedium: "twitter",
+  url: "https://example.com/page", // or relative: '/page'
+  hostname: "example.com", // required for relative URLs
+  referrer: "https://google.com",
+  utmSource: "social",
+  utmMedium: "twitter",
 });
 
 await noomers.trackEvent("Signup", {
-    url: "https://example.com/signup",
-    ip: requestIp,
-    props: { plan: "pro" },
+  url: "https://example.com/signup",
+  ip: requestIp,
+  props: { plan: "pro" },
 });
 ```
 
 **Server Module Methods**
-| Method | Parameters | Return Type | Description |
-|--------|------------|-------------|-------------|
-| `init(opts)` | `ServerClientOpts` | `void` | Initializes the server-side tracker. |
-| `isInitialized()` | None | `boolean` | Checks if the tracker has been initialized. |
-| `getInitializedClient()` | None | `ServerClient \| undefined` | Returns the initialized server client instance. |
-| `trackPageview(opts)` | `TrackPageviewOpts` | `Promise<void>` | Tracks a pageview event. Requires explicit URL and hostname parameters. |
-| `trackEvent(name, opts)` | `string, ServerTrackEventOpts` | `Promise<void>` | Tracks a custom event. Pass `ip` to attribute server-side conversions without storing the raw address. |
-| `cleanup()` | None | `void` | Cleans up the server client instance. |
+
+| Method                   | Parameters                     | Return Type                 | Description                                                                                            |
+| ------------------------ | ------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `init(opts)`             | `ServerClientOpts`             | `void`                      | Initializes the server-side tracker.                                                                   |
+| `isInitialized()`        | None                           | `boolean`                   | Checks if the tracker has been initialized.                                                            |
+| `getInitializedClient()` | None                           | `ServerClient \| undefined` | Returns the initialized server client instance.                                                        |
+| `trackPageview(opts)`    | `TrackPageviewOpts`            | `Promise<void>`             | Tracks a pageview event. Requires explicit URL and hostname parameters.                                |
+| `trackEvent(name, opts)` | `string, ServerTrackEventOpts` | `Promise<void>`             | Tracks a custom event. Pass `ip` to attribute server-side conversions without storing the raw address. |
+| `cleanup()`              | None                           | `void`                      | Cleans up the server client instance.                                                                  |
 
 The server module is designed for backend applications and differs from the client-side version:
 
@@ -227,12 +227,12 @@ Create a Pipeline using `npx wrangler@latest basin pipelines setup`, load the sc
 
 ```json
 {
-    "pipelines": [
-        {
-            "binding": "EVENT_STREAM",
-            "stream": "<STREAM_ID>"
-        }
-    ]
+  "pipelines": [
+    {
+      "binding": "EVENT_STREAM",
+      "stream": "<STREAM_ID>"
+    }
+  ]
 }
 ```
 
@@ -242,10 +242,10 @@ Queryable exact session history requires the Pipeline/Basin Catalog/Basin SQL pa
 
 To calculate exact 30-minute visits, bounce rate, and average visit duration from the Iceberg table, configure these Worker values:
 
-| Value           | Purpose                                                                        |
-| --------------- | ------------------------------------------------------------------------------ |
+| Value           | Purpose                                                                         |
+| --------------- | ------------------------------------------------------------------------------- |
 | `R2_SQL_BUCKET` | R2 bucket backing the Basin Catalog warehouse                                   |
-| `R2_SQL_TABLE`  | Iceberg table in `namespace.table` format, for example `default.events`        |
+| `R2_SQL_TABLE`  | Iceberg table in `namespace.table` format, for example `default.events`         |
 | `R2_SQL_TOKEN`  | Secret API token with Basin SQL read, Basin Catalog read, and R2 storage access |
 
 Set `R2_SQL_BUCKET` and `R2_SQL_TABLE` as Worker variables and set `R2_SQL_TOKEN` with `wrangler secret put R2_SQL_TOKEN`. When all three are present, dashboard summary metrics use Basin SQL sessionization. If they are absent or Basin SQL is temporarily unavailable, the dashboard falls back to Analytics Engine. The fallback counts Plausible visitors by distinct daily ID, but exact Plausible bounce and visit metrics require Basin SQL. Pipeline data is batched, so exact session metrics can lag realtime collection by several minutes.
@@ -266,7 +266,7 @@ Both the documented Plausible Events API JSON fields and the compact payload emi
 
 Set the `STATS_API_TOKEN` Worker secret to enable Plausible-compatible queries at `POST /api/v2/query`, then send it as `Authorization: Bearer <token>`. All metrics, including exact visits, views per visit, bounce rate, and visit duration, are served from Basin SQL. The compatibility layer supports `day`, `24h`, `7d`, `28d`, `30d`, `91d`, `month`, `6mo`, `12mo`, `year`, and `all` ranges in each site's reporting timezone; custom date ranges; case-sensitive, multi-value `is`, `is_not`, `contains`, and `contains_not` filters on page and hostname; page breakdowns; basic-metric hostname breakdowns; and hour, day, week, month, or automatic time dimensions with optional time labels. Visit-scoped dimensions are rejected until they can be sessionized from the first pageview.
 
-Set the optional `SITES_API_TOKEN` Worker secret to use Plausible's site provisioning endpoints under `/api/v1/sites`. When it is omitted, `STATS_API_TOKEN` authenticates both APIs. The supported provisioning operations are listing, creating, reading, updating configuration, and deleting sites, plus listing, finding or creating, and deleting event or page goals. Provision each site before collecting or querying its statistics. Deleting a site immediately tombstones it: Stats API access, new collection, and re-registration are blocked, its SiteEvents Durable Object is purged, D1 configuration is removed, and an internal deletion job is recorded for tracking. R2/Iceberg data cleanup is manual; deleting a site does  deletion must not be treated as complete erasure.
+Set the optional `SITES_API_TOKEN` Worker secret to use Plausible's site provisioning endpoints under `/api/v1/sites`. When it is omitted, `STATS_API_TOKEN` authenticates both APIs. The supported provisioning operations are listing, creating, reading, updating configuration, and deleting sites, plus listing, finding or creating, and deleting event or page goals. Provision each site before collecting or querying its statistics. Deleting a site immediately tombstones it: Stats API access, new collection, and re-registration are blocked, its SiteEvents Durable Object is purged, D1 configuration is removed, and an internal deletion job is recorded for tracking. R2/Iceberg data cleanup is manual; deleting a site does deletion must not be treated as complete erasure.
 
 The installer uses a single deployment token for both `STATS_API_TOKEN` and `SITES_API_TOKEN`. This is intentional: the server uses a single shared token, so one value authorizes every registered site in the deployment. The token is never auto-generated, printed, or logged. On a fresh install the installer securely prompts you to **enter a strong token you have generated and saved** (for example in a password manager, such as `openssl rand -hex 32`) and writes that same value to both secrets. On an existing install it securely prompts for your existing token in memory only and never writes or rotates anything. To rotate the token, run `npx @noomers/cli env api-token`; it securely prompts for a new value and writes it to both secrets without printing it. Any client using the previous token must switch to the new value.
 
@@ -305,10 +305,9 @@ When you initialize the noomers tracker, set `autoTrackPageviews` to `false`. Th
 import * as noomers from "@noomers/tracker";
 
 noomers.init({
-    siteId: "your-unique-site-id",
-    reporterUrl:
-        "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
-    autoTrackPageviews: false, // <- don't forget this
+  siteId: "your-unique-site-id",
+  reporterUrl: "https://{subdomain-emitted-during-deploy}.workers.dev/collect",
+  autoTrackPageviews: false, // <- don't forget this
 });
 
 // ... when a pageview happens

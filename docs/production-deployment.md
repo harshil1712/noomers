@@ -14,9 +14,9 @@ Because the deploy job is attached to a GitHub `production` environment, reposit
 
 1. In the repository, go to **Settings** > **Environments** and create an environment named `production`.
 2. Add protection rules:
-    - **Required reviewers**: add the operators or teams who must approve production deployments.
-    - (Optional) **Wait timer**: add a cooling-off delay.
-    - (Optional) **Deployment branches**: restrict deployments to `main` and `v3`.
+   - **Required reviewers**: add the operators or teams who must approve production deployments.
+   - (Optional) **Wait timer**: add a cooling-off delay.
+   - (Optional) **Deployment branches**: restrict deployments to `main` and `v3`.
 3. Save the rules. The next `cd` run will pause at the `production` environment step until approved.
 
 ## Verify the deployed SHA
@@ -28,11 +28,11 @@ Before approving a deployment, confirm the commit in the workflow run matches th
 3. Compare that SHA to the latest commit on `main` or `v3` and to the commit shown in the triggering `ci` run.
 4. After deployment, the `VERSION` environment variable in the Worker equals the same SHA. You can inspect a deployed version's source tag/message with Wrangler:
 
-    ```bash
-    cd packages/server
-    pnpm exec wrangler versions list
-    pnpm exec wrangler versions view <VERSION_ID>
-    ```
+   ```bash
+   cd packages/server
+   pnpm exec wrangler versions list
+   pnpm exec wrangler versions view <VERSION_ID>
+   ```
 
 ## Roll back to a known-good version
 
@@ -40,26 +40,26 @@ If a deployment misbehaves, roll the Worker back to a previously published versi
 
 1. Identify the version to roll back to:
 
-    ```bash
-    cd packages/server
-    pnpm exec wrangler versions list
-    # or
-    pnpm exec wrangler deployments list
-    ```
+   ```bash
+   cd packages/server
+   pnpm exec wrangler versions list
+   # or
+   pnpm exec wrangler deployments list
+   ```
 
 2. Roll back. This creates a new deployment that sends 100% of traffic to the selected version:
 
-    ```bash
-    pnpm exec wrangler rollback <VERSION_ID> --message "Rolling back after incident"
-    ```
+   ```bash
+   pnpm exec wrangler rollback <VERSION_ID> --message "Rolling back after incident"
+   ```
 
-    To roll back to the version immediately before the latest, omit `<VERSION_ID>`.
+   To roll back to the version immediately before the latest, omit `<VERSION_ID>`.
 
 3. Confirm the rollback:
 
-    ```bash
-    pnpm exec wrangler deployments status
-    ```
+   ```bash
+   pnpm exec wrangler deployments status
+   ```
 
 ## Post-rollback validation
 
