@@ -8,7 +8,7 @@ noomers is a pnpm/Turborepo monorepo for self-hosted web analytics on Cloudflare
 
 | Package                  | Purpose                                                                                                               |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `packages/server`        | React Router application, Worker entry point, dashboard, APIs, D1 migrations, Pipeline schema, and scheduled rollups. |
+| `packages/server`        | React Router application, Worker entry point, dashboard, APIs, D1 migrations, Pipeline schema, and the per-site SiteEvents Durable Object. |
 | `packages/tracker`       | Browser loader, ESM browser package, and server-side tracking package.                                                |
 | `packages/cli`           | Installer and deployment-management CLI built around Wrangler.                                                        |
 | `packages/eslint-config` | Shared ESLint configuration.                                                                                          |
@@ -78,8 +78,9 @@ Before finishing a cross-package change, run the relevant package tests and type
 - `packages/server/workers/app.ts` is the Cloudflare Worker fetch and scheduled-event entry point.
 - `packages/server/app/routes/` contains React Router UI and API routes.
 - `packages/server/app/analytics/collect.ts` normalizes and writes events.
-- `packages/server/app/analytics/query.ts` contains dashboard Analytics Engine queries.
 - `packages/server/app/analytics/stats-api.ts` implements the Plausible Stats API compatibility layer.
+- `packages/server/workers/site-events.ts` buffers canonical events per site and serves realtime aggregates.
+- `packages/server/workers/realtime.ts` is the authenticated `/realtime/:siteId` WebSocket entry.
 - `packages/server/app/analytics/r2-sql.ts` reconstructs durable metrics and 30-minute sessions.
 - `packages/server/app/sites/`, `goals/`, and `custom-properties/` own D1 persistence.
 - `packages/server/migrations/` contains ordered D1 migrations.
@@ -91,9 +92,10 @@ Before finishing a cross-package change, run the relevant package tests and type
 2. D1 verifies that the site is active. Unknown, deleted, or unavailable registry states fail closed.
 3. The collector normalizes URL, geography, user agent, campaign, event, and property fields.
 4. A salted visitor identifier is generated and rotated daily in UTC.
-5. Realtime fields are written to Analytics Engine.
-6. The complete canonical event is optionally sent through `EVENT_STREAM` to Pipeline/Iceberg.
-7. Dashboard queries use Analytics Engine, while exact Stats API session metrics require R2 SQL.
+5. The canonical event is recorded in the site's `SiteEvents` Durable Object (fail closed; a DO error returns 500).
+6. The DO ships unsent rows to `EVENT_STREAM` (Basin pipeline → R2/Iceberg) with backoff and prunes shipped rows.
+7. Dashboard and Stats API queries read Basin SQL (formerly R2 SQL) over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
+8. Deleting a site tombstones it and purges its DO immediately.
 
 ## Non-negotiable invariants
 
@@ -110,7 +112,7 @@ Before finishing a cross-package change, run the relevant package tests and type
 - Collection must remain fail closed against the authoritative D1 site registry.
 - A deleted site's tombstone is permanent unless a deliberate product migration says otherwise.
 - Site deletion must continue blocking collection, Stats API access, and re-registration immediately.
-- Do not claim complete erasure while Analytics Engine expiry or Iceberg deletion is pending. Daily-rollup cleanup is currently unimplemented and is not represented in deletion-job state.
+- Do not claim complete erasure while Iceberg deletion is pending. The internal deletion job records state, but no automatic processor runs; Iceberg cleanup is manual.
 - Never delete Iceberg objects directly with an R2 lifecycle rule. Row deletion must use a writable Iceberg-compatible engine followed by snapshot expiration and orphan cleanup.
 
 ### Analytics semantics
@@ -119,13 +121,13 @@ Before finishing a cross-package change, run the relevant package tests and type
 - Apply the site's IANA reporting timezone to date presets and time buckets.
 - Visitor IDs rotate at UTC midnight, so sessions cannot safely cross that boundary.
 - Do not implement Plausible `visit:*` dimensions by grouping event rows. Visit dimensions must use the first pageview of a reconstructed session; entry and exit dimensions require first/last pageview attribution.
-- Analytics Engine is realtime and retention-limited. R2/Iceberg is durable but can lag because Pipeline batches events.
+- The SiteEvents DO is realtime-only; Basin SQL serves all history and can lag collection by a few minutes because the DO batches shipments.
 - Do not silently approximate session metrics where the API promises exact R2 SQL results. Return a clear compatibility error instead.
 
 ### API compatibility
 
 - Keep request validation closed and bounded: reject unknown keys, unsafe identifiers, oversized bodies, unsupported combinations, and unbounded result requests.
-- Escape SQL values separately for Analytics Engine and R2 SQL. Never interpolate unvalidated identifiers.
+- Escape SQL values for Basin SQL. Never interpolate unvalidated identifiers.
 - Preserve Plausible response shapes, status codes, normalized query echoes, and timezone behavior when extending compatibility routes.
 - Add tests for both generated SQL dialects when changing dimensions, filters, metrics, or ordering.
 - Do not advertise full Plausible parity. Update `docs/plausible-feature-parity.md` whenever a supported, partial, missing, deferred, or blocked capability changes.
@@ -136,7 +138,6 @@ Before finishing a cross-package change, run the relevant package tests and type
 - Make migrations safe for fresh installs and upgrades from every supported prior schema.
 - Update repository tests and installer migration expectations with every schema change.
 - Changes to canonical event fields require coordinated updates to the collector, Pipeline schema, handwritten durable/normalized event interfaces, R2 SQL, tests, and documentation.
-- Analytics Engine column positions are a persisted schema contract. Do not repurpose an existing blob or double mapping.
 
 ## Generated and build artifacts
 
@@ -163,8 +164,8 @@ Before finishing a cross-package change, run the relevant package tests and type
 - Never commit `.dev.vars`, API tokens, passwords, salts, R2 SQL credentials, or files under `~/.noomers/`.
 - Load Cloudflare and Wrangler guidance before changing Worker bindings or running Wrangler commands.
 - Pipeline/Data Catalog setup is currently interactive and credential-dependent. Keep manual and automated provisioning paths clearly distinguished.
-- Use `EVENT_STREAM` consistently as the runtime Pipeline binding.
-- Treat `/api/health` as a compatibility liveness response, not proof that D1, Analytics Engine, Pipeline, or R2 SQL is healthy.
+- Use `EVENT_STREAM` consistently as the runtime Basin Pipeline binding; `SITE_EVENTS` is the per-site Durable Object.
+- Treat `/api/health` as a compatibility liveness response, not proof that D1, the DO, the Pipeline, or Basin SQL is healthy.
 
 ## Completion checklist
 
