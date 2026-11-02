@@ -51,9 +51,16 @@ export async function signIn(email: string) {
 /** Sign up (or sign in if the user exists), verify, and return the session
  * cookie header value. */
 export async function verifiedSessionCookie(email: string) {
-  const signedIn = await signIn(email);
-  if (signedIn.ok) {
-    return signedIn.headers.get("set-cookie") ?? "";
+  // Sign-in on an unknown email throws APIError inside the worker, which
+  // surfaces to Vitest as an unhandled error — check D1 first instead.
+  const exists = await env.DB.prepare("SELECT 1 FROM user WHERE email = ?")
+    .bind(email)
+    .first();
+  if (exists) {
+    const signedIn = await signIn(email);
+    if (signedIn.ok) {
+      return signedIn.headers.get("set-cookie") ?? "";
+    }
   }
   await signUp(email);
   const v = await verifyLatest(email);

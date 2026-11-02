@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, Surface, Text } from "@cloudflare/kumo";
 import { Logo } from "@noomers/brand/Logo.tsx";
-import { CrewSprite } from "@noomers/brand/crew/CrewSprite";
 import { PRODUCT } from "../config";
 import { useDocumentTitle } from "../lib/use-document-title";
 
@@ -30,13 +29,13 @@ export default function AuthCard({
           aria-label={`${PRODUCT.name} website`}
           className="rounded-md p-1 text-kumo-default! focus-visible:ring-2 focus-visible:ring-kumo-brand"
         >
-          <Logo size={28} wordmark />
+          <Logo size={28} />
         </Link>
       </header>
       <main className="flex flex-1 items-start justify-center px-4 py-10 sm:items-center sm:px-6">
         <Surface className="flex w-full max-w-sm flex-col gap-6 rounded-xl p-6 sm:p-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <CrewSprite size={32} />
+            <Logo size={28} />
             <Text variant="heading" size="lg" as="h1">
               {title}
             </Text>

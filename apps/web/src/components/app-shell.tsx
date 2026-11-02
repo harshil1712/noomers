@@ -1,126 +1,47 @@
 import type { ReactNode } from "react";
-import { cn, Link, Sidebar, useSidebar } from "@cloudflare/kumo";
-import { Link as RouterLink, useLocation } from "@tanstack/react-router";
+import { Link } from "@cloudflare/kumo";
+import { Link as RouterLink } from "@tanstack/react-router";
 import { Logo } from "@noomers/brand/Logo.tsx";
 import { useSession } from "../lib/auth-client";
-import { PRODUCT } from "../config";
-import { navItemsFor } from "./nav";
 import { ThemeToggle } from "./theme-toggle";
 import { UserMenu } from "./user-menu";
+import { PRODUCT } from "../config";
 
-// Visible keyboard focus on nav items (Kumo's default is a faint background).
-const FOCUS_RING = "focus-visible:ring-2 focus-visible:ring-kumo-brand focus-visible:ring-inset";
-
-function SidebarNav() {
-  const { data } = useSession();
-  const { pathname } = useLocation();
-  const { isMobile, setOpenMobile, state } = useSidebar();
-  const items = navItemsFor(data?.user?.role);
-
-  return (
-    <>
-      <Sidebar.Header>
-        <Link
-          variant="plain"
-          render={<RouterLink to="/dashboard" />}
-          aria-label={`${PRODUCT.name} dashboard`}
-          className={cn("rounded-md px-1 text-kumo-default!", FOCUS_RING)}
-        >
-          <Logo size={24} wordmark={state === "expanded"} />
-        </Link>
-        {isMobile && <Sidebar.Close className="ml-auto" />}
-      </Sidebar.Header>
-      <Sidebar.Content>
-        <Sidebar.Group>
-          <Sidebar.Menu>
-            {items.map((item) => {
-              const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
-              return (
-                <Sidebar.MenuButton
-                  key={item.to}
-                  href={item.to}
-                  icon={item.icon}
-                  tooltip={item.label}
-                  active={active}
-                  aria-current={active ? "page" : undefined}
-                  className={FOCUS_RING}
-                  onClick={() => {
-                    if (isMobile) setOpenMobile(false);
-                  }}
-                >
-                  {item.label}
-                </Sidebar.MenuButton>
-              );
-            })}
-          </Sidebar.Menu>
-        </Sidebar.Group>
-      </Sidebar.Content>
-    </>
-  );
-}
-
-/** Sidebar toggle: opens the sheet on mobile, collapses to the icon rail on desktop. */
-function NavTrigger() {
-  const { isMobile, open, openMobile } = useSidebar();
-  const expanded = isMobile ? openMobile : open;
-  const label = isMobile
-    ? expanded
-      ? "Close navigation"
-      : "Open navigation"
-    : expanded
-      ? "Collapse sidebar"
-      : "Expand sidebar";
-  return <Sidebar.Trigger aria-expanded={expanded} aria-label={label} />;
-}
-
-/** Page column. Inert while the mobile sheet is open so Tab stays in the sheet. */
-function ShellContent({
-  user,
+/**
+ * Operate-mode shell: a sticky top bar (logo, contextual slots, user menu)
+ * instead of a sidebar. Child controls (site switcher, interval, live pill)
+ * mount via <AppShell.Bar> children rendered beside the logo.
+ */
+export default function AppShell({
   children,
+  controls,
 }: {
-  user?: { email: string; name?: string | null };
   children: ReactNode;
+  controls?: ReactNode;
 }) {
-  const { isMobile, openMobile } = useSidebar();
+  const { data } = useSession();
   return (
-    <div className="flex min-w-0 flex-1 flex-col" inert={isMobile && openMobile}>
-      <header className="sticky top-0 z-10 border-b border-kumo-line bg-kumo-canvas/90 backdrop-blur">
-        <div className="mx-auto flex h-[58px] max-w-[1040px] items-center gap-2 px-4 sm:px-6">
-          <NavTrigger />
-          <div className="ml-auto flex items-center gap-1">
+    <div className="min-h-dvh bg-kumo-canvas">
+      <header className="sticky top-0 z-20 border-b border-kumo-hairline bg-kumo-elevated">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
+          <Link
+            variant="plain"
+            render={<RouterLink to="/dashboard" />}
+            aria-label={`${PRODUCT.name} dashboard`}
+            className="text-kumo-default!"
+          >
+            <Logo size={22} />
+          </Link>
+          <div className="order-3 flex w-full flex-wrap items-center gap-2 sm:order-2 sm:w-auto sm:flex-1">
+            {controls}
+          </div>
+          <div className="order-2 ml-auto flex items-center gap-2 sm:order-3">
             <ThemeToggle />
-            {user && <UserMenu user={user} />}
+            {data?.user && <UserMenu user={data.user} />}
           </div>
         </div>
       </header>
-      <main
-        id="main"
-        tabIndex={-1}
-        className="mx-auto w-full max-w-[1040px] px-4 py-8 outline-none sm:px-6"
-      >
-        {children}
-      </main>
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6">{children}</main>
     </div>
-  );
-}
-
-export default function AppShell({ children }: { children: ReactNode }) {
-  const { data } = useSession();
-  return (
-    <Sidebar.Provider defaultOpen className="min-h-svh bg-kumo-canvas text-kumo-default">
-      <Link
-        href="#main"
-        variant="plain"
-        className="sr-only rounded-md bg-kumo-base px-3 py-2 focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
-      >
-        Skip to content
-      </Link>
-      {/* Only height/sticky here — position classes would override the
-          `fixed` Kumo gives the mobile sheet and reserve its width again. */}
-      <Sidebar className="h-svh md:sticky md:top-0">
-        <SidebarNav />
-      </Sidebar>
-      <ShellContent user={data?.user}>{children}</ShellContent>
-    </Sidebar.Provider>
   );
 }

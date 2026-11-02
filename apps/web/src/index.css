@@ -1,7 +1,6 @@
 @import "tailwindcss";
 @import "@cloudflare/kumo/styles/tailwind";
 @import "@noomers/brand/tokens.css";
-@import "@noomers/brand/crew/crew.css";
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 @source "../node_modules/@fontsource-variable/instrument-sans/files/*";
 @source "../node_modules/@fontsource/pixelify-sans/files/*";
@@ -104,5 +103,30 @@
 @media (max-width: 639px) {
   .admin-scroll td:last-child::before {
     content: "";
+  }
+}
+
+/* live accent — amber dot, pulsing unless reduced motion */
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--live-dot);
+  display: inline-block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .live-dot {
+    animation: live-pulse 1.6s ease-out infinite;
+  }
+  @keyframes live-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-dot) 60%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 8px transparent;
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
   }
 }

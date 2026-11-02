@@ -29,7 +29,7 @@ importers:
     devDependencies:
       '@alchemy.run/frontend-frameworks':
         specifier: 2.0.0-beta.83
-        version: 2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@vitejs/plugin-react@6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
+        version: 2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
       '@effect/platform-node':
         specifier: 4.0.6
         version: 4.0.6(effect@4.0.6)(redis@6.3.0)
@@ -44,7 +44,7 @@ importers:
         version: 24.19.2
       alchemy:
         specifier: 2.0.0-beta.83
-        version: 2.0.0-beta.83(@alchemy.run/frontend-frameworks@2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@vitejs/plugin-react@6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@types/react@19.3.0)(@volar/typescript@2.4.30(typescript@7.0.2))(drizzle-kit@1.0.0-rc.4)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261023.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(effect@4.0.6)(esbuild@0.28.2)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(ws@8.22.0)
+        version: 2.0.0-beta.83(@alchemy.run/frontend-frameworks@2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@types/react@19.3.0)(@volar/typescript@2.4.30(typescript@7.0.2))(drizzle-kit@1.0.0-rc.4)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261023.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(effect@4.0.6)(esbuild@0.28.2)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(ws@8.22.0)
       effect:
         specifier: 4.0.6
         version: 4.0.6
@@ -66,13 +66,13 @@ importers:
       '@astrojs/sitemap':
         specifier: 3.7.4
         version: 3.7.4
-      '@fontsource-variable/instrument-sans':
+      '@fontsource-variable/bricolage-grotesque':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource-variable/jetbrains-mono':
+      '@fontsource-variable/hanken-grotesk':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource/pixelify-sans':
+      '@fontsource-variable/martian-mono':
         specifier: 5.3.0
         version: 5.3.0
       '@noomers/brand':
@@ -93,13 +93,13 @@ importers:
       '@cloudflare/kumo':
         specifier: 2.15.0
         version: 2.15.0(@date-fns/tz@1.5.0)(@phosphor-icons/react@2.1.10(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(date-fns@4.4.0)(echarts@6.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(zod@4.6.7)
-      '@fontsource-variable/instrument-sans':
+      '@fontsource-variable/bricolage-grotesque':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource-variable/jetbrains-mono':
+      '@fontsource-variable/hanken-grotesk':
         specifier: 5.3.0
         version: 5.3.0
-      '@fontsource/pixelify-sans':
+      '@fontsource-variable/martian-mono':
         specifier: 5.3.0
         version: 5.3.0
       '@noomers/brand':
@@ -1392,14 +1392,14 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fontsource-variable/instrument-sans@5.3.0':
-    resolution: {integrity: sha512-u4gKbDBTNFGkg997tfQn3eHOhHuquWUFTRT/rwzuKtrxX5P2ekfs2x+LgBPP4P32+cC+vUwF1Cr+IdRoPQbrGw==}
+  '@fontsource-variable/bricolage-grotesque@5.3.0':
+    resolution: {integrity: sha512-TLi9Q4hJjS2UvoTMRSS2nHu6c4R56lAw60NR9QYtVRCHn0XtsFpiEhNffZ8Glsoxu6wEEwLKBP8lb94J52PNBA==}
 
-  '@fontsource-variable/jetbrains-mono@5.3.0':
-    resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
+  '@fontsource-variable/hanken-grotesk@5.3.0':
+    resolution: {integrity: sha512-DOd0FqL+3cH2dfNy0JtSq9tUfxBz5mLmHMjTU0DOr3E9Zo6wxuatCl53DIPNrSPgCsnuKyM739BTIG5glCLirw==}
 
-  '@fontsource/pixelify-sans@5.3.0':
-    resolution: {integrity: sha512-4RCe9nXbi7wUu5+H0FNX1sgPZ2kJ1MmY1uTkEfvQIzzqhoS8zGKJaJfdK8oreE0OU+5gM+NdurFi3H3FJRBvyw==}
+  '@fontsource-variable/martian-mono@5.3.0':
+    resolution: {integrity: sha512-0wVODx9ILwNnaYC4XCuSaFRYtj1Prd89MRVaSuv2ng6zLiQkS4SepaWEPefs7vqCZS8sbEOA8jb/4F5KNMnGdg==}
 
   '@hono/node-server@1.19.9':
     resolution: {integrity: sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==}
@@ -5249,7 +5249,7 @@ snapshots:
     dependencies:
       effect: 4.0.6
 
-  '@alchemy.run/frontend-frameworks@2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@vitejs/plugin-react@6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)':
+  '@alchemy.run/frontend-frameworks@2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)':
     dependencies:
       '@alchemy.run/cloudflare-runtime': 2.0.0-beta.83(@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.6))(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(effect@4.0.6)(esbuild@0.28.2)(jiti@2.7.0)(rolldown@1.2.5)(typescript@7.0.2)(yaml@2.9.1)
       '@distilled.cloud/aws': 1.0.0-rc.15(effect@4.0.6)
@@ -5262,7 +5262,6 @@ snapshots:
       vite: '@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)'
     optionalDependencies:
       '@effect/platform-node': 4.0.6(effect@4.0.6)(redis@6.3.0)
-      '@vitejs/plugin-react': 6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))
       astro: 7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
       hono: 4.11.4
     transitivePeerDependencies:
@@ -6250,11 +6249,11 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@fontsource-variable/instrument-sans@5.3.0': {}
+  '@fontsource-variable/bricolage-grotesque@5.3.0': {}
 
-  '@fontsource-variable/jetbrains-mono@5.3.0': {}
+  '@fontsource-variable/hanken-grotesk@5.3.0': {}
 
-  '@fontsource/pixelify-sans@5.3.0': {}
+  '@fontsource-variable/martian-mono@5.3.0': {}
 
   '@hono/node-server@1.19.9(hono@4.11.4)':
     dependencies:
@@ -7466,7 +7465,7 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  alchemy@2.0.0-beta.83(@alchemy.run/frontend-frameworks@2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@vitejs/plugin-react@6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@types/react@19.3.0)(@volar/typescript@2.4.30(typescript@7.0.2))(drizzle-kit@1.0.0-rc.4)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261023.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(effect@4.0.6)(esbuild@0.28.2)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(ws@8.22.0):
+  alchemy@2.0.0-beta.83(@alchemy.run/frontend-frameworks@2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@types/react@19.3.0)(@volar/typescript@2.4.30(typescript@7.0.2))(drizzle-kit@1.0.0-rc.4)(drizzle-orm@0.45.4(@cloudflare/workers-types@5.20261023.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7))(effect@4.0.6)(esbuild@0.28.2)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(ws@8.22.0):
     dependencies:
       '@alchemy.run/cloudflare-runtime': 2.0.0-beta.83(@distilled.cloud/cloudflare@1.0.0-rc.15(effect@4.0.6))(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(effect@4.0.6)(esbuild@0.28.2)(jiti@2.7.0)(rolldown@1.2.5)(typescript@7.0.2)(yaml@2.9.1)
       '@alchemy.run/floci': 2.0.0-beta.83(effect@4.0.6)
@@ -7509,7 +7508,7 @@ snapshots:
       vite: '@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)'
       yaml: 2.9.1
     optionalDependencies:
-      '@alchemy.run/frontend-frameworks': 2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@vitejs/plugin-react@6.1.2(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)))(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
+      '@alchemy.run/frontend-frameworks': 2.0.0-beta.83(@effect/platform-node@4.0.6(effect@4.0.6)(redis@6.3.0))(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(astro@7.4.2(@types/node@24.19.2)(@volar/typescript@2.4.30(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1))(effect@4.0.6)(hono@4.11.4)(jiti@2.7.0)(typescript@7.0.2)(yaml@2.9.1)
       '@effect/platform-node': 4.0.6(effect@4.0.6)(redis@6.3.0)
       drizzle-kit: 1.0.0-rc.4
       drizzle-orm: 0.45.4(@cloudflare/workers-types@5.20261023.1)(@electric-sql/pglite@0.3.15)(@libsql/client@0.17.4)(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.7)
