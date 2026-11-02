@@ -21,6 +21,7 @@ export function paramsFromUrl(url: string) {
 }
 
 interface SearchFilters {
+    name?: string;
     path?: string;
     referrer?: string;
     deviceType?: string;
@@ -39,6 +40,9 @@ export function getFiltersFromSearchParams(searchParams: URLSearchParams) {
 
     if (searchParams.has("path")) {
         filters.path = searchParams.get("path") || "";
+    }
+    if (searchParams.has("name")) {
+        filters.name = searchParams.get("name") || "";
     }
     if (searchParams.has("referrer")) {
         filters.referrer = searchParams.get("referrer") || "";

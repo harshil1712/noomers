@@ -434,3 +434,15 @@ Until the relevant rows above are complete, documentation should avoid claiming:
 - [Bot filtering](https://plausible.io/docs/bot-traffic-filtering)
 
 These upstream documents change over time. Recheck them before declaring a parity item complete.
+
+
+## Notes (hardening round)
+
+- `visit:source` (utm_source → referrer hostname sans www → Direct) is the
+  canonical source dimension for the dashboard Sources card.
+- `event:props:<key>` (custom-event property breakdown) requires an
+  `event:name` `is`-filter naming one event.
+- Visit duration is computed over non-engagement events only
+  (max−min of the session's interactive events), matching Plausible's
+  session-window semantics — imported `sessions_v2.duration` and live
+  durations line up.

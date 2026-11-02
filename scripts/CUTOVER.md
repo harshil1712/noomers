@@ -77,6 +77,12 @@ wrangler basin sql query cf583c9be8982922212ed2e432115f57_noomers-prod-events \
   "SELECT site_id, COUNT(*) FILTER (WHERE event_type='pageview') pv, COUNT(DISTINCT visitor_id) visitors FROM noomers.events_import GROUP BY site_id ORDER BY site_id"
 ```
 
+After the switch, point an uptime monitor at
+`GET /api/health/ready` (Sites API key) — it checks D1, Basin SQL, and
+per-site DO backlog (`oldestUnshippedAgeMs > 15 min` fails). `/api/event`
+is rate-limited to 100 req/60s per ip:site; server-side ingest needs
+`Authorization: Bearer <SERVER_EVENTS_TOKEN>` for a real-IP override.
+
 ## 5. Rollback
 
 Re-create the A record in zone `harshil.app`: `pa → 167.172.160.245`,
