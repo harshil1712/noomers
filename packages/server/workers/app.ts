@@ -17,6 +17,10 @@ export default {
     async fetch(request: any, env: Env, ctx: any) {
         try {
             const url = new URL(request.url);
+            if (url.pathname === "/api/health/ready") {
+                const { handleReadiness } = await import("./readiness");
+                return await handleReadiness(request, env);
+            }
             if (url.pathname.startsWith("/realtime/")) {
                 const { handleRealtime } = await import("./realtime");
                 return await handleRealtime(request, env, url);

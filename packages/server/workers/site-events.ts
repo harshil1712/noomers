@@ -132,6 +132,7 @@ export class SiteEvents extends DurableObject<Env> {
                     );
                     this.metaSet("shipped_seq", rows[rows.length - 1].seq);
                     this.metaSet("send_failures", 0);
+                    this.metaSet("last_shipped_at", Date.now());
                 } catch (error) {
                     const attempts = Number(
                         this.metaGet("send_failures") ?? 0,
@@ -327,6 +328,29 @@ export class SiteEvents extends DurableObject<Env> {
         if (rows === 0) return;
         await this.ctx.storage.setAlarm(Date.now() + IDLE_REARM_MS);
         this.alarmPending = true;
+    }
+
+    backlog(): {
+        unshipped: number;
+        oldestUnshippedAgeMs: number;
+        sendFailures: number;
+        lastShippedAt: number;
+    } {
+        const shippedSeq = Number(this.metaGet("shipped_seq") ?? 0);
+        const row = this.ctx.storage.sql
+            .exec(
+                "SELECT COUNT(*) AS n, MIN(received_ms) AS oldest FROM events WHERE seq > ?",
+                shippedSeq,
+            )
+            .toArray()[0] as { n: number; oldest: number | null } | undefined;
+        return {
+            unshipped: Number(row?.n ?? 0),
+            oldestUnshippedAgeMs: row?.oldest
+                ? Math.max(0, Date.now() - Number(row.oldest))
+                : 0,
+            sendFailures: Number(this.metaGet("send_failures") ?? 0),
+            lastShippedAt: Number(this.metaGet("last_shipped_at") ?? 0),
+        };
     }
 
     async purge(): Promise<void> {
