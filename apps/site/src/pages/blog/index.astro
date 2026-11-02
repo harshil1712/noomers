@@ -1,0 +1,23 @@
+---
+import PageLayout from "../../components/PageLayout.astro";
+import PostList from "../../components/PostList.astro";
+import { getPublishedPosts } from "../../lib/posts";
+import { PROJECT } from "#project";
+
+const posts = await getPublishedPosts();
+---
+<PageLayout title={`Blog · ${PROJECT.productName}`} description={`Notes and guides from the ${PROJECT.productName} team.`}>
+  <h1 class="font-display">Blog</h1>
+  {posts.length === 0 ? <p class="empty">Nothing published yet.</p> : <PostList posts={posts} />}
+</PageLayout>
+<style>
+  h1 {
+    font-size: 36px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .empty {
+    margin-top: 24px;
+    color: var(--color-kumo-subtle);
+  }
+</style>

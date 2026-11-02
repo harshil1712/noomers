@@ -1,0 +1,66 @@
+---
+import PageLayout from "../components/PageLayout.astro";
+import { formatDate, isoDate } from "../lib/format";
+import { PROJECT } from "#project";
+
+/** Change this when the policy text below changes. */
+const LAST_UPDATED = new Date("2026-10-30");
+---
+<PageLayout title={`Privacy · ${PROJECT.productName}`} description={`How ${PROJECT.productName} handles your data.`}>
+  <h1 class="font-display">Privacy</h1>
+  <p class="updated">Last updated <time datetime={isoDate(LAST_UPDATED)}>{formatDate(LAST_UPDATED)}</time></p>
+  <div class="sections">
+    <section>
+      <h2>What we store</h2>
+      <p>
+        Your account details (name, email, password hash) and whatever data the app
+        creates for you. Nothing else is collected on purpose.
+      </p>
+    <p class="subtle" style="margin-top:24px">Sessions use a signed cookie; sign-up and reset flows are protected by Cloudflare Turnstile.</p></section>
+    <section>
+      <h2>What we don't do</h2>
+      <p>
+        No advertising trackers, no selling data, no third-party analytics beyond
+        privacy-preserving server metrics.
+      </p>
+    </section>
+    <section>
+      <h2>Deleting your data</h2>
+      <p>
+        Delete your account any time in Settings → Delete account — it removes the account and its data immediately. For other requests, email <a href={`mailto:${PROJECT.supportEmail}`}>{PROJECT.supportEmail}</a>. Sessions use a signed cookie; sign-up and reset flows are protected by Cloudflare Turnstile.
+      </p>
+    </section>
+  </div>
+</PageLayout>
+<style>
+  h1 {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .updated {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--color-kumo-subtle);
+  }
+  .sections {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    font-size: 15px;
+  }
+  h2 {
+    font-size: 17px;
+    font-weight: 600;
+  }
+  p {
+    margin-top: 6px;
+    color: var(--color-kumo-subtle);
+    max-width: 65ch;
+  }
+  a {
+    color: var(--color-kumo-default);
+    text-decoration: underline;
+  }
+</style>

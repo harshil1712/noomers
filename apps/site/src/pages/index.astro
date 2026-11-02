@@ -1,0 +1,289 @@
+---
+import PageLayout from "../components/PageLayout.astro";
+import AppMock from "../components/AppMock.astro";
+import Crew from "../components/Crew.astro";
+import PostList from "../components/PostList.astro";
+import { PROJECT, APP_DOMAIN } from "#project";
+const APP_URL = import.meta.env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`;
+import { getPublishedPosts } from "../lib/posts";
+
+const latest = (await getPublishedPosts()).slice(0, 3);
+const description =
+  "A full-stack SaaS template for Cloudflare Workers: auth, D1, an admin area, per-PR deploys and an SEO blog in one monorepo you rename with one command.";
+---
+<PageLayout title={`${PROJECT.productName}: a Cloudflare SaaS template`} description={description} width="wide">
+  <section class="hero">
+    <div class="copy">
+      <h1 class="font-display">A Cloudflare SaaS template, <em>assembled by a tiny crew</em>.</h1>
+      <p class="sub">Auth, D1, an admin area, per-PR deploys and an SEO blog, already wired together on Workers. Rename the monorepo with one command and start on your own product.</p>
+      <div class="btns">
+        <a class="btn cta" href={APP_URL} data-cta>Get noomers</a>
+        <a class="btn btn-secondary cta" href="/blog/">Read the blog</a>
+      </div>
+    </div>
+    <div class="scene">
+      <AppMock />
+      <Crew robot={1} color="--crew-1" carry="AUTH" placement="lane" index={0} />
+      <Crew robot={3} color="--crew-2" carry="D1" flip placement="lane" index={1} />
+      <Crew robot={2} color="--crew-3" carry="ADMIN" flip placement="lane" index={2} />
+      <Crew robot={0} color="--crew-4" carry="SEO" flip placement="lane" index={3} />
+    </div>
+  </section>
+
+  <section class="ships" id="ships">
+    <h2 class="font-display">What ships</h2>
+    <p class="lede">The boring parts, working on day one. Nothing to delete first.</p>
+    <div class="rows">
+      <div class="row"><b>Accounts</b><p>Email and Google sign-in, mandatory verification, Turnstile, reset flow. Set one env var and you're the admin.</p></div>
+      <div class="row"><b>Database</b><p>D1 behind Drizzle ORM with a real migration chain. One config file names everything.</p></div>
+      <div class="row"><b>Deploys</b><p>Per-PR previews, production from main, smoke tests, automatic rollback.</p></div>
+      <div class="row"><b>Admin</b><p>Users, roles, bans and session revocation in a ready dashboard.</p></div>
+      <div class="row"><b>Blog + SEO</b><p>Markdown posts, JSON-LD, RSS, sitemap, llms.txt, and a CI check that fails on broken SEO.</p></div>
+      <div class="row"><b>Agent access</b><p>Scoped API keys, an OpenAPI 3.1 <code>/api/v1</code> and an MCP server — one service layer behind both.</p></div>
+    </div>
+  </section>
+
+  <section class="agents" id="agents">
+    <h2 class="font-display">Agent-ready</h2>
+    <p class="lede">Users mint scoped keys in Settings, and Claude Code, Cursor and Codex connect over MCP or plain HTTP.</p>
+    <div class="cards">
+      <div class="acard">
+        <h3>MCP server</h3>
+        <pre role="region" tabindex="0" aria-label="MCP setup command">claude mcp add --transport http yourapp \
+  https://app.yourapp.com/mcp \
+  --header "Authorization: Bearer no_…"</pre>
+      </div>
+      <div class="acard">
+        <h3>OpenAPI 3.1</h3>
+        <pre role="region" tabindex="0" aria-label="OpenAPI document endpoint">GET /api/v1/openapi.json
+
+six operations, typed with zod.
+key-gated by default — one flag
+publishes it for clients to find.</pre>
+      </div>
+      <div class="acard">
+        <h3>API keys</h3>
+        <pre role="region" tabindex="0" aria-label="API key behaviour">no_… shown once.
+
+read/write scopes, expiry,
+revoke in Settings. only hashes
+hit D1.</pre>
+      </div>
+    </div>
+  </section>
+
+  {latest.length > 0 && (
+    <section class="latest">
+      <h2 class="font-display">From the blog</h2>
+      <PostList posts={latest} size="compact" headingLevel={3} showTags={false} />
+    </section>
+  )}
+
+  <section class="band" aria-labelledby="band-title">
+    <div>
+      <h2 class="font-display" id="band-title">Get noomers</h2>
+      <p>One command renames the repo. Merge to main and it deploys to your own Cloudflare account, with smoke tests and automatic rollback.</p>
+    </div>
+    <a class="btn cta inv" href={APP_URL} data-cta>Get noomers</a>
+  </section>
+
+  <div id="escort" aria-hidden="true"><Crew robot={1} color="--crew-1" carry="AUTH" placement="block" /></div>
+</PageLayout>
+
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 40px;
+    padding-block: 56px 72px;
+    align-items: center;
+  }
+  .hero > * {
+    min-width: 0;
+  }
+  h1 {
+    font-size: 64px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.04;
+    text-wrap: balance;
+  }
+  h1 em {
+    font-style: normal;
+    color: var(--brand-text);
+  }
+  .sub {
+    margin-top: 22px;
+    font-size: 19px;
+    color: var(--color-kumo-subtle);
+    line-height: 1.6;
+    max-width: 460px;
+  }
+  .btns {
+    margin-top: 34px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .cta {
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 28px;
+  }
+  .scene {
+    position: relative;
+    padding-bottom: 64px;
+  }
+
+  .ships,
+  .agents,
+  .latest {
+    padding-block: 60px;
+  }
+  h2 {
+    font-size: 38px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  .lede {
+    margin-top: 12px;
+    color: var(--color-kumo-subtle);
+    max-width: 580px;
+    font-size: 17px;
+  }
+  .rows {
+    margin-top: 36px;
+    border-top: 1px solid var(--color-kumo-line);
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    padding: 22px 8px;
+    border-bottom: 1px solid var(--color-kumo-line);
+    transition: background-color 0.15s ease;
+  }
+  .row:hover {
+    background: var(--brand-tint);
+  }
+  .row b {
+    font-size: 17px;
+  }
+  .row p {
+    font-size: 16px;
+    color: var(--color-kumo-subtle);
+    line-height: 1.6;
+    margin: 0;
+  }
+  .row:hover p {
+    color: var(--color-kumo-default);
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 18px;
+    margin-top: 36px;
+  }
+  .acard {
+    min-width: 0;
+    background: var(--color-kumo-elevated);
+    border: 1px solid var(--color-kumo-line);
+    border-radius: 14px;
+    padding: 22px;
+  }
+  .acard h3 {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+  .acard pre {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.7;
+    background: var(--color-kumo-canvas);
+    border-radius: 10px;
+    padding: 14px;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .band {
+    margin-bottom: 72px;
+    background: var(--color-kumo-brand);
+    border-radius: 20px;
+    padding: 52px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+  .band h2,
+  .band p {
+    color: var(--brand-ink);
+  }
+  .band p {
+    margin-top: 8px;
+    max-width: 560px;
+  }
+  /* inverted button: brand-ink surface, brand text. light: #c73d19 on #fff (5.1:1);
+     dark: #ff6b42 on #121212 (6.6:1) */
+  .btn.inv {
+    background: var(--brand-ink);
+    color: var(--color-kumo-brand);
+    border-color: transparent;
+  }
+  .btn.inv:hover {
+    background: color-mix(in oklch, var(--brand-ink), var(--color-kumo-brand) 8%);
+  }
+  .btn.inv:focus-visible {
+    outline-color: var(--brand-ink);
+  }
+
+  #escort {
+    position: fixed;
+    top: 0;
+    right: max(16px, calc((100vw - 1136px) / 2 - 60px - 16px));
+    z-index: 40;
+    display: none;
+    transform: translateY(var(--escort-y, 38vh));
+    transition: transform 0.6s cubic-bezier(0.77, 0, 0.175, 1);
+  }
+  @media (min-width: 1400px) {
+    #escort.on {
+      display: block;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: 1fr;
+      padding-block: 32px 56px;
+    }
+    h1 {
+      font-size: 40px;
+    }
+    .row {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+    h2 {
+      font-size: 30px;
+    }
+  }
+  @media (max-width: 600px) {
+    .band {
+      padding: 36px 24px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #escort {
+      transition: none;
+    }
+  }
+</style>
+<script src="../scripts/crew.ts"></script>

@@ -1,0 +1,75 @@
+---
+import PageLayout from "../components/PageLayout.astro";
+import Crew from "../components/Crew.astro";
+import { PROJECT } from "#project";
+---
+<PageLayout
+  title={`Page not found · ${PROJECT.productName}`}
+  description={`That page doesn't exist. Head back to the ${PROJECT.productName} home page or the blog.`}
+>
+  <div class="nf">
+    <div class="mark">
+      <div class="glow" aria-hidden="true"></div>
+      <Crew robot={1} color="--crew-1" placement="inline" />
+    </div>
+    <h1 class="font-display">Page not found</h1>
+    <p>The crew can't find that page either. It may have moved, or the link has a typo.</p>
+    <div class="links">
+      <a class="btn" href="/">Back to {PROJECT.domain}</a>
+      <a class="btn btn-secondary" href="/blog/">Read the blog</a>
+    </div>
+  </div>
+</PageLayout>
+<style>
+  .nf {
+    min-height: 56vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+  }
+  .mark {
+    position: relative;
+    isolation: isolate;
+  }
+  /* soft light behind the sprite only; low alpha so nearby text keeps AA in both modes */
+  .glow {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(
+      circle,
+      light-dark(
+        color-mix(in srgb, var(--highlight) 22%, transparent),
+        color-mix(in srgb, var(--highlight) 8%, transparent)
+      ),
+      transparent 65%
+    );
+    translate: -50% -50%;
+  }
+  h1 {
+    margin-top: 12px;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  p {
+    max-width: 44ch;
+    color: var(--color-kumo-subtle);
+  }
+  .links {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+  }
+</style>

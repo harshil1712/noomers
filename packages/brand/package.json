@@ -1,0 +1,22 @@
+{
+  "name": "@noomers/brand",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.css": "./tokens.css",
+    "./logo.svg": "./logo.svg",
+    "./Logo.tsx": "./Logo.tsx",
+    "./Logo.astro": "./Logo.astro",
+    "./logo-cells": "./logo-cells.ts",
+    "./theme": "./theme.ts",
+    "./crew/crew": "./crew/crew.ts",
+    "./crew/crew.css": "./crew/crew.css",
+    "./crew/CrewSprite": "./crew/CrewSprite.tsx"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  },
+  "peerDependencies": {
+    "react": ">=19"
+  }
+}

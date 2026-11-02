@@ -1,28 +1,37 @@
 {
+  "name": "noomers",
   "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint"
-  },
-  "devDependencies": {
-    "eslint-config-prettier": "^9.1.0",
-    "prettier": "^3.3.2",
-    "turbo": "latest"
-  },
-  "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "4.9.5"
-  },
-  "packageManager": "pnpm@9.15.0",
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
-  "prettier": {
-    "tabWidth": 4
+  "scripts": {
+    "check": "vp check",
+    "test": "vp run -r test",
+    "build": "vp run -r build",
+    "dev:site": "vp -C apps/site dev",
+    "deploy": "ALCHEMY_STAGE=prod alchemy deploy --stage prod",
+    "deploy:dev": "alchemy deploy --stage dev",
+    "dev": "alchemy dev"
   },
-  "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+  "devDependencies": {
+    "@alchemy.run/frontend-frameworks": "2.0.0-beta.83",
+    "@effect/platform-node": "4.0.6",
+    "@effect/platform-node-shared": "4.0.6",
+    "@oxlint/plugins": "^1.89.0",
+    "@types/node": "24.19.2",
+    "alchemy": "2.0.0-beta.83",
+    "effect": "4.0.6",
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:",
+    "wrangler": "4.152.0"
   },
-  "pnpm": {}
+  "overrides": {
+    "alchemy": {
+      "drizzle-orm": "0.45.4",
+      "drizzle-kit": "1.0.0-rc.4"
+    },
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0"
+  },
+  "packageManager": "pnpm@11.28.6"
 }

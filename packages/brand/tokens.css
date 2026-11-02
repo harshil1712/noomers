@@ -1,0 +1,114 @@
+@import "@fontsource-variable/instrument-sans";
+@import "@fontsource/pixelify-sans";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* noomers brand tokens — shared by apps/web (over Kumo) and apps/site.
+   Every colour is ONE light-dark() declaration; the mode comes from
+   `color-scheme`, which html[data-mode] pins (see theme.ts).
+   Declared unlayered on :root so it beats Kumo's `@layer base` / `@theme`
+   defaults (incl. its :root[data-mode="dark"] block) without !important.
+   Contrast ratios (WCAG 2.x) are listed in DESIGN.md → "Contrast". */
+:root {
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  /* display = same family as body; `.font-display` adds tighter tracking */
+  --font-display: var(--font-sans);
+  --font-pixel: "Pixelify Sans", "JetBrains Mono Variable", monospace;
+
+  /* ---- surfaces (warm neutrals) ---- */
+  --color-kumo-canvas: light-dark(#fbfbf9, #131211);
+  --color-kumo-elevated: light-dark(#ffffff, #1b1a18);
+  --color-kumo-recessed: light-dark(#f3f4f5, #22201e);
+  --color-kumo-line: light-dark(#e7e7e3, #2e2b28);
+  --color-kumo-default: light-dark(#121212, #f3f1ee);
+  --color-kumo-subtle: light-dark(#5f6368, #a39e97);
+
+  /* Kumo neutral surfaces, warmed (Kumo ships them at 0 chroma) */
+  --color-kumo-base: light-dark(#ffffff, #1b1a18); /* cards, popovers, dialogs, table th */
+  --color-kumo-control: light-dark(#ffffff, #22201e); /* inputs, select trigger, menus */
+  --color-kumo-overlay: light-dark(#f3f4f5, #2e2b28); /* disabled fields, chips */
+  --color-kumo-tint: light-dark(#f2f1ed, #292724); /* hover / highlighted rows+items */
+  --color-kumo-fill: light-dark(#e7e7e3, #2e2b28); /* th rule, card rings */
+  --color-kumo-fill-hover: light-dark(#f2f1ed, #383532);
+  --color-kumo-hairline: light-dark(#edece8, #292724);
+  --color-kumo-interact: light-dark(#d6d3ce, #45413c);
+  --color-kumo-contrast: light-dark(#121212, #f3f1ee);
+  --color-kumo-focus: light-dark(#22201e, #ebe8e3);
+  /* form-control boundary: ≥3:1 vs elevated/canvas/recessed in both modes (WCAG 1.4.11) */
+  --color-kumo-control-line: light-dark(#8a857e, #75706a);
+
+  /* ---- brand (flare) — dark mode brightens to #ff6b42 with dark text (AA) ---- */
+  --color-kumo-brand: light-dark(#c73d19, #ff6b42);
+  /* hover: darker in light, lighter in dark — keeps --brand-ink AA */
+  --color-kumo-brand-hover: light-dark(#a9330f, #ff8a66);
+  --brand-text: light-dark(#b8360f, #ff7a55);
+  --brand-text-hover: light-dark(#8f2a0b, #ff9c7a);
+  --brand-lite: light-dark(#f08c66, #8a3418);
+  --brand-tint: light-dark(#fbe3dc, #3a1d14);
+  --brand-ink: light-dark(#fff, #121212); /* text on --color-kumo-brand */
+  --highlight: light-dark(#ffc53d, #ffc53d);
+  --color-kumo-danger: light-dark(#b91c1c, #e5484d);
+
+  /* ---- Kumo text namespace (text-kumo-* utilities read these) ---- */
+  --text-color-kumo-default: var(--color-kumo-default);
+  --text-color-kumo-strong: light-dark(#0b0b0a, #fbfaf8);
+  --text-color-kumo-subtle: var(--color-kumo-subtle);
+  --text-color-kumo-placeholder: light-dark(#77726b, #8f8982);
+  --text-color-kumo-inactive: light-dark(#a8a39c, #6b665f); /* disabled only — exempt from AA */
+  --text-color-kumo-inverse: light-dark(#f3f1ee, #121212);
+  --text-color-kumo-brand: var(--brand-text);
+  --text-color-kumo-link: var(--brand-text);
+
+  /* ---- status (Badge tints; consumed by site .bg.* and app badges) ---- */
+  --status-active-bg: light-dark(#e2f5ec, #12301f);
+  --status-active-fg: light-dark(#18794e, #5fd49a);
+  --status-paused-bg: light-dark(#f3f4f5, #24221f);
+  --status-paused-fg: light-dark(#5f6368, #b3ada5);
+  --status-archived-bg: light-dark(#fde4e4, #3a1a14);
+  --status-archived-fg: light-dark(#b3261e, #ff8a6e);
+
+  /* ---- crew companions ---- */
+  --crew-1: var(--color-kumo-brand);
+  --crew-2: light-dark(#e8a33d, #e8a33d);
+  --crew-3: light-dark(#7c8da6, #8fa3be);
+  --crew-4: light-dark(#55575c, #a9a9a9);
+  --crew-legs: light-dark(#121212, #8a847c);
+  --crew-eye: light-dark(#ffffff, #ffffff); /* eyes/mouth pixels */
+  --crew-accent: var(--highlight); /* antenna / visor pixels */
+  --crew-tag-bg: light-dark(#121212, #f3f1ee); /* carry label */
+  --crew-tag-fg: light-dark(#ffffff, #121212);
+
+  color-scheme: light dark;
+}
+html[data-mode="light"] {
+  color-scheme: light;
+}
+html[data-mode="dark"] {
+  color-scheme: dark;
+}
+body {
+  font-family: var(--font-sans);
+}
+/* Display = Instrument Sans with tighter tracking for headings ≥20px. */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+/* Pixelify: sprite labels + tiny accents only. Never headings/body/numbers. */
+.font-pixel {
+  font-family: var(--font-pixel);
+}
+
+/* pixel-art mark + sprites keep hard edges */
+.ff-px,
+.sp svg {
+  shape-rendering: crispEdges;
+}
+/* app parity: selection + scrollbar */
+::selection {
+  background: var(--brand-tint);
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-kumo-line) transparent;
+}

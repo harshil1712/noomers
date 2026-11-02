@@ -1,0 +1,15 @@
+---
+import { LOGO_VIEWBOX, LOGO_WORDMARK, logoRects } from "./logo-cells";
+interface Props { size?: number; wordmark?: boolean }
+const { size = 18, wordmark = false } = Astro.props;
+const { width: W, height: H } = LOGO_VIEWBOX;
+const svg = `<svg width="${size}" height="${size * (H / W)}" viewBox="0 0 ${W} ${H}" shape-rendering="crispEdges" aria-hidden="true" focusable="false">${logoRects()}</svg>`;
+---
+{wordmark ? (
+  <span style="display:inline-flex;align-items:center;gap:8px">
+    <Fragment set:html={svg}/>
+    <span class="font-display" style="font-weight:700;font-size:18px">{LOGO_WORDMARK}</span>
+  </span>
+) : (
+  <Fragment set:html={svg}/>
+)}

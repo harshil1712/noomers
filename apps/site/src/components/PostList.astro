@@ -1,0 +1,73 @@
+---
+/** Post list for the blog index, tag pages and the home page. */
+import type { Post } from "../lib/posts";
+import { formatDate, isoDate } from "../lib/format";
+import TagList from "./TagList.astro";
+
+interface Props {
+  posts: Post[];
+  showTags?: boolean;
+  size?: "default" | "compact";
+  /** Heading level of each post title, to fit under the page's own headings. */
+  headingLevel?: 2 | 3;
+}
+const { posts, showTags = true, size = "default", headingLevel = 2 } = Astro.props;
+---
+<ul class:list={["posts", size]}>
+  {posts.map((p) => (
+    <li>
+      <time datetime={isoDate(p.data.pubDate)}>{formatDate(p.data.pubDate)}</time>
+      {headingLevel === 3 ? (
+        <h3 class="title"><a href={`/blog/${p.id}/`}>{p.data.title}</a></h3>
+      ) : (
+        <h2 class="title"><a href={`/blog/${p.id}/`}>{p.data.title}</a></h2>
+      )}
+      <p class="desc">{p.data.description}</p>
+      {showTags && <TagList tags={p.data.tags} />}
+    </li>
+  ))}
+</ul>
+<style>
+  .posts {
+    list-style: none;
+    padding: 0;
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  time {
+    font-size: 13px;
+    color: var(--color-kumo-subtle);
+    font-variant-numeric: tabular-nums;
+  }
+  .title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+    margin-top: 2px;
+    text-wrap: balance;
+  }
+  .title a {
+    text-decoration: none;
+  }
+  .title a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .desc {
+    margin-top: 6px;
+    font-size: 15px;
+    color: var(--color-kumo-subtle);
+    max-width: 65ch;
+  }
+  .compact {
+    margin-top: 24px;
+    gap: 20px;
+  }
+  .compact .title {
+    font-size: 17px;
+  }
+</style>

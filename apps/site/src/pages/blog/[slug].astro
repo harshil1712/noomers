@@ -1,0 +1,201 @@
+---
+import { getEntry, render } from "astro:content";
+import PageLayout from "../../components/PageLayout.astro";
+import TagList from "../../components/TagList.astro";
+import { getPublishedPosts, type Post } from "../../lib/posts";
+import { formatDate, isoDate, sameDay } from "../../lib/format";
+import { PROJECT, APP_DOMAIN } from "#project";
+const APP_URL = import.meta.env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`;
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}
+
+interface Props {
+  post?: Post;
+}
+// Load by slug first: under `alchemy dev` the props from getStaticPaths can arrive
+// without a renderable entry (RenderUndefinedEntryError). Props are the fallback.
+const slug = Astro.params.slug;
+const post: Post | undefined = (slug ? await getEntry("blog", slug) : undefined) ?? Astro.props.post;
+if (!post || (post.data.draft && !import.meta.env.DEV)) {
+  return new Response("Not found", { status: 404 });
+}
+const { Content } = await render(post);
+const related = (await getPublishedPosts())
+  .filter((p) => p.id !== post.id && p.data.tags.some((t) => post.data.tags.includes(t)))
+  .slice(0, 3);
+
+const { pubDate, updatedDate } = post.data;
+const showUpdated = updatedDate !== undefined && !sameDay(updatedDate, pubDate);
+
+const orgId = `https://${PROJECT.domain}/#org`;
+const postUrl = `https://${PROJECT.domain}/blog/${post.id}/`;
+const ogImage = post.data.image
+  ? post.data.image.startsWith("http") ? post.data.image : `https://${PROJECT.domain}${post.data.image}`
+  : undefined;
+
+const jsonLdEntities: object[] = [
+  {
+    "@type": "BlogPosting",
+    "@id": `${postUrl}#post`,
+    headline: post.data.title,
+    description: post.data.description,
+    datePublished: pubDate.toISOString(),
+    dateModified: (updatedDate ?? pubDate).toISOString(),
+    author: { "@type": "Person", name: post.data.author },
+    publisher: { "@id": orgId },
+    image: ogImage,
+    mainEntityOfPage: postUrl,
+    keywords: post.data.tags.join(", "),
+  },
+  {
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `https://${PROJECT.domain}/` },
+      { "@type": "ListItem", position: 2, name: "Blog", item: `https://${PROJECT.domain}/blog/` },
+      { "@type": "ListItem", position: 3, name: post.data.title, item: postUrl },
+    ],
+  },
+];
+if (post.data.faq?.length) {
+  jsonLdEntities.push({
+    "@type": "FAQPage",
+    mainEntity: post.data.faq.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  });
+}
+---
+<PageLayout
+  title={`${post.data.title} · ${PROJECT.productName}`}
+  description={post.data.description}
+  type="article"
+  publishedTime={pubDate}
+  modifiedTime={updatedDate}
+  tags={post.data.tags}
+  ogImage={ogImage}
+  jsonLdEntities={jsonLdEntities}
+>
+  <p class="back"><a href="/blog/">← Blog</a></p>
+  <h1 class="font-display">{post.data.title}</h1>
+  <p class="meta">
+    {post.data.author} · <time datetime={isoDate(pubDate)}>{formatDate(pubDate)}</time>
+    {showUpdated && updatedDate && (
+      <> · Updated <time datetime={isoDate(updatedDate)}>{formatDate(updatedDate)}</time></>
+    )}
+  </p>
+  <TagList tags={post.data.tags} />
+  <aside class="surface tldr">
+    <strong>TL;DR.</strong> {post.data.tldr}
+  </aside>
+  <article class="prose body">
+    <Content />
+  </article>
+  {post.data.faq && post.data.faq.length > 0 && (
+    <section class="prose faq">
+      <h2>FAQ</h2>
+      {post.data.faq.map((f) => (
+        <div class="qa">
+          <h3>{f.q}</h3>
+          <p>{f.a}</p>
+        </div>
+      ))}
+    </section>
+  )}
+  {related.length > 0 && (
+    <section class="related">
+      <h2 class="font-display">Related posts</h2>
+      <ul>
+        {related.map((r) => (
+          <li><a href={`/blog/${r.id}/`}>{r.data.title}</a></li>
+        ))}
+      </ul>
+    </section>
+  )}
+  <section class="cta" aria-labelledby="post-cta">
+    <h2 class="font-display" id="post-cta">Start your SaaS on {PROJECT.productName}</h2>
+    <p>Auth, D1, an admin area, per-PR deploys and a blog like this one, already working on Cloudflare. Rename the repo with one command.</p>
+    <div class="cta-links">
+      <a class="btn" href={APP_URL}>Get {PROJECT.productName}</a>
+      <a class="btn btn-secondary" href="/#ships">See what ships</a>
+    </div>
+  </section>
+</PageLayout>
+<style>
+  .back {
+    font-size: 14px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    margin-top: 16px;
+    text-wrap: balance;
+  }
+  .meta {
+    margin-top: 12px;
+    font-size: 14px;
+    color: var(--color-kumo-subtle);
+  }
+  .tldr {
+    margin-top: 24px;
+    padding: 20px 24px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .body {
+    margin-top: 32px;
+  }
+  .faq {
+    margin-top: 40px;
+  }
+  .qa {
+    margin-top: 20px;
+  }
+  .qa h3 {
+    font-size: 17px;
+  }
+  .related {
+    margin-top: 48px;
+    border-top: 1px solid var(--color-kumo-line);
+    padding-top: 24px;
+  }
+  .related h2,
+  .cta h2 {
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .related ul {
+    list-style: none;
+    padding: 0;
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .related a:hover {
+    text-decoration: underline;
+  }
+  .cta {
+    margin-top: 48px;
+    padding: 28px;
+    border-radius: 14px;
+    background: var(--color-kumo-elevated);
+    border: 1px solid var(--color-kumo-line);
+  }
+  .cta p {
+    margin-top: 8px;
+    color: var(--color-kumo-subtle);
+  }
+  .cta-links {
+    margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+</style>

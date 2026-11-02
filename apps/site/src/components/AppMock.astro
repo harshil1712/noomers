@@ -1,0 +1,202 @@
+---
+/**
+ * Decorative preview of the app's Projects screen (a shipped feature). Hidden from
+ * assistive tech and inert, so nothing inside is focusable. Under 600px it drops the
+ * sidebar, the Updated column and two rows so text stays at 11px or larger without
+ * scaling.
+ */
+import Logo from "@noomers/brand/Logo.astro";
+
+const projects = [
+  { name: "Storefront rebuild", status: "active", updated: "2h ago", extra: false },
+  { name: "Analytics import", status: "paused", updated: "1d ago", extra: false },
+  { name: "Internal dashboard", status: "active", updated: "4d ago", extra: true },
+  { name: "2019 legacy cleanup", status: "archived", updated: "3w ago", extra: true },
+] as const;
+---
+<div class="window" aria-hidden="true" inert>
+  <div class="winbar"><i></i><i></i><i></i></div>
+  <div class="app">
+    <div class="side">
+      <div class="logo"><Logo size={14} wordmark /></div>
+      <span class="item">Dashboard</span>
+      <span class="item on">Projects</span>
+      <span class="item">Settings</span>
+      <div class="me"><span class="av">A</span>ada@acme.dev</div>
+    </div>
+    <div class="main">
+      <div class="hd"><b>Projects</b><span class="search">New project</span></div>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Status</th><th class="updated">Updated</th></tr>
+        </thead>
+        <tbody>
+          {projects.map((prj) => (
+            <tr class:list={{ extra: prj.extra }}>
+              <td class="email">{prj.name}</td>
+              <td><span class:list={["badge", prj.status]}>{prj.status}</span></td>
+              <td class="updated meta">{prj.updated}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<style>
+  .window {
+    background: var(--color-kumo-elevated);
+    border: 1px solid var(--color-kumo-line);
+    border-radius: 14px;
+    box-shadow:
+      0 24px 60px light-dark(rgb(18 18 18 / 0.14), rgb(0 0 0 / 0.45)),
+      0 6px 18px light-dark(rgb(18 18 18 / 0.06), rgb(0 0 0 / 0.25));
+    overflow: hidden;
+    user-select: none;
+  }
+  .winbar {
+    display: flex;
+    gap: 7px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--color-kumo-line);
+  }
+  .winbar i {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-kumo-line);
+  }
+  .app {
+    display: flex;
+    font-size: 13px;
+  }
+  .side {
+    width: 168px;
+    border-right: 1px solid var(--color-kumo-line);
+    padding: 16px 0;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .logo {
+    padding: 0 18px 14px;
+  }
+  .item {
+    display: block;
+    padding: 8px 18px;
+    color: var(--color-kumo-subtle);
+  }
+  .item.on {
+    color: var(--color-kumo-default);
+    background: var(--color-kumo-canvas);
+    border-radius: 8px;
+    margin: 0 10px;
+    padding-inline: 8px;
+    font-weight: 600;
+  }
+  .me {
+    margin-top: auto;
+    padding: 12px 18px 0;
+    border-top: 1px solid var(--color-kumo-line);
+    font-size: 12px;
+    color: var(--color-kumo-subtle);
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .av {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--color-kumo-brand);
+    display: grid;
+    place-items: center;
+    color: var(--brand-ink);
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .main {
+    flex: 1;
+    min-width: 0;
+    padding: 16px 20px;
+  }
+  .hd {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    font-size: 16px;
+  }
+  .search {
+    font-size: 12px;
+    color: var(--color-kumo-subtle);
+    border: 1px solid var(--color-kumo-line);
+    border-radius: 8px;
+    padding: 6px 12px;
+    min-width: 0;
+    white-space: nowrap;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  th {
+    text-align: left;
+    color: var(--color-kumo-subtle);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-kumo-line);
+  }
+  td {
+    padding: 11px 10px;
+    border-bottom: 1px solid var(--color-kumo-line);
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+  .email {
+    font-weight: 600;
+  }
+  .meta {
+    color: var(--color-kumo-subtle);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  /* status tokens live in packages/brand/tokens.css */
+  .badge.active {
+    background: var(--status-active-bg);
+    color: var(--status-active-fg);
+  }
+  .badge.paused {
+    background: var(--status-paused-bg);
+    color: var(--status-paused-fg);
+  }
+  .badge.archived {
+    background: var(--status-archived-bg);
+    color: var(--status-archived-fg);
+  }
+  @media (max-width: 600px) {
+    .side,
+    .updated,
+    .search,
+    tr.extra {
+      display: none;
+    }
+    .main {
+      padding: 14px 16px;
+    }
+  }
+</style>
