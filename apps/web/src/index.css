@@ -2,9 +2,6 @@
 @import "@cloudflare/kumo/styles/tailwind";
 @import "@noomers/brand/tokens.css";
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
-@source "../node_modules/@fontsource-variable/instrument-sans/files/*";
-@source "../node_modules/@fontsource/pixelify-sans/files/*";
-@source "../node_modules/@fontsource-variable/jetbrains-mono/files/*";
 @source "../../../packages/brand/**/*.{ts,tsx}";
 
 /* ---------------------------------------------------------------------------
