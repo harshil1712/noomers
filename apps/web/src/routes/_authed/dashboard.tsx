@@ -763,7 +763,7 @@ function TimeseriesPanel({
           <PanelError message="Chart didn't load — Basin SQL didn't respond." />
         )
       ) : !data ? (
-        <div className="skeleton rounded-lg " />
+        <div className="skeleton h-[300px] rounded-lg" />
       ) : (
         <>
           <div className="mb-1 flex items-center justify-between">
@@ -965,8 +965,8 @@ function BreakdownTable({
       <>
         {dimSelect}
         <div className="mt-3 space-y-2">
-          {[0.9, 0.7, 0.55].map((w) => (
-            <div key={w} className="skeleton rounded " style={{ width: `${w * 100}%` }} />
+          {[0.92, 0.8, 0.68, 0.56, 0.44, 0.32].map((w) => (
+            <div key={w} className="skeleton h-5 rounded" style={{ width: `${w * 100}%` }} />
           ))}
         </div>
       </>
