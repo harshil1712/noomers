@@ -79,7 +79,8 @@ describe("collectRequestHandler", () => {
             first: vi.fn().mockResolvedValue({ status: "deleted" }),
         };
         const env = {
-            SITE_EVENTS: siteEventsNamespace,            GOALS_DB: { prepare: vi.fn(() => statement) },
+            SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",            GOALS_DB: { prepare: vi.fn(() => statement) },
         } as unknown as Env;
 
         const response = await collectRequestHandler(
@@ -103,7 +104,8 @@ describe("collectRequestHandler", () => {
                     ? vi.fn().mockRejectedValue(result)
                     : vi.fn().mockResolvedValue(result);
             const env = {
-                SITE_EVENTS: siteEventsNamespace,                GOALS_DB: {
+                SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",                GOALS_DB: {
                     prepare: vi.fn(() => ({
                         bind: vi.fn().mockReturnThis(),
                         first,
@@ -126,6 +128,7 @@ describe("collectRequestHandler", () => {
             defaultRequestParams as any,
             {
                 SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         },
         );
 
@@ -136,6 +139,7 @@ describe("collectRequestHandler", () => {
     test("returns 400 when siteId is missing", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = generateRequestParams({
@@ -160,6 +164,7 @@ describe("collectRequestHandler", () => {
     test("returns 400 when siteId is empty string", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = generateRequestParams({
@@ -190,6 +195,7 @@ describe("collectRequestHandler", () => {
     test("invokes siteEventsStub.record with transformed params", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         // @ts-expect-error - we're mocking the request object
@@ -228,6 +234,7 @@ describe("collectRequestHandler", () => {
     test("if-modified-since is absent", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         // @ts-expect-error - we're mocking the request object
@@ -241,6 +248,7 @@ describe("collectRequestHandler", () => {
     test("if-modified-since is within 30 minutes", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = httpMocks.createRequest(
@@ -260,6 +268,7 @@ describe("collectRequestHandler", () => {
     test("if-modified since is within 30 minutes but over day boundary", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         // intentionally set system time as 00:15:00
@@ -284,6 +293,7 @@ describe("collectRequestHandler", () => {
     test("if-modified-since is over 30 days ago", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = httpMocks.createRequest(
@@ -303,6 +313,7 @@ describe("collectRequestHandler", () => {
     test("if-modified-since was yesterday", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = httpMocks.createRequest(
@@ -322,6 +333,7 @@ describe("collectRequestHandler", () => {
     test("if-modified-since is one second after midnight", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const midnight = new Date();
@@ -349,6 +361,7 @@ describe("collectRequestHandler", () => {
     test("if-modified-since is two seconds after midnight", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const midnightPlusOneSecond = new Date();
@@ -378,6 +391,7 @@ describe("collectRequestHandler", () => {
     test("handles UTM parameters correctly", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = generateRequestParams({
@@ -402,6 +416,7 @@ describe("collectRequestHandler", () => {
     test("handles missing UTM parameters gracefully", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
 
         const request = generateRequestParams({
@@ -433,6 +448,7 @@ describe("collectRequestHandler", () => {
     test("stores custom events without affecting visit or bounce counts", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
         const request = generateRequestParams({});
         const url = new URL(request.url);
@@ -456,7 +472,9 @@ describe("collectRequestHandler", () => {
 
     test("stores a stable salted daily visitor id without storing the IP", async () => {
                 const env = {
-            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
+            SITE_EVENTS: siteEventsNamespace,
+            VISITOR_SALT: "test-salt",
+            SERVER_EVENTS_TOKEN: "s3cr3t",
         } as unknown as Env;
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/&r=",
@@ -482,7 +500,7 @@ describe("collectRequestHandler", () => {
         const send = siteEventsStub.record;
         const env = {
             SITE_EVENTS: siteEventsNamespace,
-                        VISITOR_SALT: "test-secret",
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -539,6 +557,7 @@ describe("collectRequestHandler", () => {
             .mockImplementation(() => {});
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
@@ -558,13 +577,16 @@ describe("collectRequestHandler", () => {
 
     test("accepts a server-supplied IP in a POST body without persisting it", async () => {
                 const env = {
-            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
+            SITE_EVENTS: siteEventsNamespace,
+            VISITOR_SALT: "test-salt",
+            SERVER_EVENTS_TOKEN: "s3cr3t",
         } as unknown as Env;
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: {
                 "content-type": "application/x-www-form-urlencoded",
                 "user-agent": defaultBrowserUserAgent,
+                authorization: "Bearer s3cr3t",
             },
             body: new URLSearchParams({
                 sid: "example",
@@ -586,6 +608,7 @@ describe("collectRequestHandler", () => {
     test("rejects oversized POST bodies before collecting analytics", async () => {
                 const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -601,6 +624,7 @@ describe("collectRequestHandler", () => {
     test("accepts valid Unicode event properties after form encoding", async () => {
                 const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
         const properties = JSON.stringify({ label: "é".repeat(1000) });
         const request = new Request("https://example.com/collect", {
@@ -625,6 +649,7 @@ describe("collectRequestHandler", () => {
     test("accepts POST collector parameters from the query string", async () => {
                 const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/query",
@@ -644,6 +669,7 @@ describe("collectRequestHandler", () => {
     test("rejects invalid custom event properties", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
         const request = generateRequestParams({});
         const url = new URL(request.url);
@@ -663,6 +689,7 @@ describe("collectRequestHandler", () => {
     ])("rejects %s", async (_, eventParams) => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         } as unknown as Env;
         const request = generateRequestParams({});
         const url = new URL(request.url);
@@ -725,7 +752,7 @@ describe("collectRequestHandler", () => {
                 const send = siteEventsStub.record;
         const env = {
             SITE_EVENTS: siteEventsNamespace,
-            VISITOR_SALT: "test-secret",
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
@@ -749,7 +776,8 @@ describe("collectRequestHandler", () => {
 
     test("records first-party server tracker traffic even though isbot flags its UA", async () => {
                 const env = {
-            SITE_EVENTS: siteEventsNamespace,            VISITOR_SALT: "test-secret",
+            SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
@@ -771,6 +799,7 @@ describe("collectRequestHandler", () => {
     test("drops a custom server user agent that isbot flags as a bot", async () => {
                 const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request(
             "https://example.com/collect?sid=example&h=example.com&p=/",
@@ -792,7 +821,7 @@ describe("collectRequestHandler", () => {
                 const send = siteEventsStub.record;
         const env = {
             SITE_EVENTS: siteEventsNamespace,
-            VISITOR_SALT: "test-secret",
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -831,6 +860,7 @@ describe("collectRequestHandler", () => {
     test("engagement events record as engagement only", async () => {
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -857,6 +887,7 @@ describe("collectRequestHandler", () => {
     test("keeps a custom event named engagement as a custom event", async () => {
                 const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -881,6 +912,7 @@ describe("collectRequestHandler", () => {
         const send = siteEventsStub.record;
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -913,6 +945,7 @@ describe("collectRequestHandler", () => {
         const send = siteEventsStub.record;
         const env = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
         const request = new Request("https://example.com/collect", {
             method: "POST",
@@ -950,6 +983,7 @@ describe("collectRequestHandler", () => {
             const send = siteEventsStub.record;
             const env = {
                 SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
             const params: Record<string, string> = {
                 sid: "example",
@@ -1014,6 +1048,7 @@ describe("collectRequestHandler", () => {
                         const send = siteEventsStub.record;
             const env = {
                 SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
         };
 
             let request: Request;

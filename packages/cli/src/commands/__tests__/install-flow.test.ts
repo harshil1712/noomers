@@ -257,7 +257,7 @@ describe("install flow safety", () => {
             stagedWrites[stagedWrites.length - 1].content,
         );
 
-        expect(staged.name).toBe("noomers");
+        expect(staged.name).toBe("noomers-local");
         if (staged.analytics_engine_datasets) {
             expect(staged.analytics_engine_datasets[0].dataset).toBe(
                 "metricsDataset",

@@ -20,6 +20,7 @@ describe("collect endpoint", () => {
         vi.clearAllMocks();
         mockEnv = {
             SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
             GOALS_DB: {
                 prepare: vi.fn(() => ({
                     bind: vi.fn().mockReturnThis(),

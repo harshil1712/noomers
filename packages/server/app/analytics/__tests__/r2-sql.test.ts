@@ -191,7 +191,7 @@ describe("R2SQLAPI", () => {
         )).query as string;
         expect(query).toContain("hostname = 'example.com'");
         expect(query).toContain("pathname AS dimension");
-        expect(query).toContain("FIRST_VALUE(pathname ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page");
+        expect(query).toContain("FIRST_VALUE(dimension_value ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page");
         expect(query).not.toContain("MIN_BY");
         expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
         expect(query).toContain("sessions.interactive_events <= 1");

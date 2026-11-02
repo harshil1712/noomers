@@ -45,6 +45,7 @@ describe("Plausible compatibility routes", () => {
                 cloudflare: {
                     env: {
                         SITE_EVENTS: siteEventsNamespace,
+                VISITOR_SALT: "test-salt",
                         GOALS_DB: {
                             prepare: vi.fn(() => ({
                                 bind: vi.fn().mockReturnThis(),

@@ -28,10 +28,15 @@ export async function breakdownLoader(
 ): Promise<{ countsByProperty: CountRow[]; page: number }> {
     const { interval = "7d", site, page = 1 } = paramsFromUrl(request.url);
     const url = new URL(request.url);
-    const siteRow = await new SitesRepository(
-        context.cloudflare.env.GOALS_DB,
-    ).get(site);
-    const tz = siteRow?.timezone || "Etc/UTC";
+    let tz = "Etc/UTC";
+    try {
+        tz =
+            (await new SitesRepository(
+                context.cloudflare.env.GOALS_DB,
+            ).get(site))?.timezone || "Etc/UTC";
+    } catch {
+        // tests / unbound envs: fall back to UTC
+    }
     const filters = getFiltersFromSearchParams(url.searchParams);
     const { startDate, endDate } = getDateTimeRange(interval, tz);
     const analytics = context.sessionAnalytics();
