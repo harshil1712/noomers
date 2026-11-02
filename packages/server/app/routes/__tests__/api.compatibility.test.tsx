@@ -1,4 +1,9 @@
 import { describe, expect, test, vi } from "vitest";
+import { createSiteEventsStub } from "../../__testutils__/site-events";
+
+const { stub: siteEventsStub, namespace: siteEventsNamespace } =
+    createSiteEventsStub();
+const record = siteEventsStub.record;
 import { action as eventAction, loader as eventLoader } from "../api.event";
 import { loader as healthLoader } from "../api.health";
 
@@ -18,7 +23,6 @@ describe("Plausible compatibility routes", () => {
     });
 
     test("routes official tracker payloads into analytics", async () => {
-        const record = vi.fn().mockResolvedValue(undefined);
         const request = new Request("https://analytics.example/api/event", {
             method: "POST",
             headers: {
@@ -40,10 +44,7 @@ describe("Plausible compatibility routes", () => {
             context: {
                 cloudflare: {
                     env: {
-                        SITE_EVENTS: {
-                            idFromName: vi.fn((name: string) => name),
-                            get: vi.fn(() => ({ record })),
-                        },
+                        SITE_EVENTS: siteEventsNamespace,
                         GOALS_DB: {
                             prepare: vi.fn(() => ({
                                 bind: vi.fn().mockReturnThis(),

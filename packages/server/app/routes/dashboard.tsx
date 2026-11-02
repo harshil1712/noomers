@@ -47,6 +47,7 @@ import {
 import { SearchFilters } from "~/lib/types";
 import SearchFilterBadges from "~/components/SearchFilterBadges";
 import { TimeSeriesCard } from "./resources.timeseries";
+import RealtimeCard from "~/components/RealtimeCard";
 import { StatsCard } from "./resources.stats";
 import { requireAuth } from "~/lib/auth";
 import { SitesRepository } from "~/sites/repository";
@@ -233,6 +234,9 @@ export default function Dashboard() {
                         filters={data.filters}
                         timezone={userTimezone}
                     />
+                </div>
+                <div className="w-full mb-4">
+                    <RealtimeCard siteId={data.siteId} />
                 </div>
                 <div className="w-full mb-4">
                     <TimeSeriesCard

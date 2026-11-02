@@ -1,32 +1,28 @@
 {
-    "private": true,
-    "scripts": {
-        "build": "turbo run build",
-        "dev": "turbo run dev",
-        "lint": "turbo run lint"
-    },
-    "devDependencies": {
-        "eslint-config-prettier": "^9.1.0",
-        "prettier": "^3.3.2",
-        "turbo": "latest"
-    },
-    "optionalDependencies": {
-        "@rollup/rollup-linux-x64-gnu": "4.9.5"
-    },
-    "packageManager": "pnpm@9.15.0",
-    "workspaces": [
-        "packages/*"
-    ],
-    "prettier": {
-        "tabWidth": 4
-    },
-    "engines": {
-        "node": ">=20",
-        "pnpm": ">=9"
-    },
-    "pnpm": {
-        "patchedDependencies": {
-            "apache-arrow": "patches/apache-arrow.patch"
-        }
-    }
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.2",
+    "turbo": "latest"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.9.5"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "prettier": {
+    "tabWidth": 4
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "pnpm": {}
 }

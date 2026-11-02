@@ -1,7 +1,10 @@
-const siteEventsRecord = vi.fn().mockResolvedValue(undefined);
+const { stub: siteEventsStub, namespace: siteEventsNamespace } =
+    createSiteEventsStub();
+const siteEventsRecord = siteEventsStub.record;
 
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { plausibleEventRequestHandler } from "../plausible";
+import { createSiteEventsStub } from "../../__testutils__/site-events";
 
 const browserUserAgent =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +

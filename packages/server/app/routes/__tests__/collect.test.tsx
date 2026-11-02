@@ -1,7 +1,10 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { collectRequestHandler } from "../../analytics/collect";
+import { createSiteEventsStub } from "../../__testutils__/site-events";
 
-const siteEventsRecord = vi.fn().mockResolvedValue(undefined);
+const { stub: siteEventsStub, namespace: siteEventsNamespace } =
+    createSiteEventsStub();
+const siteEventsRecord = siteEventsStub.record;
 const browserUserAgent =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -16,10 +19,7 @@ describe("collect endpoint", () => {
         process.env.TZ = "EST";
         vi.clearAllMocks();
         mockEnv = {
-            SITE_EVENTS: {
-                idFromName: vi.fn((name: string) => name),
-                get: vi.fn(() => ({ record: siteEventsRecord })),
-            },
+            SITE_EVENTS: siteEventsNamespace,
             GOALS_DB: {
                 prepare: vi.fn(() => ({
                     bind: vi.fn().mockReturnThis(),

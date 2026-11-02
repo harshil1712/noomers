@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { R2SQLAPI } from "../r2-sql";
 
 describe("R2SQLAPI", () => {
@@ -820,5 +820,59 @@ describe("R2SQLAPI", () => {
         );
 
         await expect(api.query("SELECT 1")).rejects.toThrow("invalid response");
+    });
+});
+
+describe("query cache", () => {
+    const okResponse = () =>
+        new Response(
+            JSON.stringify({ success: true, result: { rows: [{ n: 1 }] } }),
+            { status: 200 },
+        );
+
+    function mockCache() {
+        const stored: { response: Response | null } = { response: null };
+        const cache = {
+            match: vi.fn(async () => undefined),
+            put: vi.fn(async (_key: Request, res: Response) => {
+                stored.response = res;
+            }),
+        };
+        vi.stubGlobal("caches", { default: cache });
+        return { cache, stored };
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    test("uses 24h TTL when the range ended over 10 minutes ago", async () => {
+        const { stored } = mockCache();
+        const fetcher = vi.fn(async () => okResponse());
+        const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher);
+        await api.query("SELECT 1", Date.now() - 60 * 60 * 1000);
+        expect(stored.response?.headers.get("cache-control")).toBe(
+            "public, max-age=86400",
+        );
+    });
+
+    test("uses 60s TTL when the range is near-current", async () => {
+        const { stored } = mockCache();
+        const fetcher = vi.fn(async () => okResponse());
+        const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher);
+        await api.query("SELECT 1", Date.now());
+        expect(stored.response?.headers.get("cache-control")).toBe(
+            "public, max-age=60",
+        );
+    });
+
+    test("does not cache errors", async () => {
+        const { cache } = mockCache();
+        const fetcher = vi.fn(
+            async () => new Response("boom", { status: 500 }),
+        );
+        const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher);
+        await expect(api.query("SELECT 1")).rejects.toThrow();
+        expect(cache.put).not.toHaveBeenCalled();
     });
 });

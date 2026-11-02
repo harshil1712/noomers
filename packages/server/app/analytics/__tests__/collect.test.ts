@@ -3,16 +3,10 @@ import { Mock, describe, expect, test, vi, beforeEach } from "vitest";
 import httpMocks from "node-mocks-http";
 
 import { collectRequestHandler as handleCollectRequest } from "../collect";
+import { createSiteEventsStub } from "../../__testutils__/site-events";
 
-const siteEventsStub = {
-    record: vi.fn((..._args: any[]) => Promise.resolve()),
-    realtime: vi.fn(async () => ({})),
-    purge: vi.fn(async () => {}),
-};
-const siteEventsNamespace = {
-    idFromName: (name: string) => name,
-    get: () => siteEventsStub,
-} as any;
+const { stub: siteEventsStub, namespace: siteEventsNamespace } =
+    createSiteEventsStub();
 
 const activeSitesDatabase = {
     prepare: vi.fn(() => ({
