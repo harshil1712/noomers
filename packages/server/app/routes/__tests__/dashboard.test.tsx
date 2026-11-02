@@ -57,14 +57,10 @@ describe("Dashboard route", () => {
         test("throws a 501 Response if no Cloudflare credentials are provided", async () => {
             const mockLoaderParams: LoaderFunctionArgs = {
                 context: {
-                    analyticsEngine: new AnalyticsEngineAPI(
-                        "testAccountId",
-                        "testApiToken",
-                    ),
+                    basinConfigured: true,
                     cloudflare: {
                         env: {
                             CF_ACCOUNT_ID: "",
-                            CF_BEARER_TOKEN: "",
                         },
                     },
                 },
@@ -85,33 +81,32 @@ describe("Dashboard route", () => {
                 expect(response.status).toBe(501);
             }
 
-            // run it again, this time with account ID present, but bearer token absent
-            mockLoaderParams.context.cloudflare = {
-                env: {
-                    CF_ACCOUNT_ID: "testAccountId",
-                    CF_BEARER_TOKEN: "",
+            // run it again with account ID present but Basin unconfigured
+            mockLoaderParams.context = {
+                basinConfigured: false,
+                cloudflare: {
+                    env: {
+                        CF_ACCOUNT_ID: "testAccountId",
+                    },
                 },
-            };
+            } as never;
 
             try {
                 await loader(mockLoaderParams);
             } catch (error) {
                 expect(error).toBeInstanceOf(Response);
                 const response = error as Response;
-                expect(await response.text()).toBe(
-                    "Missing credentials: CF_BEARER_TOKEN is not set.",
+                expect(await response.text()).toContain(
+                    "Basin SQL is not configured",
                 );
                 expect(response.status).toBe(501);
             }
         });
 
         test("redirects to ?site=siteId if no siteId is provided via query string", async () => {
-            // response for getSitesByOrderedHits
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [{ siteId: "test-siteid", count: 1 }],
-                }),
-            );
+            listSites.mockResolvedValueOnce({
+                sites: [{ domain: "test-siteid" }],
+            });
 
             try {
                 await loader({
@@ -190,7 +185,7 @@ describe("Dashboard route", () => {
             expect(json).toEqual({
                 filters: {},
                 siteId: "test-siteid",
-                sites: ["test-siteid", "registered.example"],
+                sites: ["registered.example"],
                 intervalType: "DAY",
                 interval: "7d",
             });

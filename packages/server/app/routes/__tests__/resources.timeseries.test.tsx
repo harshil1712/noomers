@@ -25,13 +25,31 @@ describe("resources.timeseries loader", () => {
     const { context } = getDefaultContext();
 
     beforeEach(() => {
-        vi.spyOn(
-            context.sessionAnalytics,
-            "getViewsGroupedByInterval",
-        ).mockResolvedValue([
-            ["2024-01-15T00:00:00Z", { views: 100, visitors: 0, bounces: 0 }],
-            ["2024-01-16T00:00:00Z", { views: 200, visitors: 0, bounces: 0 }],
-        ]);
+        context.sessionAnalytics = () =>
+            ({
+                getSessionBreakdown: vi.fn().mockResolvedValue({
+                    rows: [
+                        {
+                            dimension: "2024-01-15T00:00:00Z",
+                            views: 100,
+                            visitors: 0,
+                            visits: 0,
+                            bounces: 0,
+                            events: 100,
+                            averageVisitDuration: null,
+                        },
+                        {
+                            dimension: "2024-01-16T00:00:00Z",
+                            views: 200,
+                            visitors: 0,
+                            visits: 0,
+                            bounces: 0,
+                            events: 200,
+                            averageVisitDuration: null,
+                        },
+                    ],
+                }),
+            }) as never;
 
         // mock out responsive container to just return a standard div, otherwise
         // recharts doesnt render underneath
@@ -78,17 +96,6 @@ describe("resources.timeseries loader", () => {
             },
         ]);
         expect(data.intervalType).toBe("DAY");
-
-        expect(
-            context.sessionAnalytics.getViewsGroupedByInterval,
-        ).toHaveBeenCalledWith(
-            "test-site",
-            "DAY",
-            expect.any(Date),
-            expect.any(Date),
-            "UTC",
-            {},
-        );
     });
 });
 

@@ -1,78 +1,42 @@
 // @vitest-environment jsdom
-import {
-    vi,
-    test,
-    describe,
-    beforeEach,
-    afterEach,
-    expect,
-    Mock,
-} from "vitest";
+import { vi, test, describe, expect, beforeEach } from "vitest";
 import "vitest-dom/extend-expect";
 
+import { contextWithAnalytics } from "./testutils";
 import { loader } from "../resources.utm-source";
-import { createFetchResponse, getDefaultContext } from "./testutils";
 
-describe("Resources/UTM Source route", () => {
-    let fetch: Mock;
+vi.mock("~/lib/auth", () => ({
+    requireAuth: vi.fn(),
+}));
 
-    beforeEach(() => {
-        fetch = global.fetch = vi.fn();
-    });
-
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
+describe("Resources/utm-source route", () => {
     describe("loader", () => {
         test("returns valid json with UTM source data", async () => {
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        { blob11: "google", count: "50" },
-                        { blob11: "facebook", count: "30" },
-                        { blob11: "twitter", count: "20" },
-                    ],
-                }),
-            );
+            const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [{"dimension": "google", "visitors": 8, "views": 9, "events": 9, "visits": 8, "bounces": 2, "averageVisitDuration": 50}] });
+            const context = contextWithAnalytics({ getSessionBreakdown });
 
-            const response = await loader({
-                ...getDefaultContext(),
+            const json = await loader({
+                ...context,
                 // @ts-expect-error we don't need to provide all the properties of the request object
                 request: {
                     url: "http://localhost:3000/resources/utm-source?site=example.com&interval=7d",
                 },
             });
 
-            const json = await response;
-            expect(json).toEqual({
-                countsByProperty: [
-                    ["google", 50],
-                    ["facebook", 30],
-                    ["twitter", 20],
-                ],
-                page: 1,
-            });
-        });
-
-        test("handles empty UTM source data", async () => {
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [],
+            expect(getSessionBreakdown).toHaveBeenCalledWith(
+                "example.com",
+                expect.any(Date),
+                expect.any(Date),
+                {},
+                "visit:utm_source",
+                undefined,
+                expect.objectContaining({
+                    orderBy: [{ field: "visits", direction: "desc" }],
+                    pagination: { limit: 10, offset: 0 },
                 }),
             );
-
-            const response = await loader({
-                ...getDefaultContext(),
-                // @ts-expect-error we don't need to provide all the properties of the request object
-                request: {
-                    url: "http://localhost:3000/resources/utm-source?site=example.com&interval=7d",
-                },
-            });
-
-            const json = await response;
             expect(json).toEqual({
-                countsByProperty: [],
+                countsByProperty: [["google", 8, 8]],
                 page: 1,
             });
         });

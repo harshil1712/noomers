@@ -47,7 +47,7 @@ describe("R2SQLAPI", () => {
             averageVisitDuration: 64.5,
         });
         expect(fetcher).toHaveBeenCalledWith(
-            "https://api.sql.cloudflarestorage.com/api/v1/accounts/account%2Fid/r2-sql/query/events%20bucket",
+            "https://api.sql.cloudflarestorage.com/api/v1/accounts/account%2Fid/basin-sql/query/events%20bucket",
             expect.objectContaining({
                 method: "POST",
                 headers: {
@@ -97,7 +97,7 @@ describe("R2SQLAPI", () => {
 
         expect(fetcher.mock.contexts[0]).not.toBeInstanceOf(R2SQLAPI);
         expect(fetcher).toHaveBeenCalledWith(
-            "https://api.sql.cloudflarestorage.com/api/v1/accounts/account/r2-sql/query/bucket",
+            "https://api.sql.cloudflarestorage.com/api/v1/accounts/account/basin-sql/query/bucket",
             expect.objectContaining({
                 method: "POST",
                 headers: {
@@ -191,7 +191,8 @@ describe("R2SQLAPI", () => {
         )).query as string;
         expect(query).toContain("hostname = 'example.com'");
         expect(query).toContain("pathname AS dimension");
-        expect(query).toContain("MIN_BY(pathname, event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page");
+        expect(query).toContain("FIRST_VALUE(pathname ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page");
+        expect(query).not.toContain("MIN_BY");
         expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
         expect(query).toContain("sessions.interactive_events <= 1");
         expect(query).toContain("LEFT JOIN session_metrics");

@@ -18,7 +18,7 @@ describe("Plausible compatibility routes", () => {
     });
 
     test("routes official tracker payloads into analytics", async () => {
-        const writeDataPoint = vi.fn();
+        const record = vi.fn().mockResolvedValue(undefined);
         const request = new Request("https://analytics.example/api/event", {
             method: "POST",
             headers: {
@@ -40,7 +40,10 @@ describe("Plausible compatibility routes", () => {
             context: {
                 cloudflare: {
                     env: {
-                        WEB_COUNTER_AE: { writeDataPoint },
+                        SITE_EVENTS: {
+                            idFromName: vi.fn((name: string) => name),
+                            get: vi.fn(() => ({ record })),
+                        },
                         GOALS_DB: {
                             prepare: vi.fn(() => ({
                                 bind: vi.fn().mockReturnThis(),
@@ -54,6 +57,6 @@ describe("Plausible compatibility routes", () => {
         } as never);
 
         expect(response.status).toBe(202);
-        expect(writeDataPoint).toHaveBeenCalledOnce();
+        expect(record).toHaveBeenCalledOnce();
     });
 });

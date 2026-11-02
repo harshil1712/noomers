@@ -1,78 +1,42 @@
 // @vitest-environment jsdom
-import {
-    vi,
-    test,
-    describe,
-    beforeEach,
-    afterEach,
-    expect,
-    Mock,
-} from "vitest";
+import { vi, test, describe, expect, beforeEach } from "vitest";
 import "vitest-dom/extend-expect";
 
-import { createFetchResponse, getDefaultContext } from "./testutils";
+import { contextWithAnalytics } from "./testutils";
 import { loader } from "../resources.paths";
 
 vi.mock("~/lib/auth", () => ({
     requireAuth: vi.fn(),
 }));
 
-describe("Resources/Paths route", () => {
-    let fetch: Mock;
-
-    beforeEach(() => {
-        fetch = global.fetch = vi.fn();
-    });
-
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
+describe("Resources/paths route", () => {
     describe("loader", () => {
         test("returns valid json", async () => {
-            // first request for visitors
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        { blob3: "/", isVisitor: 1, count: "2" },
-                        {
-                            blob3: "/example",
-                            isVisitor: 1,
-                            count: "4",
-                        },
-                    ],
-                }),
-            );
-            // second request for views
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        { blob3: "/", count: "7" },
-                        {
-                            blob3: "/example",
-                            count: "10",
-                        },
-                    ],
-                }),
-            );
+            const getBasicMetrics = vi.fn().mockResolvedValue({ rows: [{"dimension": "/example", "visitors": 4, "views": 10, "events": 10}, {"dimension": "/", "visitors": 2, "views": 7, "events": 7}] });
+            const context = contextWithAnalytics({ getBasicMetrics });
 
-            const response = await loader({
-                ...getDefaultContext(),
+            const json = await loader({
+                ...context,
                 // @ts-expect-error we don't need to provide all the properties of the request object
                 request: {
-                    url: "http://localhost:3000/resources/paths", // no site query param
+                    url: "http://localhost:3000/resources/paths?site=example.com&interval=7d",
                 },
             });
 
-            // expect redirect
-            expect(fetch).toHaveBeenCalledTimes(2);
-
-            const json = await response;
-
+            expect(getBasicMetrics).toHaveBeenCalledWith(
+                "example.com",
+                expect.any(Date),
+                expect.any(Date),
+                {},
+                "event:page",
+                undefined,
+                expect.objectContaining({
+                    orderBy: [{ field: "pageviews", direction: "desc" }],
+                    pagination: { limit: 10, offset: 0 },
+                }),
+            );
             expect(json).toEqual({
-                countsByProperty: [
-                    ["/example", 4, 10],
-                    ["/", 2, 7],
-                ],
+                countsByProperty: [["/example", 4, 10], ["/", 2, 7]],
                 page: 1,
             });
         });

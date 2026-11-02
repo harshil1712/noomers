@@ -40,3 +40,9 @@ export function getDefaultContext() {
         },
     };
 }
+
+export function contextWithAnalytics(api: unknown) {
+    const ctx = getDefaultContext();
+    ctx.context.sessionAnalytics = () => api as R2SQLAPI;
+    return ctx;
+}

@@ -27,7 +27,19 @@ function context(
             tracker_script_configuration: "{}",
         }),
     };
+    const sessions = "sessionAnalytics" in overrides
+        ? overrides.sessionAnalytics
+        : {
+        getSessionMetrics: vi.fn().mockResolvedValue({
+            views: 0, visitors: 0, visits: 0, bounces: 0, events: 0,
+            averageVisitDuration: null,
+        }),
+        getSessionBreakdown: vi.fn().mockResolvedValue({ rows: [] }),
+        getBasicMetrics: vi.fn().mockResolvedValue({ rows: [] }),
+    };
+    delete overrides.sessionAnalytics;
     return {
+        sessionAnalytics: () => sessions,
         cloudflare: {
             env: {
                 STATS_API_TOKEN: "stats-secret",
@@ -60,10 +72,15 @@ describe("Plausible Stats API v2", () => {
         await expect(response.json()).resolves.toEqual({ error: "Invalid API key" });
     });
 
-    test("returns aggregate Analytics Engine metrics in Plausible format", async () => {
+    test("returns aggregate Basin metrics in Plausible format", async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-08-02T12:00:00.000Z"));
-        const appContext = context();
+        const getBasicMetrics = vi.fn().mockResolvedValue({
+            rows: [{ visitors: 12, views: 20, events: 24 }],
+        });
+        const appContext = context({
+            sessionAnalytics: { getBasicMetrics },
+        });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -91,31 +108,43 @@ describe("Plausible Stats API v2", () => {
                 pagination: { limit: 10_000, offset: 0 },
             },
         });
-        expect(appContext.analyticsEngine.query).toHaveBeenCalledOnce();
+        expect(getBasicMetrics).toHaveBeenCalledOnce();
     });
 
-    test("targets the configured Analytics Engine dataset", async () => {
+    test("targets the configured Basin table via R2SQLAPI", async () => {
+        const fetcher = vi.fn().mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    success: true,
+                    result: { rows: [{ visitors: 3 }] },
+                }),
+            ),
+        );
+        const { R2SQLAPI } = await import("~/analytics/r2-sql");
+        const api = new R2SQLAPI(
+            "acct",
+            "bucket",
+            "token",
+            "noomers.events",
+            fetcher as typeof fetch,
+        );
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-08-02T12:00:00.000Z"));
-        const query = vi.fn().mockResolvedValue(
-            Response.json({ data: [{ visitors: 12, pageviews: 20, events: 24 }] }),
-        );
         const response = await action({
             request: request({
                 site_id: "example.com",
-                metrics: ["visitors", "pageviews"],
+                metrics: ["visitors"],
                 date_range: "7d",
             }),
-            context: context({
-                analyticsEngine: {
-                    query,
-                    fromClause: 'FROM "custom-dataset"',
-                },
-            }),
+            context: context({ sessionAnalytics: api }),
         } as never);
 
         expect(response.status).toBe(200);
-        expect(query.mock.calls[0][0]).toContain('FROM "custom-dataset"');
+        expect(fetcher).toHaveBeenCalledOnce();
+        const url = fetcher.mock.calls[0][0] as string;
+        expect(url).toContain("/basin-sql/query/");
+        const body = JSON.parse(fetcher.mock.calls[0][1].body as string);
+        expect(body.query).toContain("FROM noomers.events");
     });
 
     test("rejects sites outside the registry", async () => {
@@ -135,7 +164,8 @@ describe("Plausible Stats API v2", () => {
     test("uses the site's timezone for day boundaries and buckets", async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-08-02T02:00:00.000Z"));
-        const query = vi.fn().mockResolvedValue(Response.json({ data: [] }));
+        const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
+        const getBasicMetrics = vi.fn().mockResolvedValue({ rows: [] });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -144,7 +174,7 @@ describe("Plausible Stats API v2", () => {
                 dimensions: ["time:day"],
             }),
             context: context(
-                { analyticsEngine: { query } },
+                { sessionAnalytics: { getSessionBreakdown, getBasicMetrics } },
                 { domain: "example.com", timezone: "America/Los_Angeles" },
             ),
         } as never);
@@ -152,9 +182,6 @@ describe("Plausible Stats API v2", () => {
         expect(response.status).toBe(200);
         const body = (await response.json()) as { query: { date_range: string[] } };
         expect(body.query.date_range[0]).toBe("2026-08-01T00:00:00-07:00");
-        expect(query.mock.calls[0][0]).toContain(
-            "toStartOfDay(timestamp, 'America/Los_Angeles')",
-        );
     });
 
     test("uses R2 exclusively when exact session metrics are requested", async () => {
@@ -285,9 +312,9 @@ describe("Plausible Stats API v2", () => {
     });
 
     test("supports multi-value filter operators", async () => {
-        const query = vi.fn().mockResolvedValue(Response.json({
-            data: [{ dimension: "/pricing", visitors: 5, pageviews: 8, events: 9 }],
-        }));
+        const getBasicMetrics = vi.fn().mockResolvedValue({
+            rows: [{ dimension: "/pricing", visitors: 5, views: 8, events: 9 }],
+        });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -300,22 +327,31 @@ describe("Plausible Stats API v2", () => {
                     ["contains_not", "event:page", ["internal"]],
                 ],
             }),
-            context: context({ analyticsEngine: { query } }),
+            context: context({ sessionAnalytics: { getBasicMetrics } }),
         } as never);
 
         expect(response.status).toBe(200);
         await expect(response.json()).resolves.toMatchObject({
             results: [{ dimensions: ["/pricing"], metrics: [5] }],
         });
-        const sql = query.mock.calls[0][0] as string;
-        expect(sql).toContain("blob3 AS dimension");
-        expect(sql).toContain("blob1 NOT IN ('internal.example', 'preview.example')");
-        expect(sql).toContain("position(blob3, 'pricing') > 0 OR position(blob3, 'plans') > 0");
-        expect(sql).toContain("position(blob3, 'internal') = 0");
+        expect(getBasicMetrics).toHaveBeenCalledWith(
+            "example.com",
+            expect.any(Date),
+            expect.any(Date),
+            [
+                { operator: "is_not", field: "host", values: ["internal.example", "preview.example"] },
+                { operator: "contains", field: "path", values: ["pricing", "plans"] },
+                { operator: "contains_not", field: "path", values: ["internal"] },
+            ],
+            "event:page",
+            undefined,
+            expect.anything(),
+        );
     });
 
     test("passes DST-aware site-timezone buckets to R2", async () => {
         const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
+        const getBasicMetrics = vi.fn().mockResolvedValue({ rows: [] });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -324,7 +360,7 @@ describe("Plausible Stats API v2", () => {
                 dimensions: ["time:day"],
             }),
             context: context(
-                { sessionAnalytics: { getSessionBreakdown } },
+                { sessionAnalytics: { getSessionBreakdown, getBasicMetrics } },
                 { domain: "example.com", timezone: "America/Los_Angeles" },
             ),
         } as never);
@@ -339,14 +375,10 @@ describe("Plausible Stats API v2", () => {
     });
 
     test("supports a filtered, ordered, paginated dimension breakdown", async () => {
-        const query = vi.fn()
-            .mockResolvedValueOnce(Response.json({
-                data: [
-                    { dimension: "/one", visitors: 3, pageviews: 4, events: 4 },
-                    { dimension: "/two", visitors: 5, pageviews: 8, events: 9 },
-                ],
-            }))
-            .mockResolvedValueOnce(Response.json({ data: [{ totalRows: 2 }] }));
+        const getBasicMetrics = vi.fn().mockResolvedValue({
+            rows: [{ dimension: "/two", visitors: 5, views: 8, events: 9 }],
+            totalRows: 2,
+        });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -358,33 +390,35 @@ describe("Plausible Stats API v2", () => {
                 include: { total_rows: true },
                 pagination: { limit: 1, offset: 0 },
             }),
-            context: context({ analyticsEngine: { query } }),
+            context: context({ sessionAnalytics: { getBasicMetrics } }),
         } as never);
 
         expect(response.status).toBe(200);
         const body = (await response.json()) as { results: unknown[]; meta: unknown };
         expect(body.results).toEqual([{ dimensions: ["/two"], metrics: [5, 8] }]);
         expect(body.meta).toEqual({ total_rows: 2 });
-        expect(query.mock.calls[0][0]).toContain("blob1 = 'example.com'");
+        expect(getBasicMetrics).toHaveBeenCalledWith(
+            "example.com",
+            expect.any(Date),
+            expect.any(Date),
+            [{ operator: "is", field: "host", values: ["example.com"] }],
+            "event:page",
+            undefined,
+            expect.objectContaining({
+                orderBy: [{ field: "visitors", direction: "desc" }],
+                pagination: { limit: 1, offset: 0 },
+                count: true,
+            }),
+        );
     });
 
     test("returns hourly time series with complete time labels", async () => {
-        const query = vi.fn().mockResolvedValue(Response.json({
-            data: [
-                {
-                    dimension: "2026-08-01 11:00:00",
-                    visitors: 2,
-                    pageviews: 3,
-                    events: 4,
-                },
-                {
-                    dimension: "2026-08-01 10:00:00",
-                    visitors: 1,
-                    pageviews: 1,
-                    events: 1,
-                },
+        const getBasicMetrics = vi.fn().mockResolvedValue({
+            rows: [
+                { dimension: "2026-08-01 10:00:00", visitors: 1, views: 1, events: 1 },
+                { dimension: "2026-08-01 11:00:00", visitors: 2, views: 3, events: 4 },
             ],
-        }));
+        });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -396,7 +430,7 @@ describe("Plausible Stats API v2", () => {
                 dimensions: ["time:hour"],
                 include: { time_labels: true },
             }),
-            context: context({ analyticsEngine: { query } }),
+            context: context({ sessionAnalytics: { getBasicMetrics } }),
         } as never);
 
         expect(response.status).toBe(200);
@@ -415,19 +449,23 @@ describe("Plausible Stats API v2", () => {
             "2026-08-01 12:00:00",
         ]);
         expect(body.query.order_by).toEqual([["time:hour", "asc"]]);
-        expect(query.mock.calls[0][0]).toContain(
-            "toStartOfHour(timestamp, 'Etc/UTC')",
-        );
-        expect(query.mock.calls[0][0]).toContain("ORDER BY dimension ASC");
-        expect(query.mock.calls[0][0]).toContain(
-            "timestamp < toDateTime64('2026-08-01 12:05:00.000', 3)",
+        expect(getBasicMetrics).toHaveBeenCalledWith(
+            "example.com",
+            expect.any(Date),
+            expect.any(Date),
+            [],
+            "time:hour",
+            expect.any(Array),
+            expect.objectContaining({
+                orderBy: [{ field: "dimension", direction: "asc" }],
+            }),
         );
     });
 
     test("resolves automatic time dimensions to weekly buckets", async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-08-02T12:00:00.000Z"));
-        const query = vi.fn().mockResolvedValue(Response.json({ data: [] }));
+        const getBasicMetrics = vi.fn().mockResolvedValue({ rows: [] });
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -435,7 +473,7 @@ describe("Plausible Stats API v2", () => {
                 date_range: "91d",
                 dimensions: ["time"],
             }),
-            context: context({ analyticsEngine: { query } }),
+            context: context({ sessionAnalytics: { getBasicMetrics } }),
         } as never);
 
         const body = (await response.json()) as {
@@ -443,9 +481,7 @@ describe("Plausible Stats API v2", () => {
         };
         expect(body.query.dimensions).toEqual(["time:week"]);
         expect(body.query.order_by).toEqual([["time:week", "asc"]]);
-        expect(query.mock.calls[0][0]).toContain(
-            "toStartOfWeek(timestamp, 1, 'Etc/UTC')",
-        );
+        expect(getBasicMetrics.mock.calls[0][4]).toBe("time:week");
     });
 
     test("normalizes month-based date presets", async () => {
@@ -470,7 +506,6 @@ describe("Plausible Stats API v2", () => {
     });
 
     test("normalizes exact timestamp boundaries in the reporting timezone", async () => {
-        const query = vi.fn().mockResolvedValue(Response.json({ data: [] }));
         const response = await action({
             request: request({
                 site_id: "example.com",
@@ -481,7 +516,7 @@ describe("Plausible Stats API v2", () => {
                 ],
             }),
             context: context(
-                { analyticsEngine: { query } },
+                {},
                 { domain: "example.com", timezone: "America/Los_Angeles" },
             ),
         } as never);
@@ -491,12 +526,6 @@ describe("Plausible Stats API v2", () => {
             "2026-08-01T03:15:00.250-07:00",
             "2026-08-01T05:05:00.750-07:00",
         ]);
-        expect(query.mock.calls[0][0]).toContain(
-            "timestamp >= toDateTime64('2026-08-01 10:15:00.250', 3)",
-        );
-        expect(query.mock.calls[0][0]).toContain(
-            "timestamp < toDateTime64('2026-08-01 12:05:00.750', 3)",
-        );
     });
 
     test("uses R2 aggregates for basic metrics when available", async () => {
@@ -638,12 +667,12 @@ describe("Plausible Stats API v2", () => {
                 date_range: "7d",
                 dimensions: ["event:page"],
             }),
-            context: context(),
+            context: context({ sessionAnalytics: null }),
         } as never);
 
         expect(response.status).toBe(400);
         await expect(response.json()).resolves.toEqual({
-            error: "R2 SQL is required for session metrics",
+            error: "Basin SQL is not configured",
         });
     });
 

@@ -309,7 +309,12 @@ export class R2SQLAPI {
     async query<Row>(query: string, rangeEndMs?: number): Promise<Row[]> {
         if (rangeEndMs !== undefined) this.lastRangeEnd = rangeEndMs;
         const cacheKey = await this.cacheKey(query);
-        const cache = cacheKey ? (caches as unknown as { default: Cache }).default : undefined;
+        const cache =
+            cacheKey &&
+            typeof globalThis.caches !== "undefined" &&
+            "default" in globalThis.caches
+                ? (globalThis.caches.default as Cache)
+                : undefined;
         const hit = cache && cacheKey ? await cache.match(cacheKey) : undefined;
         if (hit) {
             return (await hit.json()) as Row[];

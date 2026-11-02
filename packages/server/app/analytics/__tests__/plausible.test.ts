@@ -1,3 +1,5 @@
+const siteEventsRecord = vi.fn().mockResolvedValue(undefined);
+
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { plausibleEventRequestHandler } from "../plausible";
 
@@ -7,12 +9,10 @@ const browserUserAgent =
 
 function createEnv() {
     return {
-        WEB_COUNTER_AE: {
-            writeDataPoint: vi.fn(),
-        } as AnalyticsEngineDataset,
-        EVENT_STREAM: {
-            send: vi.fn().mockResolvedValue(undefined),
-        },
+        SITE_EVENTS: {
+            idFromName: vi.fn((name: string) => name),
+            get: vi.fn(() => ({ record: siteEventsRecord })),
+        } as unknown as DurableObjectNamespace,
         VISITOR_SALT: "test-secret",
         GOALS_DB: {
             prepare: vi.fn(() => ({
@@ -25,6 +25,8 @@ function createEnv() {
 
 describe("Plausible Events API", () => {
     beforeEach(() => {
+        vi.clearAllMocks();
+        siteEventsRecord.mockClear();
         vi.setSystemTime(new Date("2026-08-02T12:00:00Z"));
     });
 
@@ -54,8 +56,7 @@ describe("Plausible Events API", () => {
 
         expect(response.status).toBe(410);
         expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+        expect(siteEventsRecord).not.toHaveBeenCalled();
     });
 
     test.each([
@@ -94,8 +95,7 @@ describe("Plausible Events API", () => {
             expect(response.headers.get("Access-Control-Allow-Origin")).toBe(
                 "*",
             );
-            expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-            expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+            expect(siteEventsRecord).not.toHaveBeenCalled();
         },
     );
 
@@ -117,8 +117,7 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(503);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+        expect(siteEventsRecord).not.toHaveBeenCalled();
     });
 
     test("accepts the compact payload emitted by the official tracker", async () => {
@@ -151,8 +150,8 @@ describe("Plausible Events API", () => {
         expect(response.status).toBe(202);
         expect(await response.text()).toBe("ok");
         expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
-        expect(env.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalledOnce();
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledOnce();
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 schema_version: 2,
                 site_id: "example.com",
@@ -177,9 +176,8 @@ describe("Plausible Events API", () => {
                 utm_medium: "email",
                 visitor_id: expect.stringMatching(/^[0-9a-f]{64}$/),
             }),
-        ]);
-
-        const durableEvent = env.EVENT_STREAM.send.mock.calls[0][0][0];
+        );
+        const durableEvent = siteEventsRecord.mock.calls[0][0];
         expect(Object.values(durableEvent)).not.toContain("203.0.113.42");
         expect(Object.values(durableEvent)).not.toContain(browserUserAgent);
         expect(Object.values(durableEvent).join(" ")).not.toContain("secret");
@@ -206,17 +204,16 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        const analyticsPoint = vi.mocked(env.WEB_COUNTER_AE.writeDataPoint).mock
+        const analyticsPoint = vi.mocked(siteEventsRecord).mock
             .calls[0][0];
-        expect(analyticsPoint?.blobs?.[15]).toBe("");
-        expect(analyticsPoint?.doubles?.[0]).toBe(-1);
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(analyticsPoint?.event_name).toBe("pageview");
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 event_type: "pageview",
                 event_name: "pageview",
                 event_properties: JSON.stringify({ author: "Ada" }),
             }),
-        ]);
+        );
     });
 
     test("decodes percent-encoded pathnames", async () => {
@@ -237,12 +234,12 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 pathname: "/hello world",
                 url: "https://example.com/hello world",
             }),
-        ]);
+        );
     });
 
     test("hashes long Analytics Engine indexes without changing the domain", async () => {
@@ -264,13 +261,9 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        const analyticsPoint = vi.mocked(env.WEB_COUNTER_AE.writeDataPoint).mock
-            .calls[0][0];
-        expect(analyticsPoint?.indexes?.[0]).toMatch(/^[0-9a-f]{64}$/);
-        expect(analyticsPoint?.blobs?.[7]).toBe(domain);
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({ site_id: domain }),
-        ]);
+        );
     });
 
     test("stores engagement without exposing it as a custom Analytics Engine event", async () => {
@@ -295,14 +288,13 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 event_type: "engagement",
                 engagement_time: 4312,
                 scroll_depth: 72,
             }),
-        ]);
+        );
     });
 
     test("includes the fragment in hash-based routes", async () => {
@@ -325,12 +317,12 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 pathname: "/app#settings/profile",
                 url: "https://example.com/app#settings/profile",
             }),
-        ]);
+        );
     });
 
     test("parses campaigns and fragments in relative hash-based routes", async () => {
@@ -352,14 +344,14 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 hostname: "(none)",
                 pathname: "/app#settings",
                 url: "/app#settings",
                 utm_source: "newsletter",
             }),
-        ]);
+        );
     });
 
     test("preserves valid large properties in the durable event", async () => {
@@ -387,14 +379,11 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(202);
-        const analyticsPoint = vi.mocked(env.WEB_COUNTER_AE.writeDataPoint).mock
-            .calls[0][0];
-        expect(analyticsPoint?.blobs?.[16]).toBe("");
-        expect(env.EVENT_STREAM.send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 event_properties: JSON.stringify(props),
             }),
-        ]);
+        );
     });
 
     test("marks bot events as dropped without recording them", async () => {
@@ -416,8 +405,7 @@ describe("Plausible Events API", () => {
 
         expect(response.status).toBe(202);
         expect(response.headers.get("x-plausible-dropped")).toBe("1");
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+        expect(siteEventsRecord).not.toHaveBeenCalled();
     });
 
     test("exempts the first-party server tracker UA prefix", async () => {
@@ -439,7 +427,7 @@ describe("Plausible Events API", () => {
 
         expect(response.status).toBe(202);
         expect(response.headers.get("x-plausible-dropped")).toBeNull();
-        expect(env.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalledOnce();
+        expect(siteEventsRecord).toHaveBeenCalledOnce();
     });
 
     test("returns the selected client IP for debug requests", async () => {
@@ -518,7 +506,6 @@ describe("Plausible Events API", () => {
         const response = await plausibleEventRequestHandler(request, env);
 
         expect(response.status).toBe(expectedStatus);
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(env.EVENT_STREAM.send).not.toHaveBeenCalled();
+        expect(siteEventsRecord).not.toHaveBeenCalled();
     });
 });

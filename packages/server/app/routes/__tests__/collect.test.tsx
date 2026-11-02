@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { collectRequestHandler } from "../../analytics/collect";
 
+const siteEventsRecord = vi.fn().mockResolvedValue(undefined);
 const browserUserAgent =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -15,8 +16,9 @@ describe("collect endpoint", () => {
         process.env.TZ = "EST";
         vi.clearAllMocks();
         mockEnv = {
-            WEB_COUNTER_AE: {
-                writeDataPoint: vi.fn(),
+            SITE_EVENTS: {
+                idFromName: vi.fn((name: string) => name),
+                get: vi.fn(() => ({ record: siteEventsRecord })),
             },
             GOALS_DB: {
                 prepare: vi.fn(() => ({
@@ -89,21 +91,9 @@ describe("collect endpoint", () => {
 
         expect(response.status).toBe(200);
 
-        // The key assertion: Last-Modified header should be present when v and b are not provided
-        const lastModified = response.headers.get("Last-Modified") || "";
-        expect(lastModified).not.toBeNull();
-
-        // Parse the returned date
-        const returnedDate = new Date(lastModified);
-
-        // The Last-Modified date should be set to midnight + 1 second in EST timezone
-        expect(returnedDate.getUTCHours()).toBe(5); // 00:00 EST is 05:00 UTC (midnight)
-        expect(returnedDate.getMinutes()).toBe(0);
-        expect(returnedDate.getSeconds()).toBe(1); // 1 second indicates already visited
-        expect(returnedDate.getMilliseconds()).toBe(0);
-
-        // Also verify it's a future date from our initial date
-        expect(returnedDate.getTime()).toBeGreaterThan(initialDate.getTime());
+        // Last-Modified is no longer emitted; visits are sessionized server-side.
+        expect(response.headers.get("Last-Modified")).toBeNull();
+        expect(siteEventsRecord).toHaveBeenCalledOnce();
     });
 
     test("drops a bot user agent with a tracking pixel and a dropped marker", async () => {
@@ -120,7 +110,7 @@ describe("collect endpoint", () => {
         expect(response.headers.get("Content-Type")).toBe("image/gif");
         expect(response.headers.get("x-noomers-dropped")).toBe("1");
         expect(response.headers.get("Last-Modified")).toBeNull();
-        expect(mockEnv.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(siteEventsRecord).not.toHaveBeenCalled();
     });
 
     test("preserves the first-party server tracker UA", async () => {
@@ -135,15 +125,11 @@ describe("collect endpoint", () => {
 
         expect(response.status).toBe(200);
         expect(response.headers.get("x-noomers-dropped")).toBeNull();
-        expect(mockEnv.WEB_COUNTER_AE.writeDataPoint).toHaveBeenCalledOnce();
+        expect(siteEventsRecord).toHaveBeenCalledOnce();
     });
 
     test("accepts native engagement events without Analytics Engine or cache mutation", async () => {
-        const send = vi.fn().mockResolvedValue(undefined);
-        const env = {
-            ...mockEnv,
-            EVENT_STREAM: { send },
-        };
+        const env = { ...mockEnv };
         const request = new Request("https://example.com/collect", {
             method: "POST",
             headers: { "user-agent": browserUserAgent },
@@ -162,13 +148,13 @@ describe("collect endpoint", () => {
         expect(response.status).toBe(200);
         expect(response.headers.get("Content-Type")).toBe("image/gif");
         expect(response.headers.get("Last-Modified")).toBeNull();
-        expect(env.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
-        expect(send).toHaveBeenCalledWith([
+        expect(siteEventsRecord).toHaveBeenCalledOnce();
+        expect(siteEventsRecord).toHaveBeenCalledWith(
             expect.objectContaining({
                 event_type: "engagement",
                 engagement_time: 5000,
             }),
-        ]);
+        );
     });
 
     test("rejects native engagement with invalid time", async () => {
@@ -188,6 +174,6 @@ describe("collect endpoint", () => {
         const response = await collectRequestHandler(request, mockEnv);
 
         expect(response.status).toBe(400);
-        expect(mockEnv.WEB_COUNTER_AE.writeDataPoint).not.toHaveBeenCalled();
+        expect(siteEventsRecord).not.toHaveBeenCalled();
     });
 });

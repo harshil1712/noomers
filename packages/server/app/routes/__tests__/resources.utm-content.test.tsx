@@ -1,56 +1,42 @@
 // @vitest-environment jsdom
-import {
-    vi,
-    test,
-    describe,
-    beforeEach,
-    afterEach,
-    expect,
-    Mock,
-} from "vitest";
+import { vi, test, describe, expect, beforeEach } from "vitest";
 import "vitest-dom/extend-expect";
 
+import { contextWithAnalytics } from "./testutils";
 import { loader } from "../resources.utm-content";
-import { createFetchResponse, getDefaultContext } from "./testutils";
 
-describe("Resources/UTM Content route", () => {
-    let fetch: Mock;
+vi.mock("~/lib/auth", () => ({
+    requireAuth: vi.fn(),
+}));
 
-    beforeEach(() => {
-        fetch = global.fetch = vi.fn();
-    });
-
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
+describe("Resources/utm-content route", () => {
     describe("loader", () => {
         test("returns valid json with UTM content data", async () => {
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        { blob15: "banner_ad", count: "45" },
-                        { blob15: "sidebar_widget", count: "30" },
-                        { blob15: "footer_link", count: "20" },
-                    ],
-                }),
-            );
+            const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [{"dimension": "ad1", "visitors": 8, "views": 9, "events": 9, "visits": 8, "bounces": 2, "averageVisitDuration": 50}] });
+            const context = contextWithAnalytics({ getSessionBreakdown });
 
-            const response = await loader({
-                ...getDefaultContext(),
+            const json = await loader({
+                ...context,
                 // @ts-expect-error we don't need to provide all the properties of the request object
                 request: {
                     url: "http://localhost:3000/resources/utm-content?site=example.com&interval=7d",
                 },
             });
 
-            const json = await response;
+            expect(getSessionBreakdown).toHaveBeenCalledWith(
+                "example.com",
+                expect.any(Date),
+                expect.any(Date),
+                {},
+                "visit:utm_content",
+                undefined,
+                expect.objectContaining({
+                    orderBy: [{ field: "visits", direction: "desc" }],
+                    pagination: { limit: 10, offset: 0 },
+                }),
+            );
             expect(json).toEqual({
-                countsByProperty: [
-                    ["banner_ad", 45],
-                    ["sidebar_widget", 30],
-                    ["footer_link", 20],
-                ],
+                countsByProperty: [["ad1", 8, 8]],
                 page: 1,
             });
         });

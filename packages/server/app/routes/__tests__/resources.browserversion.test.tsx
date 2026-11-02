@@ -1,56 +1,42 @@
 // @vitest-environment jsdom
-import {
-    vi,
-    test,
-    describe,
-    beforeEach,
-    afterEach,
-    expect,
-    Mock,
-} from "vitest";
+import { vi, test, describe, expect, beforeEach } from "vitest";
 import "vitest-dom/extend-expect";
 
+import { contextWithAnalytics } from "./testutils";
 import { loader } from "../resources.browserversion";
-import { createFetchResponse, getDefaultContext } from "./testutils";
 
-describe("Resources/Browserversion route", () => {
-    let fetch: Mock;
+vi.mock("~/lib/auth", () => ({
+    requireAuth: vi.fn(),
+}));
 
-    beforeEach(() => {
-        fetch = global.fetch = vi.fn();
-    });
-
-    afterEach(() => {
-        vi.restoreAllMocks();
-    });
-
+describe("Resources/browserversion route", () => {
     describe("loader", () => {
         test("returns valid json", async () => {
-            fetch.mockResolvedValueOnce(
-                createFetchResponse({
-                    data: [
-                        { blob6: "Chrome", blob9: "118", count: "5" },
-                        { blob6: "Chrome", blob9: "117", count: "15" },
-                        { blob6: "Chrome", blob9: "116", count: "1" },
-                    ],
-                }),
-            );
+            const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [{"dimension": "120.x", "visitors": 2, "views": 3, "events": 3, "visits": 2, "bounces": 0, "averageVisitDuration": 15}] });
+            const context = contextWithAnalytics({ getSessionBreakdown });
 
-            const response = await loader({
-                ...getDefaultContext(),
+            const json = await loader({
+                ...context,
                 // @ts-expect-error we don't need to provide all the properties of the request object
                 request: {
-                    url: "http://localhost:3000/resources/browserversion?browserName=Chrome", // need browserName query param
+                    url: "http://localhost:3000/resources/browserversion?site=example.com&interval=7d",
                 },
             });
 
-            const json = await response;
+            expect(getSessionBreakdown).toHaveBeenCalledWith(
+                "example.com",
+                expect.any(Date),
+                expect.any(Date),
+                {},
+                "visit:browser_version",
+                undefined,
+                expect.objectContaining({
+                    orderBy: [{ field: "visits", direction: "desc" }],
+                    pagination: { limit: 10, offset: 0 },
+                }),
+            );
             expect(json).toEqual({
-                countsByProperty: [
-                    ["118", 5],
-                    ["117", 15],
-                    ["116", 1],
-                ],
+                countsByProperty: [["120.x", 2, 2]],
                 page: 1,
             });
         });

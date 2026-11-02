@@ -6,10 +6,8 @@ import {
 } from "~/lib/utils";
 import type { SessionDimension, SessionMetricsRow } from "~/analytics/r2-sql";
 
-export interface CountRow {
-    name: string;
-    count: number;
-}
+/** [dimension, visitors, secondary metric] tuples consumed by TableCard. */
+export type CountRow = [string, number, number] | [string, number];
 
 const PAGE_SIZE = 10;
 
@@ -24,7 +22,7 @@ export async function breakdownLoader(
     dimension: SessionDimension,
     metric: "visitors" | "visits" | "views" | "events",
 ): Promise<{ countsByProperty: CountRow[]; page: number }> {
-    const { interval, site, page = 1 } = paramsFromUrl(request.url);
+    const { interval = "7d", site, page = 1 } = paramsFromUrl(request.url);
     const url = new URL(request.url);
     const tz = url.searchParams.get("timezone") || "UTC";
     const filters = getFiltersFromSearchParams(url.searchParams);
@@ -68,17 +66,15 @@ export async function breakdownLoader(
         }));
 
     return {
-        countsByProperty: rows.map((row) => ({
-            name: row.dimension,
-            count:
-                metric === "visits"
-                    ? row.visits
-                    : metric === "views"
-                      ? row.views
-                      : metric === "events"
-                        ? row.events
-                        : row.visitors,
-        })),
+        countsByProperty: rows.map((row): CountRow =>
+            metric === "events"
+                ? [row.dimension, row.events]
+                : [
+                      row.dimension,
+                      row.visitors,
+                      metric === "visits" ? row.visits : row.views,
+                  ],
+        ),
         page: Number(page),
     };
 }

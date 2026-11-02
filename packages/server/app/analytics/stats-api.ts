@@ -303,11 +303,14 @@ export function getTimeBuckets(dimension: TimeDimension, start: Date, end: Date,
             : resolved === "time:hour"
               ? cursor.format("YYYY-MM-DD HH:mm:ss")
               : cursor.format("YYYY-MM-DD");
-        let next = cursor;
+        // dayjs().tz().add() on a Date-sourced instance returns the same
+        // instant in this environment, so advance from the epoch millis
+        // instead of chaining .add() on the tz-aware cursor.
+        let next = dayjs(cursor.valueOf()).tz(reportingTimezone);
         if (resolved === "time:hour") next = dayjs(cursor.valueOf() + 60 * 60 * 1000).tz(reportingTimezone);
-        if (resolved === "time:day") next = cursor.add(1, "day").startOf("day");
-        if (resolved === "time:week") next = cursor.add(1, "week").startOf("day");
-        if (resolved === "time:month") next = cursor.add(1, "month").startOf("month");
+        if (resolved === "time:day") next = next.add(1, "day").startOf("day");
+        if (resolved === "time:week") next = next.add(1, "week").startOf("day");
+        if (resolved === "time:month") next = next.add(1, "month").startOf("month");
         buckets.push({
             label,
             start: bucketStart,
@@ -336,8 +339,8 @@ function metricValue(metric: Metric, basic: BasicMetrics, sessions?: SessionMetr
 }
 
 export async function executeStatsQuery(sessions: R2SQLAPI | undefined, input: unknown, reportingTimezone = "Etc/UTC") {
-    if (!sessions) throw new StatsAPIError("Basin SQL is not configured");
     const query = parseQuery(input, reportingTimezone);
+    if (!sessions) throw new StatsAPIError("Basin SQL is not configured");
     const needsSessions = query.metrics.some((metric) => !["visitors", "pageviews", "events"].includes(metric));
     if (needsSessions && !sessions) throw new StatsAPIError("R2 SQL is required for session metrics");
     const dimension = query.dimensions[0];
