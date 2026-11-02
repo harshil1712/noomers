@@ -21,7 +21,6 @@ jobs:
                   node-version-file: "package.json"
             - uses: pnpm/action-setup@v4
             - run: pnpm install
-            - run: pnpm install
             - run: pnpm turbo build
             # Manual dry-run only — real deploys use scripts/deploy.mjs.
             - run: echo "Use scripts/deploy.mjs <dev|prod> to deploy."
