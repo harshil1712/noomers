@@ -1,44 +1,14 @@
 ---
-interface Props { size?: number; markOnly?: boolean; wordmark?: boolean; class?: string }
-const { size = 24, markOnly = false, wordmark = true, class: className } = Astro.props;
-const r = size * 0.29;
-const stroke = Math.max(2, size * 0.08);
-const gap = size * 0.1;
-const w = r * 4 + gap + stroke;
-const h = r * 2 + stroke * 2;
+interface Props { size?: number; markOnly?: boolean; class?: string }
+const { class: className } = Astro.props;
 ---
-<span class={`logo ${className ?? ""}`}>
-  <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-    <circle cx={r} cy={r + stroke} r={r} fill="var(--color-kumo-brand)" />
-    <circle
-      cx={r * 3 + gap + stroke / 2}
-      cy={r + stroke}
-      r={r}
-      fill="none"
-      stroke="var(--color-kumo-brand)"
-      stroke-width={stroke}
-    />
-  </svg>
-  {wordmark && !markOnly && (
-    <span class="word" style={`font-size: ${size * 0.75}px`}>noomers</span>
-  )}
-</span>
+<span class:list={["logo", className]}>noomers</span>
 <style>
   .logo {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55em;
-    white-space: nowrap;
-  }
-  .logo svg {
-    display: block;
-    flex: none;
-  }
-  .word {
-    font-family: var(--font-display);
-    font-weight: 700;
+    font-weight: 600;
+    font-size: 18px;
     letter-spacing: -0.02em;
-    line-height: 1;
     color: var(--color-kumo-default);
+    line-height: 1;
   }
 </style>
