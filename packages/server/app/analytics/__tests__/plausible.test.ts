@@ -130,7 +130,7 @@ describe("Plausible Events API", () => {
             headers: {
                 "content-type": "text/plain",
                 "user-agent": browserUserAgent,
-                "x-forwarded-for": "unknown, 203.0.113.42",
+                "cf-connecting-ip": "203.0.113.42",
             },
             body: JSON.stringify({
                 n: "Signup",
@@ -434,11 +434,12 @@ describe("Plausible Events API", () => {
     });
 
     test("returns the selected client IP for debug requests", async () => {
-        const env = createEnv();
+        const env = { ...createEnv(), SERVER_EVENTS_TOKEN: "s3cr3t" };
         const request = new Request("https://analytics.example/api/event", {
             method: "POST",
             headers: {
                 "x-debug-request": "true",
+                authorization: "Bearer s3cr3t",
                 "x-forwarded-for": "invalid, 2001:db8::1, 203.0.113.42",
             },
         });
@@ -510,5 +511,73 @@ describe("Plausible Events API", () => {
 
         expect(response.status).toBe(expectedStatus);
         expect(siteEventsRecord).not.toHaveBeenCalled();
+    });
+});
+
+describe("Hardening", () => {
+    const baseBody = () =>
+        JSON.stringify({
+            name: "pageview",
+            url: "https://example.com/",
+            domain: "example.com",
+        });
+    const req = (extra: Record<string, string> = {}, body = baseBody()) =>
+        new Request("https://analytics.example/api/event", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                "user-agent": browserUserAgent,
+                "cf-connecting-ip": "1.2.3.4",
+                ...extra,
+            },
+            body,
+        });
+
+    test("x-forwarded-for is ignored without SERVER_EVENTS_TOKEN", async () => {
+        const env = createEnv();
+        const response = await plausibleEventRequestHandler(
+            req({ "x-forwarded-for": "9.9.9.9", "x-debug-request": "true" }),
+            env,
+        );
+        expect(await response.text()).toBe("1.2.3.4");
+    });
+
+    test("x-forwarded-for accepted with SERVER_EVENTS_TOKEN bearer", async () => {
+        const env = { ...createEnv(), SERVER_EVENTS_TOKEN: "s3cr3t" };
+        const response = await plausibleEventRequestHandler(
+            req({
+                "x-forwarded-for": "9.9.9.9",
+                authorization: "Bearer s3cr3t",
+                "x-debug-request": "true",
+            }),
+            env,
+        );
+        expect(await response.text()).toBe("9.9.9.9");
+    });
+
+    test("503 with CORS when VISITOR_SALT is missing", async () => {
+        const env = createEnv();
+        env.VISITOR_SALT = undefined;
+        const response = await plausibleEventRequestHandler(req(), env);
+        expect(response.status).toBe(503);
+        expect(response.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    test("self-referral is dropped (www-insensitive)", async () => {
+        const env = createEnv();
+        const response = await plausibleEventRequestHandler(
+            req({}, JSON.stringify({
+                name: "pageview",
+                url: "https://www.example.com/",
+                domain: "example.com",
+                referrer: "https://example.com/about",
+            })),
+            env,
+        );
+        expect(response.status).toBe(202);
+        const recorded = siteEventsRecord.mock.calls[0][0] as {
+            referrer?: string;
+        };
+        expect(recorded.referrer).toBe("");
     });
 });
