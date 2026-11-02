@@ -622,7 +622,13 @@ export async function collectRequestHandler(
     if (!siteId || siteId === "") {
         return new Response("Missing siteId", { status: 400 });
     }
-    const collectIp = request.headers.get("cf-connecting-ip") || "unknown";
+    const collectIp =
+        ((await hasServerEventsToken(request, env)) &&
+        params.ip &&
+        params.ip.length <= 45 &&
+        /^[0-9a-f:.]+$/i.test(params.ip)
+            ? params.ip
+            : request.headers.get("cf-connecting-ip")) || "unknown";
     const limited = await env.COLLECT_RATE_LIMIT?.limit({
         key: `${collectIp}:${siteId}`,
     });

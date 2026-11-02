@@ -322,8 +322,9 @@ export async function plausibleEventRequestHandler(
             headers: CORS_HEADERS,
         });
     }
+    const effectiveIp = (await getClientIp(request, env)) || "unknown";
     const limited = await env.COLLECT_RATE_LIMIT?.limit({
-        key: `${request.headers.get("cf-connecting-ip") || "unknown"}:${input.siteId}`,
+        key: `${effectiveIp}:${input.siteId}`,
     });
     if (limited && !limited.success) {
         return new Response("Rate limit exceeded", {
