@@ -4,13 +4,15 @@ const APP_URL = import.meta.env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`;
 ---
 <footer>
   <div class="wrap inner">
-    <nav aria-label="Footer">
-      <a href="/blog/">Blog</a>
-      <a href="/privacy">Privacy</a>
-      <a href="/rss.xml">RSS</a>
-      <a href={APP_URL}>App</a>
-    </nav>
-    <span>{PROJECT.productName}</span>
+    <div class="row">
+      <nav aria-label="Footer">
+        <a href="/blog/">Blog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/rss.xml">RSS</a>
+        <a href={APP_URL}>App</a>
+      </nav>
+      <span>{PROJECT.productName}</span>
+    </div>
   </div>
 </footer>
 <style>
@@ -26,6 +28,7 @@ const APP_URL = import.meta.env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`;
     margin-bottom: 32px;
     width: 100%;
   }
+  .row {
     display: flex;
     flex-wrap: wrap;
     gap: 16px;
