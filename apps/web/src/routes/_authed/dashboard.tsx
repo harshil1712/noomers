@@ -644,11 +644,9 @@ function KpiStrip({
               </div>
             </>
           );
-          const cls = `border-kumo-hairline px-5 py-4 ${
-            i % 2 === 1 ? "" : "border-r"
-          } sm:border-r ${i === 5 ? "sm:border-r-0" : ""} ${
-            selected ? "border-t-2 border-t-kumo-brand bg-kumo-tint" : ""
-          }`;
+          const cls = `border-kumo-hairline border-t-2 px-5 py-4 ${
+            selected ? "border-t-kumo-brand bg-kumo-tint" : "border-t-transparent"
+          } ${i % 2 === 1 ? "" : "border-r"} sm:border-r ${i === 5 ? "sm:border-r-0" : ""}`;
           return t.toggle ? (
             <button
               key={t.label}
@@ -726,7 +724,7 @@ function TimeseriesPanel({
   }, [query.site, query.interval, query.timezone, query.filters, query.nonce, isDark, metric]);
 
   return (
-    <Surface className="rounded-xl p-4">
+    <Surface className="min-w-0 overflow-hidden rounded-xl p-4">
       {error ? (
         quiet ? (
           <div className="h-[300px] rounded-lg bg-kumo-recessed" aria-hidden="true" />
@@ -738,13 +736,13 @@ function TimeseriesPanel({
       ) : (
         <>
           <div className="mb-1 flex items-center justify-between">
-            <div className="flex gap-4">
-              <ChartLegend.LargeItem
+            <div className="flex items-center gap-4">
+              <ChartLegend.SmallItem
                 name="Visitors"
                 value=""
                 color={ChartPalette.categorical(0, isDark)}
               />
-              <ChartLegend.LargeItem
+              <ChartLegend.SmallItem
                 name="Pageviews"
                 value=""
                 color={ChartPalette.categorical(1, isDark)}
@@ -990,7 +988,7 @@ function BreakdownTable({
                 key={`${String(row[0])}-${index}`}
                 tabIndex={0}
                 role="button"
-                className={`relative ${realFilter ? "cursor-pointer hover:bg-kumo-recessed" : ""}`}
+                className={`group/row relative ${realFilter ? "cursor-pointer" : ""} [&>*]:bg-transparent hover:[&>*]:bg-kumo-tint/30`}
                 onClick={() => realFilter && onFilter({ [realFilter]: value(row[0]) })}
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && realFilter) {

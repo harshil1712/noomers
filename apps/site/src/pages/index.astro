@@ -24,15 +24,15 @@ const REPO = "https://github.com/harshil1712/noomers";
   </section>
 
   <figure class="shot">
-    <picture>
-      <source srcset="/dashboard-dark.png" media="(prefers-color-scheme: dark)" />
-      <img id="dash-shot" src="/dashboard-light.png" alt="noomers dashboard: stats, chart and breakdown panels" loading="eager" />
-    </picture>
+    <img id="dash-shot" src="/dashboard-light.png" alt="noomers dashboard: stats, chart and breakdown panels" loading="eager" />
     <script>
-      const img = document.getElementById("dash-shot");
+      const img = document.getElementById("dash-shot") as HTMLImageElement;
       const sync = () => {
         const mode = document.documentElement.dataset.mode;
-        if (mode) img.src = mode === "dark" ? "/dashboard-dark.png" : "/dashboard-light.png";
+        const dark =
+          mode === "dark" ||
+          (!mode && matchMedia("(prefers-color-scheme: dark)").matches);
+        img.src = dark ? "/dashboard-dark.png" : "/dashboard-light.png";
       };
       sync();
       new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });

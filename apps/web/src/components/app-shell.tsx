@@ -213,11 +213,14 @@ function SidebarNav() {
 export default function AppShell({ children }: { children: ReactNode }) {
   const sites = useSites();
   return (
-    <Sidebar.Provider collapsible="icon">
+    <Sidebar.Provider collapsible="icon" className="h-dvh">
       <Sidebar>
         <SidebarNav />
       </Sidebar>
-      <main className="flex-1 overflow-auto bg-kumo-canvas">{children}</main>
+      <div className="fixed left-3 top-3 z-30 md:hidden">
+        <Sidebar.Trigger />
+      </div>
+      <main className="flex-1 min-w-0 overflow-y-auto bg-kumo-canvas">{children}</main>
       <SiteCommands sites={sites} />
     </Sidebar.Provider>
   );
