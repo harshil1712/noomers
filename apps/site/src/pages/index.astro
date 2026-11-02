@@ -11,7 +11,8 @@ const REPO = "https://github.com/harshil1712/noomers";
 ---
 <PageLayout title={`${PROJECT.productName}: privacy-first self-hosted analytics`} description={description} width="wide">
   <section class="hero">
-    <h1>Analytics that know <em>less</em>, not more.</h1>
+    <span class="mono-label eyebrow">Self-hosted analytics for Cloudflare</span>
+    <h1>Analytics that know <span class="kw">less</span>, not more.</h1>
     <p class="sub">
       Self-hosted, privacy-first web analytics that run entirely in your own
       Cloudflare account — a lightweight tracker, a realtime dashboard, and
@@ -41,6 +42,7 @@ const REPO = "https://github.com/harshil1712/noomers";
   </figure>
 
   <section class="model">
+    <span class="mono-label eyebrow">Privacy model</span>
     <h2>Privacy by architecture, not policy</h2>
     <div class="cards">
       <div class="card">
@@ -73,6 +75,7 @@ const REPO = "https://github.com/harshil1712/noomers";
   </section>
 
   <section class="arch">
+    <span class="mono-label eyebrow">How it runs</span>
     <h2>Runs entirely in your Cloudflare account</h2>
     <div class="account">
       <div class="account-label">Your Cloudflare account</div>
@@ -90,6 +93,7 @@ const REPO = "https://github.com/harshil1712/noomers";
   </section>
 
   <section class="deploy">
+    <span class="mono-label eyebrow">Self-host</span>
     <h2>Deploy in three steps</h2>
     <ol class="steps">
       <li><span class="num">1</span><div><b>Fork the repo</b><p>noomers carries its own infrastructure as code — nothing to provision by hand.</p></div></li>
@@ -126,18 +130,25 @@ cp .env.example .env  # fill in the values
   )}
 </PageLayout>
 <style>
-  .hero { padding: 3.5rem 0 2rem; max-width: 46rem; }
+  .hero { padding: 4rem 0 2.5rem; max-width: 46rem; }
   .hero h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; line-height: 1.05; letter-spacing: -0.02em; font-weight: 700; }
   .hero h1 em { font-style: normal; color: var(--color-kumo-brand); }
   .sub { font-size: 1.15rem; color: var(--color-kumo-subtle); max-width: 62ch; text-wrap: pretty; }
   .btns { display: flex; gap: .75rem; margin-top: 1.75rem; flex-wrap: wrap; }
   .btn { display: inline-flex; align-items: center; height: 42px; padding: 0 1.2rem; border-radius: 10px; font-weight: 600; text-decoration: none; }
-  .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); }
-  .btn.secondary { background: transparent; border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); }
+  .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); border-radius: 999px; padding: 0 1.5rem; }
+  .btn.secondary { background: transparent; border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); border-radius: 999px; padding: 0 1.5rem; }
+  .kw { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); border-radius: 8px; padding: 0 .18em; }
+  .eyebrow { display: block; margin-bottom: 1rem; }
   .shot { margin: 2rem 0 1rem; }
-  .shot img { width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
+  .shot img { width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(28,25,23,.04), 0 12px 32px rgba(28,25,23,.08); }
+  :global(html[data-mode="dark"]) .shot img { box-shadow: none; }
   .shot figcaption { margin-top: .6rem; font-size: .85rem; color: var(--color-kumo-subtle); }
-  section { margin: 3rem 0; }
+  section { padding: 6rem 0; margin: 0; }
+  section:nth-of-type(even) { background: var(--color-kumo-elevated); border-block: 1px solid var(--color-kumo-hairline); margin-inline: -24px; padding-inline: 24px; }
+  section h2 { font-size: 2rem; letter-spacing: -0.02em; }
+  section h2::before { content: ""; display: block; }
+  @media (max-width: 860px) { section { padding: 4rem 0; } }
   h2 { font-size: 1.6rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
   .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
   .card { border: 1px solid var(--color-kumo-line); background: var(--color-kumo-elevated); border-radius: 14px; padding: 1.5rem; }
@@ -145,8 +156,8 @@ cp .env.example .env  # fill in the values
   .card ul { margin: 0; padding: 0; list-style: none; color: var(--color-kumo-subtle); }
   .card li { display: flex; align-items: baseline; gap: .7rem; margin: .5rem 0; font-size: .95rem; }
   .ic { font-weight: 700; flex: none; }
-  .ic.check { color: var(--color-kumo-success); }
-  .ic.x { color: var(--color-kumo-danger); }
+  .ic.check { color: var(--color-kumo-brand); }
+  .ic.x { color: var(--color-kumo-subtle); }
   .model .note { margin-top: 1.25rem; color: var(--color-kumo-subtle); max-width: 560px; text-wrap: pretty; }
   .account { border: 1px dashed var(--color-kumo-control-line); border-radius: 14px; padding: 1.5rem; position: relative; }
   .account-label { position: absolute; top: -0.7em; left: 1.25rem; background: var(--color-kumo-canvas); padding: 0 .5rem; font-size: .8rem; color: var(--color-kumo-subtle); }
