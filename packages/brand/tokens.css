@@ -2,9 +2,10 @@
    visual identity is the component library's, not a bespoke palette.
    Only two additions Kumo's tokens don't carry on their own. */
 :root {
-  /* text drawn on --color-kumo-brand backgrounds (Kumo default is orange:
-     #fff in light, #121212 in dark) */
-  --brand-ink: light-dark(#fff, #121212);
+  /* text drawn on --color-kumo-brand backgrounds. Kumo's brand blue is
+     dark enough in both modes that white is the readable ink (6.3:1 light,
+     ~7:1 dark); dark text on the dark-mode blue was 3.3:1. */
+  --brand-ink: #fff;
 }
 /* light-dark() resolves from color-scheme; html[data-mode] pins it. */
 :root {

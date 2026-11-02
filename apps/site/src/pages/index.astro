@@ -26,78 +26,96 @@ const REPO = "https://github.com/harshil1712/noomers";
   <figure class="shot">
     <picture>
       <source srcset="/dashboard-dark.png" media="(prefers-color-scheme: dark)" />
-      <img src="/dashboard-light.png" alt="noomers dashboard: stats, chart and breakdown panels" loading="eager" />
+      <img id="dash-shot" src="/dashboard-light.png" alt="noomers dashboard: stats, chart and breakdown panels" loading="eager" />
     </picture>
+    <script>
+      const img = document.getElementById("dash-shot");
+      const sync = () => {
+        const mode = document.documentElement.dataset.mode;
+        if (mode) img.src = mode === "dark" ? "/dashboard-dark.png" : "/dashboard-light.png";
+      };
+      sync();
+      new MutationObserver(sync).observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
+    </script>
     <figcaption>Dashboard shown with demo data.</figcaption>
   </figure>
 
   <section class="model">
-    <div class="col stores">
-      <h2>What noomers stores</h2>
-      <ul>
-        <li>Page URL and referrer</li>
-        <li>Country, region and city (from the edge, not a database)</li>
-        <li>Browser, OS and device class</li>
-        <li>UTM campaign fields</li>
-        <li>Custom event names and properties you send</li>
-        <li>A site-scoped, salted visitor ID — rotated daily</li>
-      </ul>
-    </div>
-    <div class="col never">
-      <h2>What it never stores</h2>
-      <ul>
-        <li>Raw IP addresses</li>
-        <li>Full user-agent strings</li>
-        <li>Cookies or cross-site identifiers</li>
-        <li>Anything that links a visitor across days</li>
-      </ul>
+    <h2>Privacy by architecture, not policy</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>What noomers stores</h3>
+        <ul>
+          <li><span class="ic check" aria-hidden="true">✓</span>Page URL and referrer</li>
+          <li><span class="ic check" aria-hidden="true">✓</span>Country, region and city from the edge</li>
+          <li><span class="ic check" aria-hidden="true">✓</span>Browser, OS and device class</li>
+          <li><span class="ic check" aria-hidden="true">✓</span>UTM campaign fields</li>
+          <li><span class="ic check" aria-hidden="true">✓</span>Custom event names and properties you send</li>
+          <li><span class="ic check" aria-hidden="true">✓</span>A site-scoped, salted visitor ID — rotated daily</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>What it never stores</h3>
+        <ul>
+          <li><span class="ic x" aria-hidden="true">✕</span>Raw IP addresses</li>
+          <li><span class="ic x" aria-hidden="true">✕</span>Full user-agent strings</li>
+          <li><span class="ic x" aria-hidden="true">✕</span>Cookies or cross-site identifiers</li>
+          <li><span class="ic x" aria-hidden="true">✕</span>Anything that links a visitor across days</li>
+        </ul>
+      </div>
     </div>
     <p class="note">
-      Every event is hashed into a site-scoped, hostname-scoped visitor ID using
-      a salt that rotates at 00:00 UTC. Yesterday's IDs can't be linked to
-      today's — sessions never span midnight.
+      Every event is hashed into a site-scoped visitor ID using a salt that
+      rotates at 00:00 UTC. Yesterday's IDs can't be linked to today's —
+      sessions never span midnight, and there's nothing left to re-identify
+      anyone with.
     </p>
   </section>
 
   <section class="arch">
-    <h2>Runs in your Cloudflare account</h2>
-    <ol class="flow">
-      <li><b>Tracker</b><span>sends pageviews</span></li>
-      <li><b>Worker</b><span>collects + serves APIs</span></li>
-      <li><b>Durable Object</b><span>realtime + buffering</span></li>
-      <li><b>Pipeline</b><span>Basin ingest</span></li>
-      <li><b>R2 / Iceberg</b><span>your warehouse</span></li>
-      <li><b>Basin SQL</b><span>historical queries</span></li>
-      <li><b>Dashboard</b><span>reads SQL + DO</span></li>
-    </ol>
+    <h2>Runs entirely in your Cloudflare account</h2>
+    <div class="account">
+      <div class="account-label">Your Cloudflare account</div>
+      <ol class="flow">
+        <li><b>Tracker</b><span>sends pageviews</span></li>
+        <li><b>Worker</b><span>collects + APIs</span></li>
+        <li><b>Durable Object</b><span>realtime + buffer</span></li>
+        <li><b>Pipeline</b><span>Basin ingest</span></li>
+        <li><b>R2 / Iceberg</b><span>your warehouse</span></li>
+        <li><b>Basin SQL</b><span>historical queries</span></li>
+        <li><b>Dashboard</b><span>reads SQL + DO</span></li>
+      </ol>
+    </div>
     <p class="lede">No data leaves your account — the worker, object store and SQL all live under your credentials.</p>
   </section>
 
   <section class="deploy">
     <h2>Deploy in three steps</h2>
     <ol class="steps">
-      <li><b>Fork the repo</b> — it carries its own infrastructure as code.</li>
-      <li><b>Add secrets</b> — Cloudflare token, Better Auth secret, salt and tokens.</li>
-      <li><b>Merge to main</b> — Alchemy deploys through GitHub Actions.</li>
+      <li><span class="num">1</span><div><b>Fork the repo</b><p>noomers carries its own infrastructure as code — nothing to provision by hand.</p></div></li>
+      <li><span class="num">2</span><div><b>Add secrets</b><p>Cloudflare token, Better Auth secret, the daily salt and the API tokens.</p></div></li>
+      <li><span class="num">3</span><div><b>Merge to main</b><p>Alchemy deploys through GitHub Actions with a smoke check.</p></div></li>
     </ol>
     <pre class="code">git clone {REPO}
 cp .env.example .env  # fill in the values
 # merge a PR → GitHub Actions deploys with Alchemy</pre>
   </section>
 
-  <section class="api">
-    <h2>Plausible-compatible API</h2>
-    <p class="lede">A subset of Plausible's Events, Sites and Stats APIs — keep your integrations, dashboards and imports. Coverage lives in the <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>parity document</a>.</p>
-    <pre class="code">curl https://analytics.example.com/api/v2/query \
+  <section class="two-col">
+    <div class="col">
+      <h2>Plausible-compatible API</h2>
+      <p class="lede">A subset of Plausible's Events, Sites and Stats APIs — keep your integrations, dashboards and imports. Coverage lives in the <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>parity document</a>.</p>
+      <pre class="code">curl https://analytics.example.com/api/v2/query \
   -H "Authorization: Bearer $STATS_API_TOKEN" \
   -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</pre>
-  </section>
-
-  <section class="install">
-    <h2>Add the script</h2>
-    <pre class="code">&lt;script defer
+    </div>
+    <div class="col">
+      <h2>Add the script</h2>
+      <p class="lede">One tag, under 1&nbsp;KB, no cookies. Works on any site you own.</p>
+      <pre class="code">&lt;script defer
   src="https://analytics.example.com/tracker.js"
   data-site-id="example.com"&gt;&lt;/script&gt;</pre>
+    </div>
   </section>
 
   {latest.length > 0 && (
@@ -111,33 +129,45 @@ cp .env.example .env  # fill in the values
   .hero { padding: 3.5rem 0 2rem; max-width: 46rem; }
   .hero h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; line-height: 1.05; letter-spacing: -0.02em; font-weight: 700; }
   .hero h1 em { font-style: normal; color: var(--color-kumo-brand); }
-  .sub { font-size: 1.15rem; color: var(--color-kumo-subtle); }
+  .sub { font-size: 1.15rem; color: var(--color-kumo-subtle); max-width: 62ch; text-wrap: pretty; }
   .btns { display: flex; gap: .75rem; margin-top: 1.75rem; flex-wrap: wrap; }
   .btn { display: inline-flex; align-items: center; height: 42px; padding: 0 1.2rem; border-radius: 10px; font-weight: 600; text-decoration: none; }
   .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); }
-  .btn.secondary { border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); }
+  .btn.secondary { background: transparent; border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); }
   .shot { margin: 2rem 0 1rem; }
   .shot img { width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.08); }
   .shot figcaption { margin-top: .6rem; font-size: .85rem; color: var(--color-kumo-subtle); }
   section { margin: 3rem 0; }
   h2 { font-size: 1.6rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
-  .model { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .model .col ul { margin: 0; padding-left: 1.2rem; color: var(--color-kumo-subtle); }
-  .model .col li { margin: .35rem 0; }
-  .model .note { grid-column: 1 / -1; color: var(--color-kumo-subtle); max-width: 62ch; }
-  .flow { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
-  .flow li { border: 1px solid var(--color-kumo-control-line); background: var(--color-kumo-elevated); border-radius: 10px; padding: .6rem .9rem; }
-  .flow b { display: block; }
-  .flow span { font-size: .8rem; color: var(--color-kumo-subtle); }
-  .flow li::after { content: "→"; margin-left: .6rem; color: var(--color-kumo-subtle); }
-  .flow li:last-child::after { content: ""; }
-  .lede { color: var(--color-kumo-subtle); max-width: 62ch; }
-  .code, .acard pre { font-family: ui-monospace, monospace; font-size: .82rem; background: var(--color-kumo-recessed); padding: 1rem; border-radius: 10px; overflow-x: auto; }
-  .steps { padding-left: 1.2rem; color: var(--color-kumo-subtle); }
-  .steps li { margin: .5rem 0; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .card { border: 1px solid var(--color-kumo-line); background: var(--color-kumo-elevated); border-radius: 14px; padding: 1.5rem; }
+  .card h3 { font-size: 1.05rem; margin: 0 0 1rem; }
+  .card ul { margin: 0; padding: 0; list-style: none; color: var(--color-kumo-subtle); }
+  .card li { display: flex; align-items: baseline; gap: .7rem; margin: .5rem 0; font-size: .95rem; }
+  .ic { font-weight: 700; flex: none; }
+  .ic.check { color: var(--color-kumo-success); }
+  .ic.x { color: var(--color-kumo-danger); }
+  .model .note { margin-top: 1.25rem; color: var(--color-kumo-subtle); max-width: 560px; text-wrap: pretty; }
+  .account { border: 1px dashed var(--color-kumo-control-line); border-radius: 14px; padding: 1.5rem; position: relative; }
+  .account-label { position: absolute; top: -0.7em; left: 1.25rem; background: var(--color-kumo-canvas); padding: 0 .5rem; font-size: .8rem; color: var(--color-kumo-subtle); }
+  .flow { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; align-items: stretch; }
+  .flow li { border: 1px solid var(--color-kumo-line); background: var(--color-kumo-elevated); border-radius: 10px; padding: .6rem .7rem; font-size: .85rem; position: relative; }
+  .flow li + li::before { content: "→"; position: absolute; left: -0.45rem; top: 50%; transform: translateY(-50%); color: var(--color-kumo-subtle); font-size: .8rem; }
+  .flow b { display: block; font-size: .9rem; }
+  .flow span { font-size: .75rem; color: var(--color-kumo-subtle); }
+  .lede { color: var(--color-kumo-subtle); max-width: 68ch; font-size: 1rem; text-wrap: pretty; }
+  .code { font-family: ui-monospace, monospace; font-size: .82rem; background: var(--color-kumo-recessed); padding: 1rem; border-radius: 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .steps { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+  .steps li { display: flex; gap: .9rem; }
+  .steps .num { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--color-kumo-control-line); display: grid; place-items: center; font-size: .85rem; font-weight: 600; }
+  .steps b { display: block; margin-bottom: .25rem; }
+  .steps p { margin: 0; color: var(--color-kumo-subtle); font-size: .9rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+  .two-col .code { margin-top: .75rem; }
   @media (max-width: 860px) {
-    .model { grid-template-columns: 1fr; }
-    .flow { flex-direction: column; align-items: flex-start; }
-    .flow li::after { content: "↓"; }
+    .cards, .steps, .two-col { grid-template-columns: 1fr; }
+    .flow { grid-template-columns: 1fr; gap: .4rem; }
+    .flow li + li::before { content: ""; }
+    .flow li + li::after { content: "↓"; position: absolute; left: 1rem; top: -0.55rem; color: var(--color-kumo-subtle); font-size: .7rem; }
   }
 </style>
