@@ -10,7 +10,6 @@ export default defineConfig({
       "apps/site/.astro/**",
       "apps/site/dist/**",
       "**/routeTree.gen.ts",
-      "apps/web/legacy-ui/**",
       "apps/web/tests/__port__/**",
       "packages/tracker/**",
     ],
@@ -24,7 +23,6 @@ export default defineConfig({
       "apps/site/.astro/**",
       "apps/site/dist/**",
       "**/routeTree.gen.ts",
-      "apps/web/legacy-ui/**",
       "apps/web/tests/__port__/**",
       "packages/tracker/**",
       // noomers analytics core — vendored code migrated unchanged;
@@ -40,7 +38,7 @@ export default defineConfig({
       "apps/web/worker/realtime.ts",
       "apps/web/worker/readiness.ts",
       "apps/web/migrations/**",
-      // Ported legacy test harnesses; new tests should still be clean.
+      // Ported legacy test harnesses.
       "apps/web/tests/**",
     ],
     jsPlugins: [

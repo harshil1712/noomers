@@ -11,11 +11,10 @@ const testMigrations = process.env.VITEST ? await readD1Migrations("./migrations
 
 export default defineConfig({
   staged: { "*": "vp check --fix" },
-  fmt: { ignorePatterns: ["src/routeTree.gen.ts", "legacy-ui/**", "tests/__port__/**"] },
+  fmt: { ignorePatterns: ["src/routeTree.gen.ts", "tests/__port__/**"] },
   lint: {
     ignorePatterns: [
       "src/routeTree.gen.ts",
-      "legacy-ui/**",
       "tests/__port__/**",
       // Moved analytics core — unchanged vendored code, exempt from
       // anti-slop (documented exception, same as raw-SQL repositories).

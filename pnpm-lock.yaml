@@ -124,7 +124,7 @@ importers:
         specifier: 13.0.3
         version: 13.0.3
       clsx:
-        specifier: ^2.1.1
+        specifier: 2.1.1
         version: 2.1.1
       dayjs:
         specifier: ^1.11.11
@@ -151,7 +151,7 @@ importers:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
       tailwind-merge:
-        specifier: ^2.3.0
+        specifier: 2.6.1
         version: 2.6.1
       ua-parser-js:
         specifier: ^1.0.38
