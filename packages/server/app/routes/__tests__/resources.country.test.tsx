@@ -36,7 +36,7 @@ describe("Resources/country route", () => {
                 }),
             );
             expect(json).toEqual({
-                countsByProperty: [["US", 5, 6]],
+                countsByProperty: [[["US", "United States"], 5, 6]],
                 page: 1,
             });
         });

@@ -29,7 +29,7 @@ export const BrowserCard = ({
         <PaginatedTableCard
             siteId={siteId}
             interval={interval}
-            columnHeaders={["Browser", "Visitors"]}
+            columnHeaders={["Browser", "Visitors", "Visits"]}
             dataFetcher={useFetcher<typeof loader>()}
             loaderUrl="/resources/browser"
             filters={filters}

@@ -29,7 +29,7 @@ export const UtmContentCard = ({
         <PaginatedTableCard
             siteId={siteId}
             interval={interval}
-            columnHeaders={["UTM Content", "Visitors"]}
+            columnHeaders={["UTM Content", "Visitors", "Visits"]}
             dataFetcher={useFetcher<typeof loader>()}
             loaderUrl="/resources/utm-content"
             filters={filters}

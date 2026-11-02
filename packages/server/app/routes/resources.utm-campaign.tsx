@@ -29,7 +29,7 @@ export const UtmCampaignCard = ({
         <PaginatedTableCard
             siteId={siteId}
             interval={interval}
-            columnHeaders={["UTM Campaign", "Visitors"]}
+            columnHeaders={["UTM Campaign", "Visitors", "Visits"]}
             dataFetcher={useFetcher<typeof loader>()}
             loaderUrl="/resources/utm-campaign"
             filters={filters}

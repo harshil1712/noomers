@@ -6,8 +6,11 @@ describe("SitesRepository", () => {
     const all = vi.fn();
     const run = vi.fn();
     const bind = vi.fn(() => ({ first, all, run }));
+    const batch = vi.fn(async (stmts: unknown[]) =>
+        (stmts as { run: () => unknown }[]).map(() => ({ meta: { changes: 1 } })),
+    );
     const prepare = vi.fn(() => ({ bind }));
-    const repository = new SitesRepository({ prepare } as unknown as D1Database);
+    const repository = new SitesRepository({ prepare, batch } as unknown as D1Database);
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -111,6 +114,58 @@ describe("SitesRepository", () => {
             domain: "renamed.example.com",
         })).rejects.toThrow("not supported");
         expect(run).not.toHaveBeenCalled();
+    });
+
+    test("partial update preserves plausible script id and tracker config", async () => {
+        const existing = {
+            domain: "example.com",
+            tracker_id: "tracker-1",
+            timezone: "Europe/Berlin",
+            plausible_script_id: "pa-abcdef1234567890",
+            tracker_script_configuration: JSON.stringify({
+                outbound_links: true,
+                file_downloads: false,
+            }),
+            custom_properties: "[]",
+        };
+        first.mockResolvedValue(existing);
+
+        const site = await repository.update("example.com", {
+            plausibleScriptId: "pa-newscript123",
+        });
+
+        expect(site?.plausibleScriptId).toBe("pa-newscript123");
+        expect(site?.timezone).toBe("Europe/Berlin");
+        expect(site?.trackerScriptConfiguration.outbound_links).toBe(true);
+        expect(bind).toHaveBeenCalledWith(
+            "example.com",
+            "Europe/Berlin",
+            expect.stringContaining('"outbound_links":true'),
+            "pa-newscript123",
+            expect.any(String),
+            "example.com",
+        );
+    });
+
+    test("update without plausible_script_id keeps the stored value", async () => {
+        first.mockResolvedValue({
+            domain: "example.com",
+            tracker_id: "tracker-1",
+            timezone: "Etc/UTC",
+            plausible_script_id: "pa-keepme1234",
+            tracker_script_configuration: "{}",
+            custom_properties: "[]",
+        });
+        const site = await repository.update("example.com", {});
+        expect(site?.plausibleScriptId).toBe("pa-keepme1234");
+        expect(bind).toHaveBeenCalledWith(
+            "example.com",
+            "Etc/UTC",
+            expect.any(String),
+            "pa-keepme1234",
+            expect.any(String),
+            "example.com",
+        );
     });
 
     test("prevents deleted domains from being registered again", async () => {

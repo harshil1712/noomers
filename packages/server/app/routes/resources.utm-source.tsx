@@ -29,7 +29,7 @@ export const UtmSourceCard = ({
         <PaginatedTableCard
             siteId={siteId}
             interval={interval}
-            columnHeaders={["UTM Source", "Visitors"]}
+            columnHeaders={["UTM Source", "Visitors", "Visits"]}
             dataFetcher={useFetcher<typeof loader>()}
             loaderUrl="/resources/utm-source"
             filters={filters}

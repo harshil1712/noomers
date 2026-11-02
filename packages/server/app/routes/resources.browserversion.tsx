@@ -29,7 +29,7 @@ export const BrowserVersionCard = ({
         <PaginatedTableCard
             siteId={siteId}
             interval={interval}
-            columnHeaders={[`${filters.browserName} Versions`, "Visitors"]}
+            columnHeaders={[`${filters.browserName} Versions`, "Visitors", "Visits"]}
             dataFetcher={useFetcher<typeof loader>()}
             loaderUrl="/resources/browserversion"
             onClick={(browserVersion) =>

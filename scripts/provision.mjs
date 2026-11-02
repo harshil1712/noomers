@@ -12,9 +12,6 @@ import {
     chmodSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { createRequire } from "node:module";
-const require = createRequire(path.join(ROOT, "packages/cli/package.json"));
-const bcrypt = require("bcryptjs");
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -49,8 +46,12 @@ const names = {
 const W = path.join(SERVER, "node_modules/.bin/wrangler");
 const wranglerBin = existsSync(W) ? W : "wrangler";
 
+function redact(text) {
+    return String(text).replaceAll(TOKEN, "<redacted>");
+}
+
 function run(args, { env: extraEnv = {}, capture = false } = {}) {
-    console.log(`$ wrangler ${args.join(" ")}`.replace(TOKEN, "<token>"));
+    console.log(redact(`$ wrangler ${args.join(" ")}`));
     try {
         const out = execFileSync(wranglerBin, args, {
             cwd: SERVER,
@@ -66,7 +67,7 @@ function run(args, { env: extraEnv = {}, capture = false } = {}) {
             console.log("  (exists — reusing)");
             return "";
         }
-        console.error(stderr);
+        console.error(redact(stderr));
         throw e;
     }
 }
@@ -75,7 +76,7 @@ function tryRun(args, opts) {
         return run(args, opts);
     } catch (e) {
         const err = e.stderr?.toString() || e.stdout?.toString() || "";
-        if (err) console.log("  tryRun error:", err.slice(0, 300));
+        if (err) console.log("  tryRun error:", redact(err.slice(0, 300)));
         return "";
     }
 }
@@ -118,7 +119,7 @@ const streamId = (() => {
         } catch (e) {
             console.log(
                 "  stream id lookup error:",
-                (e.stderr?.toString() || "").slice(0, 200),
+                redact((e.stderr?.toString() || "").slice(0, 200)),
             );
         }
     }
@@ -184,6 +185,7 @@ const cfg = {
         ...(base.vars || {}),
         R2_SQL_BUCKET: names.bucket,
         R2_SQL_TABLE: "noomers.events",
+        R2_SQL_IMPORT_TABLE: "noomers.events_import",
         CF_ACCOUNT_ID: ACCOUNT,
     },
 };
@@ -245,7 +247,10 @@ if (!creds.dashboard_password)
 if (!creds.jwt_secret) creds.jwt_secret = randomBytes(32).toString("hex");
 if (!creds.visitor_salt) creds.visitor_salt = randomBytes(16).toString("hex");
 if (!creds.stats_token) creds.stats_token = randomBytes(24).toString("hex");
-const passwordHash = bcrypt.hashSync(creds.dashboard_password, 12);
+const { hashSync: bcryptHash } = await import(
+    path.join(ROOT, "packages/cli/node_modules/bcryptjs/index.js")
+);
+const passwordHash = bcryptHash(creds.dashboard_password, 12);
 
 putSecret("R2_SQL_TOKEN", TOKEN);
 putSecret("CF_PASSWORD_HASH", passwordHash);

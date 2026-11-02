@@ -286,6 +286,10 @@ export class SitesRepository {
                 ? normalizeTimezone(input.timezone)
                 : current.timezone,
             customProperties: current.customProperties,
+            plausibleScriptId:
+                input.plausibleScriptId === undefined
+                    ? current.plausibleScriptId
+                    : input.plausibleScriptId,
             trackerScriptConfiguration: mergeTrackerConfiguration(
                 current.trackerScriptConfiguration,
                 input.trackerScriptConfiguration,
@@ -301,8 +305,8 @@ export class SitesRepository {
                 .bind(
                     next.domain,
                     next.timezone,
-                    next.plausibleScriptId ?? null,
                     JSON.stringify(next.trackerScriptConfiguration),
+                    next.plausibleScriptId ?? null,
                     new Date().toISOString(),
                     current.domain,
                 ),

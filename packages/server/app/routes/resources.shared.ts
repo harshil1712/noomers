@@ -7,7 +7,9 @@ import {
 import type { SessionDimension, SessionMetricsRow } from "~/analytics/r2-sql";
 
 /** [dimension, visitors, secondary metric] tuples consumed by TableCard. */
-export type CountRow = [string, number, number] | [string, number];
+export type CountRow =
+    | [string | [string, string], number, number]
+    | [string | [string, string], number];
 
 const PAGE_SIZE = 10;
 
@@ -21,6 +23,7 @@ export async function breakdownLoader(
     request: Request,
     dimension: SessionDimension,
     metric: "visitors" | "visits" | "views" | "events",
+    transform?: (rows: CountRow[]) => CountRow[],
 ): Promise<{ countsByProperty: CountRow[]; page: number }> {
     const { interval = "7d", site, page = 1 } = paramsFromUrl(request.url);
     const url = new URL(request.url);
@@ -65,8 +68,7 @@ export async function breakdownLoader(
             averageVisitDuration: null,
         }));
 
-    return {
-        countsByProperty: rows.map((row): CountRow =>
+    const countRows = rows.map((row): CountRow =>
             metric === "events"
                 ? [row.dimension, row.events]
                 : [
@@ -74,7 +76,9 @@ export async function breakdownLoader(
                       row.visitors,
                       metric === "visits" ? row.visits : row.views,
                   ],
-        ),
+    );
+    return {
+        countsByProperty: transform ? transform(countRows) : countRows,
         page: Number(page),
     };
 }

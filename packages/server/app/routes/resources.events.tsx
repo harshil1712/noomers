@@ -8,7 +8,11 @@ import type { SearchFilters } from "~/lib/types";
 
 export async function loader({ context, request }: LoaderFunctionArgs) {
     await requireAuth(request, context.cloudflare.env);
-    return breakdownLoader(context, request, "event:name", "events");
+    return breakdownLoader(context, request, "event:name", "events", (rows) =>
+        rows.filter(
+            (row) => row[0] !== "pageview" && row[0] !== "engagement",
+        ),
+    );
 }
 
 export function EventsCard({
