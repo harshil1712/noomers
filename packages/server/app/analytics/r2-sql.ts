@@ -22,9 +22,11 @@ export interface BasicMetricsRow {
 
 export type SessionDimension =
     | "event:page"
+    | `event:props:${string}`
     | "event:hostname"
     | "event:name"
     | "visit:referrer"
+    | "visit:source"
     | "visit:utm_source"
     | "visit:utm_medium"
     | "visit:utm_campaign"
@@ -53,6 +55,7 @@ const VISIT_DIMENSIONS: Partial<Record<SessionDimension, string>> = {
     "event:page": "pathname",
     "event:hostname": "hostname",
     "visit:referrer": "referrer",
+    "visit:source": "visit:source",
     "visit:utm_source": "utm_source",
     "visit:utm_medium": "utm_medium",
     "visit:utm_campaign": "utm_campaign",
@@ -475,7 +478,8 @@ export class R2SQLAPI {
                     SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
                     SUM(CASE WHEN event_type <> 'engagement' AND interactive THEN 1 ELSE 0 END) AS interactive_events,
                     SUM(matches_filter) AS matching_events,
-                    to_unixtime(MAX(event_ts)) - to_unixtime(MIN(event_ts)) AS duration_seconds
+                    to_unixtime(MAX(CASE WHEN event_type <> 'engagement' THEN event_ts END))
+                        - to_unixtime(MIN(CASE WHEN event_type <> 'engagement' THEN event_ts END)) AS duration_seconds
                 FROM numbered
                 GROUP BY visitor_id, session_number
             ),
@@ -707,7 +711,26 @@ export class R2SQLAPI {
         const start = sqlString(startDate.toISOString());
         const end = sqlString(endDate.toISOString());
         const filterPredicate = filtersToPredicate(filters);
-        const eventDimension = VISIT_DIMENSIONS[dimension];
+        let eventDimension = VISIT_DIMENSIONS[dimension];
+        let eventDimensionSql = eventDimension;
+        let dimensionColumns: string[] = eventDimension ? [eventDimension] : [];
+        if (dimension === "visit:source") {
+            // utm_source wins, else referrer hostname sans www., else empty
+            eventDimensionSql = `CASE
+                WHEN utm_source <> '' THEN utm_source
+                WHEN referrer <> '' THEN regexp_replace(split_part(referrer, '/', 3), '^www\\.', '')
+                ELSE '' END`;
+            dimensionColumns = ["utm_source", "referrer"];
+        } else if (dimension.startsWith("event:props:")) {
+            const key = dimension.slice("event:props:".length);
+            if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key)) {
+                throw new Error(`Invalid event property key: ${key}`);
+            }
+            eventDimensionSql = `json_get_str(event_properties, ${sqlString(key)})`;
+            eventDimension = eventDimensionSql;
+            dimensionColumns = ["event_properties", "event_name"];
+        }
+        const visitDimension = dimension.startsWith("visit:");
         const timeUnit = dimension.startsWith("time:")
             ? dimension.slice("time:".length)
             : undefined;
@@ -718,7 +741,7 @@ export class R2SQLAPI {
                   ` THEN ${sqlString(bucket.label)}`,
               ).join(" ")} ELSE NULL END`
             : `date_trunc(${sqlString(timeUnit || "day")}, ${column})`;
-        const eventDimensionExpression = eventDimension || bucketExpression("event_ts");
+        const eventDimensionExpression = eventDimension ? "dimension_value" : bucketExpression("event_ts");
         const sessionDimensionExpression = eventDimension || bucketExpression("visit_start");
         const ctes = `
             WITH ${deduplicatedEventsCte(
@@ -732,7 +755,7 @@ export class R2SQLAPI {
                     "pathname",
                     "hostname",
                     "event_name",
-                    ...(eventDimension ? [eventDimension] : []),
+                    ...dimensionColumns,
                     ...FILTER_COLUMN_LIST,
                 ],
             )},
@@ -749,7 +772,7 @@ export class R2SQLAPI {
                         AND TRY_CAST(received_at AS TIMESTAMP) >= TRY_CAST(${start} AS TIMESTAMP)
                         AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)
                         THEN 1 ELSE 0 END AS matches_filter,
-                    ${eventDimension ? `${eventDimension},` : ""}
+                    ${eventDimensionSql ? `${eventDimensionSql} AS dimension_value,` : ""}
                     TRY_CAST(received_at AS TIMESTAMP) AS event_ts
                 FROM deduplicated_events
                 WHERE ${KEEP_DEDUPLICATED_ROW}
@@ -784,25 +807,40 @@ export class R2SQLAPI {
                     visitor_id,
                     session_number,
                     MIN(CASE WHEN event_type = 'pageview' THEN event_ts END) AS visit_start,
-                    FIRST_VALUE(${eventDimension || "pathname"} ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page,
+                    FIRST_VALUE(${eventDimension ? "dimension_value" : "pathname"} ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page,
                     SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
                     SUM(CASE WHEN event_type <> 'engagement' AND interactive THEN 1 ELSE 0 END) AS interactive_events,
                     SUM(matches_filter) AS matching_events,
-                    to_unixtime(MAX(event_ts)) - to_unixtime(MIN(event_ts)) AS duration_seconds
+                    to_unixtime(MAX(CASE WHEN event_type <> 'engagement' THEN event_ts END))
+                        - to_unixtime(MIN(CASE WHEN event_type <> 'engagement' THEN event_ts END)) AS duration_seconds
                 FROM numbered
                 GROUP BY visitor_id, session_number
             ),
             event_metrics AS (
-                SELECT
-                    ${eventDimensionExpression} AS dimension,
-                    SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS views,
-                    SUM(CASE WHEN event_type <> 'engagement' THEN 1 ELSE 0 END) AS events,
-                    COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) AS visitors
-                FROM all_events
-                WHERE event_ts >= TRY_CAST(${start} AS TIMESTAMP)
-                    AND event_ts < TRY_CAST(${end} AS TIMESTAMP)
-                    AND matches_filter = 1
-                GROUP BY dimension
+                ${visitDimension
+                    ? `SELECT
+                        session_dimensions.dimension,
+                        SUM(sessions.pageviews) AS views,
+                        COUNT(*) AS events,
+                        COUNT(DISTINCT sessions.visitor_id) AS visitors
+                    FROM sessions
+                    JOIN session_dimensions
+                        ON sessions.visitor_id = session_dimensions.visitor_id
+                        AND sessions.session_number = session_dimensions.session_number
+                    WHERE sessions.visit_start >= TRY_CAST(${start} AS TIMESTAMP)
+                        AND sessions.visit_start < TRY_CAST(${end} AS TIMESTAMP)
+                        AND sessions.pageviews > 0
+                    GROUP BY session_dimensions.dimension`
+                    : `SELECT
+                        ${eventDimensionExpression} AS dimension,
+                        SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS views,
+                        SUM(CASE WHEN event_type <> 'engagement' THEN 1 ELSE 0 END) AS events,
+                        COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) AS visitors
+                    FROM all_events
+                    WHERE event_ts >= TRY_CAST(${start} AS TIMESTAMP)
+                        AND event_ts < TRY_CAST(${end} AS TIMESTAMP)
+                        AND matches_filter = 1
+                    GROUP BY dimension`}
             ),
             session_dimensions AS (
                 ${eventDimension

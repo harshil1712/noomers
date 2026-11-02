@@ -9,6 +9,7 @@ declare namespace Cloudflare {
         CF_STORAGE_ENABLED: string;
         VISITOR_SALT: string;
         SERVER_EVENTS_TOKEN?: string;
+        COLLECT_RATE_LIMIT: RateLimit;
         STATS_API_TOKEN?: string;
         SITES_API_TOKEN?: string;
         R2_SQL_BUCKET?: string;

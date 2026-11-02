@@ -15,7 +15,14 @@ export interface SiteEventsNamespace {
 }
 
 export type CollectEnv = Partial<
-    Pick<Env, "VISITOR_SALT" | "GOALS_DB" | "SITE_EVENTS" | "SERVER_EVENTS_TOKEN">
+    Pick<
+    Env,
+    | "VISITOR_SALT"
+    | "GOALS_DB"
+    | "SITE_EVENTS"
+    | "SERVER_EVENTS_TOKEN"
+    | "COLLECT_RATE_LIMIT"
+>
 >;
 
 export async function getSiteCollectionStatus(
@@ -614,6 +621,13 @@ export async function collectRequestHandler(
     const siteId = params.sid;
     if (!siteId || siteId === "") {
         return new Response("Missing siteId", { status: 400 });
+    }
+    const collectIp = request.headers.get("cf-connecting-ip") || "unknown";
+    const limited = await env.COLLECT_RATE_LIMIT?.limit({
+        key: `${collectIp}:${siteId}`,
+    });
+    if (limited && !limited.success) {
+        return new Response("Rate limit exceeded", { status: 429 });
     }
     const statusResponse = collectionStatusResponse(
         await getSiteCollectionStatus(env, siteId),

@@ -266,7 +266,7 @@ export async function plausibleEventRequestHandler(
     if (request.method !== "POST") {
         return new Response("Method Not Allowed", {
             status: 405,
-            headers: { Allow: "POST, OPTIONS" },
+            headers: { ...CORS_HEADERS, Allow: "POST, OPTIONS" },
         });
     }
 
@@ -322,6 +322,15 @@ export async function plausibleEventRequestHandler(
             headers: CORS_HEADERS,
         });
     }
+    const limited = await env.COLLECT_RATE_LIMIT?.limit({
+        key: `${request.headers.get("cf-connecting-ip") || "unknown"}:${input.siteId}`,
+    });
+    if (limited && !limited.success) {
+        return new Response("Rate limit exceeded", {
+            status: 429,
+            headers: CORS_HEADERS,
+        });
+    }
     const statusResponse = collectionStatusResponse(
         await getSiteCollectionStatus(env, input.siteId),
         CORS_HEADERS,
@@ -340,7 +349,21 @@ export async function plausibleEventRequestHandler(
     }
 
     const event = await normalizeEvent(request, env, input, extra);
-    await recordNormalizedEvent(env, event);
+    try {
+        await recordNormalizedEvent(env, event);
+    } catch (error) {
+        console.error(
+            JSON.stringify({
+                message: "event recording failed",
+                eventType: input.eventType,
+                error: error instanceof Error ? error.message : String(error),
+            }),
+        );
+        return new Response("Event recording failed", {
+            status: 500,
+            headers: CORS_HEADERS,
+        });
+    }
 
     return new Response("ok", {
         status: 202,
