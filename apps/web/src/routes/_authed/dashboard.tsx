@@ -207,11 +207,8 @@ function Dashboard() {
 
   const site = search.site ?? "";
   useEffect(() => {
-    if (sites && sites.length > 0 && !site) {
-      void navigate({
-        search: (prev: SearchParams) => ({ ...prev, site: sites[0] }),
-        replace: true,
-      });
+    if (sites && !site) {
+      void navigate({ to: "/", replace: true });
     }
   }, [sites, site, navigate]);
 
