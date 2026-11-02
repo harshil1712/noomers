@@ -218,11 +218,22 @@ describe("realtime route guard", () => {
     expect(res.status).toBe(401);
   });
 
+  it("rejects a signed-in non-admin user (403)", async () => {
+    const { SELF } = await import("cloudflare:test");
+    const { migrate, verifiedSessionCookie } = await import("./helpers");
+    await migrate();
+    const cookie = await verifiedSessionCookie(`user-${crypto.randomUUID()}@t.dev`);
+    const res = await SELF.fetch(rtUrl, {
+      headers: { Cookie: cookie },
+    });
+    expect(res.status).toBe(403);
+  });
+
   it("returns 404 for unknown site after auth", async () => {
     const { SELF } = await import("cloudflare:test");
     const { migrate, verifiedSessionCookie } = await import("./helpers");
     await migrate();
-    const cookie = await verifiedSessionCookie(`rt-${crypto.randomUUID()}@t.dev`);
+    const cookie = await verifiedSessionCookie("owner@example.com");
     const res = await SELF.fetch(rtUrl, {
       headers: { Cookie: cookie },
     });
@@ -234,7 +245,7 @@ describe("realtime route guard", () => {
     const { migrate, seedSite, verifiedSessionCookie } = await import("./helpers");
     await migrate();
     await seedSite("mysite");
-    const cookie = await verifiedSessionCookie(`rt2-${crypto.randomUUID()}@t.dev`);
+    const cookie = await verifiedSessionCookie("owner@example.com");
     const res = await SELF.fetch(rtUrl, {
       headers: {
         Cookie: cookie,

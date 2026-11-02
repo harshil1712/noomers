@@ -26,6 +26,9 @@ export async function handleRealtime(request: Request, env: Env, url: URL): Prom
   if (!session?.user) {
     return new Response("Unauthorized", { status: 401 });
   }
+  if (session.user.role !== "admin") {
+    return new Response("Forbidden", { status: 403 });
+  }
   const repository = new SitesRepository(env.DB);
   if ((await repository.collectionStatus(siteId)) !== "active") {
     return new Response("Not Found", { status: 404 });

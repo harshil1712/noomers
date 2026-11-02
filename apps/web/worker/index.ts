@@ -19,6 +19,7 @@ import { handleFavicon } from "./routes/favicon";
 import { sitesApi } from "./routes/v1-sites";
 import { handleStatsQuery, v2MethodNotAllowed } from "./routes/v2-query";
 import { sessionAnalyticsFactory } from "./lib/context";
+import * as dashboard from "./routes/dashboard";
 import { SiteEvents } from "./site-events";
 
 export { SiteEvents };
@@ -113,6 +114,173 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => {
   // Copy before mutation — the handler's response headers are immutable.
   return new Response(res.body, res);
 });
+
+// Dashboard data API — session + admin only (single-owner dashboard).
+app.use("/api/dashboard/*", async (c, next) => {
+  const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
+  if (!session?.user) return c.json({ error: "Unauthorized" }, 401);
+  if (session.user.role !== "admin") return c.json({ error: "Forbidden" }, 403);
+  await next();
+});
+app.get("/api/dashboard/sites", (c) =>
+  dashboard.listSites({
+    env: c.env,
+    sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+  }),
+);
+app.get("/api/dashboard/stats", (c) =>
+  dashboard.stats(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/timeseries", (c) =>
+  dashboard.timeseries(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/goals", (c) =>
+  dashboard.goals(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.post("/api/dashboard/goals", (c) =>
+  dashboard.mutateGoal(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/props", (c) =>
+  dashboard.props(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/paths", (c) =>
+  dashboard.paths(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/referrer", (c) =>
+  dashboard.referrer(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/events", (c) =>
+  dashboard.events(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/browser", (c) =>
+  dashboard.browser(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/browserversion", (c) =>
+  dashboard.browserVersion(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/country", (c) =>
+  dashboard.country(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/device", (c) =>
+  dashboard.device(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/utm-source", (c) =>
+  dashboard.utmSource(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/utm-medium", (c) =>
+  dashboard.utmMedium(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/utm-campaign", (c) =>
+  dashboard.utmCampaign(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/utm-term", (c) =>
+  dashboard.utmTerm(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
+app.get("/api/dashboard/utm-content", (c) =>
+  dashboard.utmContent(
+    {
+      env: c.env,
+      sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
+    },
+    c.req.raw,
+  ),
+);
 
 app.all("/api/*", (c) => c.json({ error: "not found" }, 404));
 

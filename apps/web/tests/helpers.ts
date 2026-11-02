@@ -37,8 +37,24 @@ export async function verifyLatest(email: string) {
   return SELF.fetch(url!, { redirect: "manual" });
 }
 
-/** Sign up, verify, and return the session cookie header value. */
+export async function signIn(email: string) {
+  return SELF.fetch("https://x/api/auth/sign-in/email", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-captcha-response": "test-token",
+    },
+    body: JSON.stringify({ email, password: PASSWORD }),
+  });
+}
+
+/** Sign up (or sign in if the user exists), verify, and return the session
+ * cookie header value. */
 export async function verifiedSessionCookie(email: string) {
+  const signedIn = await signIn(email);
+  if (signedIn.ok) {
+    return signedIn.headers.get("set-cookie") ?? "";
+  }
   await signUp(email);
   const v = await verifyLatest(email);
   return v.headers.get("set-cookie") ?? "";

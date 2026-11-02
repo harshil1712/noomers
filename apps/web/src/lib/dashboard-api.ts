@@ -1,0 +1,101 @@
+export type CountRow =
+  | [string | [string, string], number, number]
+  | [string | [string, string], number];
+
+export interface BreakdownResponse {
+  countsByProperty: CountRow[];
+  page: number;
+}
+
+export interface StatsResponse {
+  views?: number;
+  visitors?: number;
+  visits?: number;
+  bounceRate?: number;
+  averageVisitDuration?: number | null;
+  hasSufficientBounceData?: boolean;
+}
+
+export interface TimeseriesResponse {
+  chartData: { date: string; views: number; visitors: number; bounceRate: number }[];
+  intervalType: "DAY" | "HOUR";
+}
+
+export interface RealtimeStats {
+  currentVisitors: number;
+  visitors30m: number;
+  pageviews30m: number;
+  pageviewsPerMinute: number[];
+  topPages: { page: string; visitors: number }[];
+  topReferrers: { referrer: string; visitors: number }[];
+  topCountries: { country: string; visitors: number }[];
+}
+
+export interface Goal {
+  id: string;
+  site_id: string;
+  name: string;
+  type: string;
+  value: string;
+  conversions: number;
+  conversionRate: number;
+}
+
+async function get<T>(
+  path: string,
+  params: Record<string, string | number | undefined>,
+): Promise<T> {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const res = await fetch(`${path}?${query.toString()}`);
+  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
+export interface DashboardQuery {
+  site: string;
+  interval: string;
+  timezone: string;
+  filters: Record<string, string>;
+  page?: number;
+}
+
+const DASH = "/api/dashboard";
+
+function params(q: DashboardQuery, extra?: Record<string, string>) {
+  return {
+    site: q.site,
+    interval: q.interval,
+    timezone: q.timezone,
+    page: q.page,
+    ...q.filters,
+    ...extra,
+  };
+}
+
+export const dashboardApi = {
+  sites: () => get<{ sites: string[] }>(`${DASH}/sites`, {}),
+  stats: (q: DashboardQuery) => get<StatsResponse>(`${DASH}/stats`, params(q)),
+  timeseries: (q: DashboardQuery) => get<TimeseriesResponse>(`${DASH}/timeseries`, params(q)),
+  goals: (q: DashboardQuery) => get<{ goals: Goal[] }>(`${DASH}/goals`, params(q)),
+  props: (q: DashboardQuery, event: string, key: string) =>
+    get<BreakdownResponse>(`${DASH}/props`, params(q, { event, key })),
+  breakdown: (card: BreakdownCard, q: DashboardQuery) =>
+    get<BreakdownResponse>(`${DASH}/${card}`, params(q)),
+};
+
+export type BreakdownCard =
+  | "paths"
+  | "referrer"
+  | "events"
+  | "browser"
+  | "browserversion"
+  | "country"
+  | "device"
+  | "utm-source"
+  | "utm-medium"
+  | "utm-campaign"
+  | "utm-term"
+  | "utm-content";
