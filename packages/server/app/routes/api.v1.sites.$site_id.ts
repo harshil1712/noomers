@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { requireAPIKey } from "~/api/auth";
 import {
     SitesRepository,
+    validatePlausibleScriptId,
     siteResponse,
     type TrackerScriptConfiguration,
 } from "~/sites/repository";
@@ -53,11 +54,15 @@ export async function action({ request, context, params }: ActionFunctionArgs) {
             domain?: string;
             timezone?: string;
             tracker_script_configuration?: Partial<TrackerScriptConfiguration>;
+            plausible_script_id?: string | null;
         };
         const site = await repository.update(params.site_id || "", {
             domain: input.domain,
             timezone: input.timezone,
             trackerScriptConfiguration: input.tracker_script_configuration,
+            plausibleScriptId: validatePlausibleScriptId(
+                input.plausible_script_id,
+            ),
         });
         return site ? Response.json(siteResponse(site)) : notFound();
     } catch (error) {

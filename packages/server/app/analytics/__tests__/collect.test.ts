@@ -5,7 +5,7 @@ import httpMocks from "node-mocks-http";
 import { collectRequestHandler as handleCollectRequest } from "../collect";
 
 const siteEventsStub = {
-    record: vi.fn(async () => {}),
+    record: vi.fn((..._args: any[]) => Promise.resolve()),
     realtime: vi.fn(async () => ({})),
     purge: vi.fn(async () => {}),
 };

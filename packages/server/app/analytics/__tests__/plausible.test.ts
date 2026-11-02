@@ -12,7 +12,7 @@ function createEnv() {
         SITE_EVENTS: {
             idFromName: vi.fn((name: string) => name),
             get: vi.fn(() => ({ record: siteEventsRecord })),
-        } as unknown as DurableObjectNamespace,
+        } as any,
         VISITOR_SALT: "test-secret",
         GOALS_DB: {
             prepare: vi.fn(() => ({
@@ -20,7 +20,7 @@ function createEnv() {
                 first: vi.fn().mockResolvedValue({ status: "active" }),
             })),
         } as unknown as D1Database,
-    };
+    } as any;
 }
 
 describe("Plausible Events API", () => {

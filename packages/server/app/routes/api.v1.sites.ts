@@ -2,6 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { requireAPIKey } from "~/api/auth";
 import {
     SitesRepository,
+    validatePlausibleScriptId,
     siteResponse,
     type TrackerScriptConfiguration,
 } from "~/sites/repository";
@@ -49,15 +50,20 @@ export async function action({ request, context }: ActionFunctionArgs) {
             domain?: string;
             timezone?: string;
             tracker_script_configuration?: Partial<TrackerScriptConfiguration>;
+            plausible_script_id?: string | null;
             team_id?: string;
         };
         validateTeamId(input.team_id);
+        const plausibleScriptId = validatePlausibleScriptId(
+            input.plausible_script_id,
+        );
         const site = await new SitesRepository(
             context.cloudflare.env.GOALS_DB,
         ).create({
             domain: input.domain || "",
             timezone: input.timezone,
             trackerScriptConfiguration: input.tracker_script_configuration,
+            plausibleScriptId,
         });
         return Response.json(siteResponse(site));
     } catch (error) {
