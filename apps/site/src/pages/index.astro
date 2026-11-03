@@ -22,7 +22,7 @@ const REPO = "https://github.com/harshil1712/noomers";
     </div>
     <div class="req-wrap">
       <div class="req-card" id="req-card" data-step="0">
-        <div class="req-head"><span class="method">POST</span><span class="mono-label">/collect</span><span class="req-state" aria-hidden="true"></span></div>
+        <div class="req-head"><span class="req-dot" aria-hidden="true"></span><span class="method">POST</span><span class="mono-label">/collect</span></div>
         <dl>
           <div class="row" data-row="ip">
             <dt>ip</dt>
@@ -31,12 +31,12 @@ const REPO = "https://github.com/harshil1712/noomers";
           </div>
           <div class="row" data-row="ua">
             <dt>user-agent</dt>
-            <dd class="old">Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) Firefox/131.0</dd>
+            <dd class="old">Mozilla/5.0 (Macintosh;<wbr> Intel Mac OS X 14_5)<wbr> Firefox/131.0</dd>
             <dd class="new">Firefox · macOS · desktop</dd>
           </div>
           <div class="row" data-row="url">
             <dt>url</dt>
-            <dd class="old">/pricing?utm_source=newsletter<span class="drop">&amp;email=ana@example.com</span></dd>
+            <dd class="old">/pricing<wbr>?utm_source=newsletter<span class="drop"><wbr>&amp;email=ana@example.com</span></dd>
           </div>
           <div class="row add" data-row="path">
             <dt>pathname</dt>
@@ -48,7 +48,7 @@ const REPO = "https://github.com/harshil1712/noomers";
           </div>
           <div class="row" data-row="ref">
             <dt>referrer</dt>
-            <dd class="old">https://www.google.com/search?q=privacy+analytics</dd>
+            <dd class="old">https://www.google.com/<wbr>search<wbr>?q=privacy+analytics</dd>
             <dd class="new">google.com</dd>
           </div>
           <div class="row add" data-row="vid">
@@ -74,10 +74,15 @@ const REPO = "https://github.com/harshil1712/noomers";
   <section class="annotated">
     <h2>One screen answers three questions</h2>
     <figure class="shot">
-      <img data-light="/dashboard-light.png" data-dark="/dashboard-dark.png" src="/dashboard-light.png" alt="noomers dashboard: KPI strip, chart and breakdown panels" loading="eager" />
-      <button class="callout" style="--x:53%;--y:22%" aria-label="Change versus previous period" data-tip="Change vs. previous period"><i></i><span>Change vs. previous period</span></button>
-      <button class="callout" style="--x:26%;--y:19%" aria-label="Live right now" data-tip="Live right now"><i></i><span>Live right now</span></button>
-      <button class="callout" style="--x:38%;--y:72%" aria-label="Click any row to filter" data-tip="Click any row to filter"><i></i><span>Click any row to filter</span></button>
+      <div class="img-wrap">
+        <img data-light="/dashboard-light.png" data-dark="/dashboard-dark.png" src="/dashboard-light.png" alt="noomers dashboard: KPI strip, chart and breakdown panels" loading="eager" />
+        <i class="pin" style="--x:26%;--y:19%" aria-hidden="true"></i>
+        <i class="pin" style="--x:53%;--y:22%" aria-hidden="true"></i>
+        <i class="pin" style="--x:38%;--y:76%" aria-hidden="true"></i>
+        <span class="lead" style="--y:19%"><b>Live right now</b></span>
+        <span class="lead" style="--y:76%"><b>Click any row to filter</b></span>
+        <span class="lead lead-top" style="--x:53%"><b>Change vs. previous period</b></span>
+      </div>
       <figcaption>Dashboard shown with demo data.</figcaption>
     </figure>
     <ul class="callout-list">
@@ -104,14 +109,11 @@ const REPO = "https://github.com/harshil1712/noomers";
     <h2>Every midnight, every visitor becomes a stranger.</h2>
     <div class="mid-time" aria-hidden="true">00:00 UTC</div>
     <div class="timeline" role="img" aria-label="A visitor's salted ID scrambles at each UTC midnight: a3f9c1 on Monday, 7c21e4 on Tuesday, e08b5d on Wednesday.">
-      <div class="days">
-        <span class="day-name">Mon</span>
-        <span class="tick" data-x="33%"><i>00:00</i></span>
-        <span class="day-name">Tue</span>
-        <span class="tick" data-x="66%"><i>00:00</i></span>
-        <span class="day-name">Wed</span>
-      </div>
+      <div class="day"><span>Mon</span></div>
+      <div class="day"><i class="tick-l">00:00</i><span>Tue</span></div>
+      <div class="day"><i class="tick-l">00:00</i><span>Wed</span></div>
       <div class="track" id="track">
+        <div class="baseline"><span class="fill" id="fill"></span></div>
         <div class="divider" style="left:33.33%"><i></i></div>
         <div class="divider" style="left:66.66%"><i></i></div>
         <div class="playhead" id="playhead"></div>
@@ -197,7 +199,7 @@ cp .env.example .env  # fill in the values
     if (card && !reduced) {
       const steps = [0, 1, 2, 3, 4, 5, 6];
       let i = 0, timer = 0, running = false;
-      const hold = [900, 1100, 1100, 1100, 1100, 1200, 900];
+      const hold = [1000, 1500, 1600, 1500, 1500, 1600, 1400];
       const tick = () => {
         if (!running) return;
         i = (i + 1) % steps.length;
@@ -247,7 +249,8 @@ cp .env.example .env  # fill in the values
         const p = ((t - t0) % DUR) / DUR;
         const x = p * 100;
         head!.style.left = x + "%";
-        chip!.style.left = x + "%";
+        chip!.style.left = "clamp(44px, " + x + "%, calc(100% - 44px))";
+        document.getElementById("fill")!.style.width = x + "%";
         const newSeg = x < 33.33 ? 0 : x < 66.66 ? 1 : 2;
         if (newSeg !== seg) {
           seg = newSeg;
@@ -330,126 +333,146 @@ cp .env.example .env  # fill in the values
   /* ---------- request card ---------- */
   .req-card {
     font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-    font-size: 12.5px; line-height: 1.75;
+    font-size: 15px; line-height: 1.7;
     background: var(--color-kumo-elevated);
     border: 1px solid var(--color-kumo-line);
-    border-radius: 14px; padding: 1.1rem 1.25rem;
+    border-radius: 14px; padding: 1.15rem 1.4rem;
     overflow: hidden;
   }
+  :global(html[data-mode="light"]) .req-card {
+    box-shadow: 0 24px 60px -28px color-mix(in srgb, var(--color-kumo-brand) 35%, transparent), 0 1px 2px rgba(28,25,23,.05);
+  }
   .req-head { display: flex; gap: 0.6rem; align-items: baseline; padding-bottom: 0.7rem; border-bottom: 1px solid var(--color-kumo-hairline); margin-bottom: 0.7rem; }
+  .req-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--color-kumo-control-line); align-self: center; transition: background .3s; }
+  .req-card[data-step="6"] .req-dot { background: var(--color-kumo-brand); }
   .method { color: var(--color-kumo-brand); font-weight: 500; }
   .req-card dl { margin: 0; min-width: 0; }
-  .req-card .row { display: flex; gap: 0.75rem; margin: 0.45rem 0; min-height: 1.6em; min-width: 0; }
-  .req-card dt { flex: none; width: 7.5em; color: var(--color-kumo-subtle); }
-  .req-card dd { margin: 0; min-width: 0; overflow-wrap: anywhere; text-wrap: pretty; }
-  .req-card .old { color: var(--color-kumo-default); transition: opacity .28s ease-out, transform .28s ease-out; }
-  .req-card .new { display: none; color: var(--color-kumo-brand); }
-  .req-card .cap { color: var(--color-kumo-subtle); font-size: 11px; }
+  .req-card .row { display: grid; grid-template-columns: 7em minmax(0, 1fr); column-gap: 0.9rem; margin: 0.45rem 0; min-width: 0; }
+  .req-card .row > .old, .req-card .row > .new { grid-column: 2; grid-row: 1; min-width: 0; }
+  .req-card dt { grid-column: 1; grid-row: 1; color: var(--color-kumo-subtle); }
+  .req-card dd { margin: 0; white-space: nowrap; }
+  .req-card .row[data-row="ua"] .old, .req-card .row[data-row="url"] .old, .req-card .row[data-row="ref"] .old { white-space: normal; }
+  .req-card .old { color: var(--color-kumo-default); max-height: 5em; overflow: hidden; transition: opacity .3s ease, max-height .35s ease; }
+  .req-card .new { color: var(--color-kumo-brand); opacity: 0; transition: opacity .3s ease; }
+  .req-card .cap { color: var(--color-kumo-subtle); font-size: 12px; margin-left: 0.75rem; }
   .req-card .add { display: none; }
-  .req-card[data-step="6"] .stored, .req-card .stored { }
-  .stored { display: inline-block; font-size: 11px; padding: 2px 12px; border-radius: 999px; background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); opacity: 0; transition: opacity .3s; }
+  .req-card .drop { display: inline-block; max-width: 30em; overflow: hidden; vertical-align: bottom; transition: opacity .3s ease 1.1s, max-width .3s ease 1.1s; }
+  .stored { display: inline-block; font-size: 12px; padding: 2px 12px; border-radius: 999px; background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); opacity: 0; transition: opacity .3s; }
   .req-card[data-step="6"] .stored { opacity: 1; }
-  .req-foot { display: flex; justify-content: space-between; align-items: baseline; margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--color-kumo-hairline); }
-  .counter { font-variant-numeric: tabular-nums; color: var(--color-kumo-default); }
+  .req-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--color-kumo-hairline); }
+  .counter { font-variant-numeric: tabular-nums; color: var(--color-kumo-default); white-space: nowrap; }
   .counter b { font-weight: 500; }
   .req-rm { display: none; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
   .req-rm .chip { display: inline-flex; align-items: center; gap: 0.4rem; font-family: "IBM Plex Mono", monospace; font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px dashed var(--color-kumo-control-line); color: var(--color-kumo-subtle); text-decoration: line-through; }
   .req-rm .chip i { font-style: normal; text-decoration: none; }
-  /* step states: each row flips old→new as steps progress */
-  .req-carddata-step="1"],[data-step="2"],[data-step="3"],[data-step="4"],[data-step="5"],[data-step="6"] .row[data-row=ip] .old,.req-card[data-step="1"] .row[data-row="ip"] .old,
+.req-card[data-step="1"] .row[data-row="ip"] .old,
   .req-card[data-step="2"] .row[data-row="ip"] .old,
   .req-card[data-step="3"] .row[data-row="ip"] .old,
   .req-card[data-step="4"] .row[data-row="ip"] .old,
   .req-card[data-step="5"] .row[data-row="ip"] .old,
-  .req-card[data-step="6"] .row[data-row="ip"] .old,
-  .req-card[data-step="2"] .row[data-row="ua"] .old,
-  .req-card[data-step="3"] .row[data-row="ua"] .old,
-  .req-card[data-step="4"] .row[data-row="ua"] .old,
-  .req-card[data-step="5"] .row[data-row="ua"] .old,
-  .req-card[data-step="6"] .row[data-row="ua"] .old,
-
-  .req-card[data-step="4"] .row[data-row="ref"] .old,
-  .req-card[data-step="5"] .row[data-row="ref"] .old,
-  .req-card[data-step="6"] .row[data-row="ref"] .old { opacity: 0.35; text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); }
+  .req-card[data-step="6"] .row[data-row="ip"] .old { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
 .req-card[data-step="1"] .row[data-row="ip"] .new,
   .req-card[data-step="2"] .row[data-row="ip"] .new,
   .req-card[data-step="3"] .row[data-row="ip"] .new,
   .req-card[data-step="4"] .row[data-row="ip"] .new,
   .req-card[data-step="5"] .row[data-row="ip"] .new,
-  .req-card[data-step="6"] .row[data-row="ip"] .new,
-  .req-card[data-step="2"] .row[data-row="ua"] .new,
+  .req-card[data-step="6"] .row[data-row="ip"] .new { opacity: 1; transition: opacity .3s ease 1.45s; }
+.req-card[data-step="2"] .row[data-row="ua"] .old,
+  .req-card[data-step="3"] .row[data-row="ua"] .old,
+  .req-card[data-step="4"] .row[data-row="ua"] .old,
+  .req-card[data-step="5"] .row[data-row="ua"] .old,
+  .req-card[data-step="6"] .row[data-row="ua"] .old { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
+.req-card[data-step="2"] .row[data-row="ua"] .new,
   .req-card[data-step="3"] .row[data-row="ua"] .new,
   .req-card[data-step="4"] .row[data-row="ua"] .new,
   .req-card[data-step="5"] .row[data-row="ua"] .new,
-  .req-card[data-step="6"] .row[data-row="ua"] .new,
-
-  .req-card[data-step="4"] .row[data-row="ref"] .new,
+  .req-card[data-step="6"] .row[data-row="ua"] .new { opacity: 1; transition: opacity .3s ease 1.45s; }
+.req-card[data-step="4"] .row[data-row="ref"] .old,
+  .req-card[data-step="5"] .row[data-row="ref"] .old,
+  .req-card[data-step="6"] .row[data-row="ref"] .old { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
+.req-card[data-step="4"] .row[data-row="ref"] .new,
   .req-card[data-step="5"] .row[data-row="ref"] .new,
-  .req-card[data-step="6"] .row[data-row="ref"] .new { display: inline; animation: fade-slide .28s ease-out; }
-.req-card[data-step="3"] .row[data-row="utm"],
-  .req-card[data-step="4"] .row[data-row="utm"],
-  .req-card[data-step="5"] .row[data-row="utm"],
-  .req-card[data-step="6"] .row[data-row="utm"],
-  .req-card[data-step="3"] .row[data-row="path"],
-  .req-card[data-step="4"] .row[data-row="path"],
-  .req-card[data-step="5"] .row[data-row="path"],
-  .req-card[data-step="6"] .row[data-row="path"],
-  .req-card[data-step="5"] .row[data-row="vid"],
-  .req-card[data-step="6"] .row[data-row="vid"] { display: flex; animation: fade-slide .28s ease-out; }
-.req-card[data-step="5"] .row[data-row="vid"] .new,
-  .req-card[data-step="6"] .row[data-row="vid"] .new { display: inline; color: var(--color-kumo-brand); }
-  .req-card .cap { margin-left: 0.75rem; }
-  .req-card[data-step="3"] .row[data-row="url"] .drop,
+  .req-card[data-step="6"] .row[data-row="ref"] .new { opacity: 1; transition: opacity .3s ease 1.45s; }
+.req-card[data-step="3"] .row[data-row="url"] .drop,
   .req-card[data-step="4"] .row[data-row="url"] .drop,
   .req-card[data-step="5"] .row[data-row="url"] .drop,
-  .req-card[data-step="6"] .row[data-row="url"] .drop { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0.35; }
-  .req-card[data-step="3"] .row[data-row="utm"] .new, .req-card[data-step="4"] .row[data-row="utm"] .new,
-  .req-card[data-step="5"] .row[data-row="utm"] .new, .req-card[data-step="6"] .row[data-row="utm"] .new,
-  .req-card[data-step="3"] .row[data-row="path"] .new, .req-card[data-step="4"] .row[data-row="path"] .new,
-  .req-card[data-step="5"] .row[data-row="path"] .new, .req-card[data-step="6"] .row[data-row="path"] .new { display: inline; color: var(--color-kumo-brand); animation: fade-slide .28s ease-out; }
+  .req-card[data-step="6"] .row[data-row="url"] .drop { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); }
+  .req-card[data-step="3"] .row[data-row="url"] .old,
+  .req-card[data-step="4"] .row[data-row="url"] .old,
+  .req-card[data-step="5"] .row[data-row="url"] .old,
+  .req-card[data-step="6"] .row[data-row="url"] .old { opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
+.req-card[data-step="3"] .row[data-row="path"],
+  .req-card[data-step="3"] .row[data-row="utm"],
+  .req-card[data-step="4"] .row[data-row="path"],
+  .req-card[data-step="4"] .row[data-row="utm"],
+  .req-card[data-step="5"] .row[data-row="path"],
+  .req-card[data-step="5"] .row[data-row="utm"],
+  .req-card[data-step="6"] .row[data-row="path"],
+  .req-card[data-step="6"] .row[data-row="utm"],
+  .req-card[data-step="5"] .row[data-row="vid"],
+  .req-card[data-step="6"] .row[data-row="vid"] { display: grid; }
+.req-card[data-step="3"] .row[data-row="path"] .new,
+  .req-card[data-step="3"] .row[data-row="utm"] .new,
+  .req-card[data-step="4"] .row[data-row="path"] .new,
+  .req-card[data-step="4"] .row[data-row="utm"] .new,
+  .req-card[data-step="5"] .row[data-row="path"] .new,
+  .req-card[data-step="5"] .row[data-row="utm"] .new,
+  .req-card[data-step="6"] .row[data-row="path"] .new,
+  .req-card[data-step="6"] .row[data-row="utm"] .new { opacity: 1; transition: opacity .3s ease 1.5s; }
+.req-card[data-step="5"] .row[data-row="vid"] .new,
+  .req-card[data-step="6"] .row[data-row="vid"] .new { opacity: 1; transition: opacity .3s ease .3s; }
   @keyframes fade-slide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
   /* ---------- annotated shot ---------- */
+  section h2, .close .close-line { line-height: 1.12; }
   .annotated h2, .start h2, .close .close-line { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1.5rem; text-wrap: balance; }
   section { padding: 4.5rem 0; }
   .shot { position: relative; margin: 0; }
+  .img-wrap { position: relative; }
   .shot img { display: block; width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(28,25,23,.04), 0 12px 32px rgba(28,25,23,.08); }
   :global(html[data-mode="dark"]) .shot img { box-shadow: none; }
   .shot figcaption { margin-top: .6rem; font-size: .85rem; color: var(--color-kumo-subtle); }
-  .callout { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); display: flex; align-items: center; gap: 0.45rem; background: none; border: 0; cursor: help; padding: 0; }
-  .callout i { width: 10px; height: 10px; border-radius: 999px; background: var(--color-kumo-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kumo-brand) 25%, transparent); flex: none; }
-  .callout span { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.02em; white-space: nowrap; padding: 3px 9px; border-radius: 999px; background: var(--color-kumo-elevated); border: 1px solid var(--color-kumo-line); color: var(--color-kumo-default); opacity: 0.85; transition: opacity .15s; }
-  .callout:hover span, .callout:focus-visible span { opacity: 1; border-color: var(--color-kumo-brand); }
+  .pin { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 9px; height: 9px; border-radius: 999px; background: var(--color-kumo-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kumo-brand) 30%, transparent), 0 0 0 6px color-mix(in srgb, var(--color-kumo-brand) 12%, transparent); }
+  .lead { display: none; }
   .callout-list { display: none; margin: 1rem 0 0; padding-left: 1.1rem; color: var(--color-kumo-subtle); font-size: .9rem; }
-  @media (max-width: 859px) { .callout { display: none; } .callout-list { display: block; } }
+  @media (min-width: 1280px) {
+    .shot { padding-left: 15%; padding-top: 3rem; }
+    .lead { position: absolute; right: calc(100% + 0.9rem); top: var(--y); transform: translateY(-50%); display: block; }
+    .lead b { display: block; font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 400; letter-spacing: 0.02em; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background: var(--color-kumo-elevated); border: 1px solid var(--color-kumo-line); color: var(--color-kumo-default); }
+    .lead::after { content: ""; position: absolute; top: 50%; left: 100%; width: 0.9rem; height: 1px; background: var(--color-kumo-control-line); }
+    .lead-top { left: var(--x); right: auto; top: auto; bottom: calc(100% + 0.9rem); transform: translateX(-50%); }
+    .lead-top::after { top: 100%; left: 50%; width: 1px; height: 0.9rem; }
+  }
+  @media (max-width: 859px) { .pin, .lead { display: none; } .callout-list { display: block; } }
 
   /* ---------- midnight band ---------- */
   .midnight {
     background: #0e1713; color: #e6eee9;
     margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
     padding-left: calc(50vw - 50%); padding-right: calc(50vw - 50%);
-    padding-top: 6rem; padding-bottom: 6rem;
+    padding-top: 5rem; padding-bottom: 5rem;
   }
   .midnight .eyebrow { color: #93a39a; }
   .midnight h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; font-size: clamp(1.8rem, 3.4vw, 2.8rem); margin: 0 0 1.5rem; max-width: 20ch; text-wrap: balance; }
-  .mid-time { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; font-size: clamp(3rem, 8vw, 7rem); color: #4fc08d; line-height: 1; margin-bottom: 3rem; }
-  .days { display: flex; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #93a39a; margin-bottom: 0.75rem; }
-  .days .day-name { flex: 1; text-align: center; }
-  .days .day-name:first-child { flex: 1.5; text-align: left; }
-  .days .day-name:last-child { flex: 1.5; text-align: right; }
-  .days .tick { position: relative; width: 1px; }
-  .days .tick i { font-style: normal; position: absolute; top: -1.2em; left: 50%; transform: translateX(-50%); font-size: 11px; color: #93a39a; white-space: nowrap; }
-  .track { position: relative; height: 90px; }
-  .track .divider { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; }
+  .mid-time { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; font-size: clamp(3rem, 8vw, 7rem); color: #4fc08d; line-height: 1; margin-bottom: 2.75rem; }
+  .timeline { display: grid; grid-template-columns: repeat(3, 1fr); font-family: "IBM Plex Mono", monospace; }
+  .day { position: relative; text-align: center; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #93a39a; padding: 0.2rem 0; }
+  .day .tick-l { position: absolute; left: 0; top: -1.5em; transform: translateX(-50%); font-size: 12px; font-style: normal; color: #93a39a; white-space: nowrap; }
+  .track { grid-column: 1 / -1; position: relative; height: 72px; margin-top: 1.4rem; }
+  .baseline { position: absolute; left: 0; right: 0; top: 50px; height: 1px; background: rgba(230,238,233,.22); }
+  .baseline::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 5px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='5'%3E%3Crect width='1' height='5' fill='%23e6eee9' fill-opacity='0.28'/%3E%3C/svg%3E"); background-repeat: repeat-x; background-size: calc(100% / 72) 5px; }
+  .baseline::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 9px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='9'%3E%3Crect width='1' height='9' fill='%23e6eee9' fill-opacity='0.4'/%3E%3C/svg%3E"); background-repeat: repeat-x; background-size: calc(100% / 24) 9px; }
+  .baseline .fill { position: absolute; left: 0; top: 0; height: 1px; width: 0; background: #4fc08d; }
+  .track .divider { position: absolute; top: -8px; bottom: 0; left: 0; width: 1px; }
   .track .divider i { position: absolute; inset: 0; border-left: 1px dashed rgba(230,238,233,.35); }
   .track .divider i.flash { animation: dflash .5s ease-out; }
   @keyframes dflash { 0% { border-color: #4fc08d; box-shadow: 0 0 14px #4fc08d; } 100% { box-shadow: none; } }
-  .playhead { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(230,238,233,.3); }
-  .chip-v { position: absolute; top: 30px; transform: translateX(-50%); transition: none; }
+  .playhead { position: absolute; top: -8px; bottom: 0; width: 1px; background: rgba(230,238,233,.45); }
+  .chip-v { position: absolute; top: 37px; transform: translateX(-50%); }
   .chip-v b { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 15px; padding: 6px 16px; border-radius: 999px; background: rgba(79,192,141,.16); color: #4fc08d; border: 1px solid rgba(79,192,141,.35); }
   .static-chips { display: none; }
-  .mid-line { margin-top: 2rem; color: #93a39a; font-size: 1rem; }
+  .mid-line { margin-top: 1.75rem; color: #93a39a; font-size: 1rem; }
 
   /* ---------- architecture ---------- */
   .arch { background: var(--color-kumo-elevated); border-block: 1px solid var(--color-kumo-hairline); margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); padding-left: calc(50vw - 50%); padding-right: calc(50vw - 50%); }
@@ -473,10 +496,10 @@ cp .env.example .env  # fill in the values
   .term-tabs [role=tab][aria-selected="true"] { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); }
   .term-tabs .copy { margin-left: auto; border: 1px solid var(--color-kumo-line); background: transparent; border-radius: 999px; padding: 4px 12px; font-size: .8rem; color: var(--color-kumo-subtle); cursor: pointer; }
   .term-tabs .copy:hover { color: var(--color-kumo-default); }
-  .term [role=tabpanel] { padding: 1rem 1.25rem 1.25rem; }
+  .term [role=tabpanel] { padding: 1rem 1.25rem 1.25rem; min-width: 0; }
   .term .cap { margin: 0 0 .6rem; font-size: .9rem; color: var(--color-kumo-subtle); }
   .term .cap a { color: var(--color-kumo-brand); }
-  .term pre { margin: 0; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.7; overflow-x: auto; }
+  .term pre { margin: 0; max-width: 100%; white-space: pre; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.7; overflow-x: auto; }
 
   /* ---------- closing ---------- */
   .close { border-top: 1px solid var(--color-kumo-hairline); text-align: center; padding: 5rem 0 4rem; }
@@ -498,7 +521,12 @@ cp .env.example .env  # fill in the values
     .flow { grid-template-columns: 1fr; gap: .75rem; padding-left: 2.25rem; }
     .flow li { display: flex; gap: .8rem; align-items: center; }
     .flow li i { margin-bottom: 0; }
-    .days { font-size: 10px; }
+    .req-card { font-size: 12.5px; padding: 1rem; }
+    .req-card .row { grid-template-columns: 1fr; row-gap: 0.1rem; }
+    .req-card .row > .old, .req-card .row > .new { grid-column: 1; grid-row: 2; }
+    .req-card dt { grid-column: 1; grid-row: 1; }
+    .btns { flex-direction: column; }
+    .btns .btn { width: 100%; justify-content: center; }
     .chip-v b { font-size: 12px; padding: 4px 10px; }
   }
 
