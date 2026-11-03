@@ -76,12 +76,15 @@ const REPO = "https://github.com/harshil1712/noomers";
     <figure class="shot">
       <div class="img-wrap">
         <img data-light="/dashboard-light.png" data-dark="/dashboard-dark.png" src="/dashboard-light.png" alt="noomers dashboard: KPI strip, chart and breakdown panels" loading="eager" />
-        <i class="pin" style="--x:26%;--y:19%" aria-hidden="true"></i>
-        <i class="pin" style="--x:49.3%;--y:25%" aria-hidden="true"></i>
-        <i class="pin" style="--x:31%;--y:80%" aria-hidden="true"></i>
-        <span class="lead" style="--y:19%"><b>Live right now</b></span>
-        <span class="lead" style="--y:80%"><b>Click any row to filter</b></span>
-        <span class="lead lead-top" style="--x:49.3%"><b>Change vs. previous period</b></span>
+        <span class="lead l-live" style="--y:21.2%"><b>Live right now</b></span>
+        <span class="lead l-filter" style="--y:85.6%"><b>Click any row to filter</b></span>
+        <span class="lead lead-top l-change" style="--x:59.6%"><b>Change vs. previous period</b></span>
+        <i class="leader" style="left:-0.5rem;top:21.2%;width:calc(19.6% + 0.5rem)" aria-hidden="true"></i>
+        <i class="leader" style="left:-0.5rem;top:85.6%;width:calc(20.8% + 0.5rem)" aria-hidden="true"></i>
+        <i class="leader leader-v" style="left:59.6%;top:-0.9rem;height:calc(23.2% + 0.9rem)" aria-hidden="true"></i>
+        <i class="ring r-live" style="left:19.6%;top:14.6%;width:13%;height:13.1%" aria-hidden="true"></i>
+        <i class="ring r-change" style="left:33.6%;top:23.2%;width:52%;height:3.4%" aria-hidden="true"></i>
+        <i class="ring r-filter" style="left:20.8%;top:83.2%;width:35.9%;height:4.9%" aria-hidden="true"></i>
       </div>
       <figcaption>Dashboard shown with demo data.</figcaption>
     </figure>
@@ -435,18 +438,26 @@ cp .env.example .env  # fill in the values
   .shot img { display: block; width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(28,25,23,.04), 0 12px 32px rgba(28,25,23,.08); }
   :global(html[data-mode="dark"]) .shot img { box-shadow: none; }
   .shot figcaption { margin-top: .6rem; font-size: .85rem; color: var(--color-kumo-subtle); }
-  .pin { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); width: 9px; height: 9px; border-radius: 999px; background: var(--color-kumo-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kumo-brand) 30%, transparent), 0 0 0 6px color-mix(in srgb, var(--color-kumo-brand) 12%, transparent); }
+  .ring { position: absolute; border: 1.5px solid var(--color-kumo-brand); border-radius: 6px; background: transparent; box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-kumo-brand) 14%, transparent); transition: border-color .15s, box-shadow .15s; pointer-events: none; }
+  .leader { position: absolute; height: 1px; background: var(--color-kumo-brand); opacity: 0.55; pointer-events: none; }
+  .leader-v { width: 1px; height: auto; }
+  .l-live:hover ~ .r-live, .l-live:focus-visible ~ .r-live,
+  .l-change:hover ~ .r-change, .l-change:focus-visible ~ .r-change,
+  .l-filter:hover ~ .r-filter, .l-filter:focus-visible ~ .r-filter {
+    border-color: var(--color-kumo-brand-hover);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kumo-brand) 28%, transparent);
+  }
   .lead { display: none; }
   .callout-list { display: none; margin: 1rem 0 0; padding-left: 1.1rem; color: var(--color-kumo-subtle); font-size: .9rem; }
+  .leader, .lead { display: none; }
   @media (min-width: 1280px) {
     .shot { padding-left: 15%; padding-top: 3rem; }
-    .lead { position: absolute; right: calc(100% + 0.9rem); top: var(--y); transform: translateY(-50%); display: block; }
+    .leader { display: block; }
+    .lead { position: absolute; right: calc(100% + 0.5rem); top: var(--y); transform: translateY(-50%); display: block; }
     .lead b { display: block; font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 400; letter-spacing: 0.02em; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background: var(--color-kumo-elevated); border: 1px solid var(--color-kumo-line); color: var(--color-kumo-default); }
-    .lead::after { content: ""; position: absolute; top: 50%; left: 100%; width: 0.9rem; height: 1px; background: var(--color-kumo-control-line); }
     .lead-top { left: var(--x); right: auto; top: auto; bottom: calc(100% + 0.9rem); transform: translateX(-50%); }
-    .lead-top::after { top: 100%; left: 50%; width: 1px; height: 0.9rem; }
   }
-  @media (max-width: 859px) { .pin, .lead { display: none; } .callout-list { display: block; } }
+  @media (max-width: 859px) { .callout-list { display: block; } }
 
   /* ---------- midnight band ---------- */
   .midnight {
