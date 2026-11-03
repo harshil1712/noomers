@@ -31,6 +31,10 @@ export default defineConfig({
         /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
         trace: "on-first-retry",
         headless: true,
+        // Playwright disables Chromium's sandbox by default. Enable it on macOS,
+        // where it always works; leave Linux CI on the default because runners
+        // often lack user namespaces or the setuid helper.
+        launchOptions: { chromiumSandbox: process.platform === "darwin" },
     },
 
     /* Configure projects for major browsers */
