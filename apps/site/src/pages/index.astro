@@ -11,26 +11,86 @@ const REPO = "https://github.com/harshil1712/noomers";
 ---
 <PageLayout title={`${PROJECT.productName}: privacy-first self-hosted analytics`} description={description} width="wide">
   <section class="hero">
-    <span class="mono-label eyebrow">Self-hosted analytics for Cloudflare</span>
-    <h1>Analytics that know <span class="kw">less</span>, not more.</h1>
-    <p class="sub">Privacy-first web analytics that run in your own Cloudflare account.</p>
-    <div class="btns">
-      <a class="btn cta" href={`${REPO}#deployment`}>Deploy to your Cloudflare account</a>
-      <a class="btn secondary" href={REPO}>View on GitHub</a>
+    <div class="hero-text">
+      <span class="mono-label eyebrow">Self-hosted analytics for Cloudflare</span>
+      <h1>Analytics that know <span class="kw">less</span>, not more.</h1>
+      <p class="sub">Privacy-first web analytics that run in your own Cloudflare account.</p>
+      <div class="btns">
+        <a class="btn cta" href={`${REPO}#deployment`}>Deploy to your Cloudflare account</a>
+        <a class="btn secondary" href={REPO}>View on GitHub</a>
+      </div>
+    </div>
+    <div class="req-wrap">
+      <div class="req-card" id="req-card" data-step="0">
+        <div class="req-head"><span class="method">POST</span><span class="mono-label">/collect</span><span class="req-state" aria-hidden="true"></span></div>
+        <dl>
+          <div class="row" data-row="ip">
+            <dt>ip</dt>
+            <dd class="old">203.0.113.42</dd>
+            <dd class="new">country DE · city Berlin</dd>
+          </div>
+          <div class="row" data-row="ua">
+            <dt>user-agent</dt>
+            <dd class="old">Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) Firefox/131.0</dd>
+            <dd class="new">Firefox · macOS · desktop</dd>
+          </div>
+          <div class="row" data-row="url">
+            <dt>url</dt>
+            <dd class="old">/pricing?utm_source=newsletter<span class="drop">&amp;email=ana@example.com</span></dd>
+          </div>
+          <div class="row add" data-row="path">
+            <dt>pathname</dt>
+            <dd class="new">/pricing</dd>
+          </div>
+          <div class="row add" data-row="utm">
+            <dt>utm_source</dt>
+            <dd class="new">newsletter</dd>
+          </div>
+          <div class="row" data-row="ref">
+            <dt>referrer</dt>
+            <dd class="old">https://www.google.com/search?q=privacy+analytics</dd>
+            <dd class="new">google.com</dd>
+          </div>
+          <div class="row add" data-row="vid">
+            <dt>visitor_id</dt>
+            <dd class="new">a3f9c1… <span class="cap">salted hash · resets 00:00 UTC</span></dd>
+          </div>
+        </dl>
+        <div class="req-foot">
+          <span class="stored">Stored</span>
+          <span class="counter"><span class="mono-label">Visitors today</span> <b id="vis-count">1,284</b></span>
+        </div>
+      </div>
+      <div class="req-rm">
+        <span class="chip"><i aria-hidden="true">✕</i>IP address</span>
+        <span class="chip"><i aria-hidden="true">✕</i>User-agent string</span>
+        <span class="chip"><i aria-hidden="true">✕</i>Email in URL</span>
+        <span class="chip"><i aria-hidden="true">✕</i>Cookies — none set</span>
+      </div>
+      <p class="sr-only">An incoming collect request carries an IP, full user agent, a URL with an email parameter and a Google referrer. noomers keeps only the country and city, the browser family, the path and campaign source, the referring hostname, and a salted visitor ID that resets daily. It stores nothing else.</p>
     </div>
   </section>
 
-  <figure class="shot">
-    <img data-light="/dashboard-light.png" data-dark="/dashboard-dark.png" src="/dashboard-light.png" alt="noomers dashboard: stats, chart and breakdown panels" loading="eager" />
-    <figcaption>Dashboard shown with demo data.</figcaption>
-  </figure>
+  <section class="annotated">
+    <h2>One screen answers three questions</h2>
+    <figure class="shot">
+      <img data-light="/dashboard-light.png" data-dark="/dashboard-dark.png" src="/dashboard-light.png" alt="noomers dashboard: KPI strip, chart and breakdown panels" loading="eager" />
+      <button class="callout" style="--x:53%;--y:22%" aria-label="Change versus previous period" data-tip="Change vs. previous period"><i></i><span>Change vs. previous period</span></button>
+      <button class="callout" style="--x:26%;--y:19%" aria-label="Live right now" data-tip="Live right now"><i></i><span>Live right now</span></button>
+      <button class="callout" style="--x:38%;--y:72%" aria-label="Click any row to filter" data-tip="Click any row to filter"><i></i><span>Click any row to filter</span></button>
+      <figcaption>Dashboard shown with demo data.</figcaption>
+    </figure>
+    <ul class="callout-list">
+      <li>Change vs. previous period — KPI strip badges</li>
+      <li>Live right now — realtime visitors tile</li>
+      <li>Click any row to filter — Sources table</li>
+    </ul>
+  </section>
 
   <script>
     const syncModeImgs = () => {
       const mode = document.documentElement.dataset.mode;
-      const dark =
-        mode === "dark" ||
-        (!mode && matchMedia("(prefers-color-scheme: dark)").matches);
+      const dark = mode === "dark" || (!mode && matchMedia("(prefers-color-scheme: dark)").matches);
       for (const img of document.querySelectorAll<HTMLImageElement>("img[data-light][data-dark]")) {
         img.src = dark ? img.dataset.dark! : img.dataset.light!;
       }
@@ -39,113 +99,87 @@ const REPO = "https://github.com/harshil1712/noomers";
     new MutationObserver(syncModeImgs).observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
   </script>
 
-  <section class="bento">
-    <span class="mono-label eyebrow">The product</span>
-    <h2>See your traffic, not just totals</h2>
-    <div class="bento-grid">
-      <figure class="bento-card">
-        <img class="fit-contain" data-light="/features/changed-light.png" data-dark="/features/changed-dark.png" src="/features/changed-light.png" alt="KPI strip showing visitors, pageviews and change badges" loading="lazy" width="566" height="119" />
-        <figcaption><b>See what changed</b><span>Period-over-period deltas on every metric.</span></figcaption>
-      </figure>
-      <figure class="bento-card">
-        <img data-light="/features/sources-light.png" data-dark="/features/sources-dark.png" src="/features/sources-light.png" alt="Sources panel with proportion bars for referrers" loading="lazy" width="550" height="522" />
-        <figcaption><b>Know where visitors come from</b><span>Referrers and campaigns with share bars.</span></figcaption>
-      </figure>
-      <figure class="bento-card">
-        <img data-light="/features/live-light.png" data-dark="/features/live-dark.png" src="/features/live-light.png" alt="Realtime tab with live count and top pages" loading="lazy" width="1132" height="744" />
-        <figcaption><b>Watch it live</b><span>Realtime visitors and top pages as they happen.</span></figcaption>
-      </figure>
-      <figure class="bento-card">
-        <img data-light="/features/sites-light.png" data-dark="/features/sites-dark.png" src="/features/sites-light.png" alt="Sites overview cards with per-site sparklines" loading="lazy" width="1132" height="376" />
-        <figcaption><b>Every site at a glance</b><span>All your sites with trends on one screen.</span></figcaption>
-      </figure>
-    </div>
-    <p class="bento-note">Product images show demo data.</p>
-  </section>
-
-  <section class="model">
-    <span class="mono-label eyebrow">Privacy model</span>
-    <h2>Privacy by architecture, not policy</h2>
-    <div class="model-grid">
-      <div class="card event-card">
-        <span class="mono-label">Stored per event</span>
-        <pre aria-label="Fields noomers stores for each event">{'{'}
-  <b>pathname</b>: "/pricing",
-  <b>referrer</b>: "google.com",
-  <b>country</b>: "DE", <b>region</b>: "BE", <b>city</b>: "Berlin",
-  <b>browser</b>: "Firefox", <b>os</b>: "macOS",
-  <b>device_type</b>: "desktop",
-  <b>utm_source</b>: "newsletter",
-  <b>event_name</b>: "signup", <b>event_properties</b>: {'{'}…{'}'},
-  <b>visitor_id</b>: "a3f9…"
-{'}'}</pre>
-        <div class="never">
-          <span class="chip"><i aria-hidden="true">✕</i>IP address</span>
-          <span class="chip"><i aria-hidden="true">✕</i>User-agent string</span>
-          <span class="chip"><i aria-hidden="true">✕</i>Cookies</span>
-          <span class="chip"><i aria-hidden="true">✕</i>Cross-day ID</span>
-        </div>
-        <p class="sr-only">Noomers never stores raw IP addresses, full user-agent strings, cookies or any cross-day identifier.</p>
+  <section class="midnight" id="midnight">
+    <span class="mono-label eyebrow">What noomers forgets</span>
+    <h2>Every midnight, every visitor becomes a stranger.</h2>
+    <div class="mid-time" aria-hidden="true">00:00 UTC</div>
+    <div class="timeline" role="img" aria-label="A visitor's salted ID scrambles at each UTC midnight: a3f9c1 on Monday, 7c21e4 on Tuesday, e08b5d on Wednesday.">
+      <div class="days">
+        <span class="day-name">Mon</span>
+        <span class="tick" data-x="33%"><i>00:00</i></span>
+        <span class="day-name">Tue</span>
+        <span class="tick" data-x="66%"><i>00:00</i></span>
+        <span class="day-name">Wed</span>
       </div>
-      <div class="card salt-card">
-        <span class="mono-label">Visitor ID · salted daily at 00:00 UTC</span>
-        <div class="salt-days">
-          <div class="day"><span class="d">Mon</span><span class="hash">a3f9…</span></div>
-          <div class="divider" aria-hidden="true"></div>
-          <div class="day"><span class="d">Tue</span><span class="hash">7c21…</span></div>
-          <div class="divider" aria-hidden="true"></div>
-          <div class="day"><span class="d">Wed</span><span class="hash">e08b…</span></div>
-        </div>
-        <p class="salt-line">Same visitor, new ID every day. Nothing links them.</p>
+      <div class="track" id="track">
+        <div class="divider" style="left:33.33%"><i></i></div>
+        <div class="divider" style="left:66.66%"><i></i></div>
+        <div class="playhead" id="playhead"></div>
+        <div class="chip-v" id="vchip"><b id="vhash">a3f9c1</b></div>
+      </div>
+      <div class="static-chips" aria-hidden="true">
+        <span class="hash" style="left:16%">a3f9c1</span>
+        <span class="hash" style="left:49%">7c21e4</span>
+        <span class="hash" style="left:82%">e08b5d</span>
       </div>
     </div>
+    <p class="mid-line">Same person, three unrelated IDs. noomers can count visits, not people.</p>
   </section>
 
   <section class="arch">
-    <span class="mono-label eyebrow">How it runs</span>
-    <h2>Runs entirely in your Cloudflare account</h2>
+    <h2>Every byte stays in your account</h2>
     <div class="account">
       <div class="account-label">Your Cloudflare account</div>
-      <ol class="flow">
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M93.46 71.51 39.52 128l53.94 56.49a12 12 0 1 1-16.92 17l-64-64a12 12 0 0 1 0-17l64-64a12 12 0 0 1 16.92 17Zm140 49-64-64a12 12 0 0 0-16.92 17l53.94 56.49-53.94 56.49a12 12 0 1 0 16.92 17l64-64a12 12 0 0 0 0-17Z"/></svg></i><b>Tracker</b><span>sends pageviews</span></li>
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61L88.16 238.43a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.94-7.26Z"/></svg></i><b>Worker</b><span>collects + APIs</span></li>
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-72a8 8 0 0 1 0-16h72a8 8 0 0 1 8 8Z"/></svg></i><b>Durable Object</b><span>realtime + buffer</span></li>
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M213.66 181.66 160 128l53.66-53.66a8 8 0 0 0-11.32-11.32L148 117.37V48a8 8 0 0 0-16 0v69.37L78.63 63.03A8 8 0 0 0 67.31 74.34L121 128l-53.66 53.66a8 8 0 1 0 11.32 11.32L132 138.63V208a8 8 0 0 0 16 0v-69.37l53.37 54.34a8 8 0 0 0 11.32-11.32Z"/></svg></i><b>Pipeline</b><span>Basin ingest</span></li>
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M128 24C74.17 24 32 48.6 32 80v96c0 31.4 42.17 56 96 56s96-24.6 96-56V80c0-31.4-42.17-56-96-56Zm80 104c0 9.62-7.88 19.43-21.61 26.92C170.93 163.35 150.19 168 128 168s-42.93-4.65-58.39-13.08C55.88 147.43 48 137.62 48 128V80c0 9.62 7.88 19.43 21.61 26.92C85.07 115.35 105.81 120 128 120s42.93-4.65 58.39-13.08C200.12 99.43 208 89.62 208 80Z"/></svg></i><b>R2 / Iceberg</b><span>your warehouse</span></li>
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M229.66 218.34 179.6 168.28a88.11 88.11 0 1 0-11.32 11.32l50.06 50.07a8 8 0 0 0 11.32-11.33ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg></i><b>Basin SQL</b><span>historical queries</span></li>
-        <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M224 200h-8V40a8 8 0 0 0-8-8h-56a8 8 0 0 0-8 8v40H88a8 8 0 0 0-8 8v40H48a8 8 0 0 0-8 8v64h-8a8 8 0 0 0 0 16h192a8 8 0 0 0 0-16ZM160 48h40v152h-40Zm-56 48h40v104h-40Zm-48 48h24v56H56Z"/></svg></i><b>Dashboard</b><span>reads SQL + DO</span></li>
-      </ol>
+      <div class="flow-wrap">
+        <div class="rail" aria-hidden="true"><div class="dot" id="flow-dot"></div></div>
+        <ol class="flow">
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M93.46 71.51 39.52 128l53.94 56.49a12 12 0 1 1-16.92 17l-64-64a12 12 0 0 1 0-17l64-64a12 12 0 0 1 16.92 17Zm140 49-64-64a12 12 0 0 0-16.92 17l53.94 56.49-53.94 56.49a12 12 0 1 0 16.92 17l64-64a12 12 0 0 0 0-17Z"/></svg></i><b>Tracker</b><span>sends pageviews</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61L88.16 238.43a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.94-7.26Z"/></svg></i><b>Worker</b><span>collects + APIs</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-72a8 8 0 0 1 0-16h72a8 8 0 0 1 8 8Z"/></svg></i><b>Durable Object</b><span>realtime + buffer</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M213.66 181.66 160 128l53.66-53.66a8 8 0 0 0-11.32-11.32L148 117.37V48a8 8 0 0 0-16 0v69.37L78.63 63.03A8 8 0 0 0 67.31 74.34L121 128l-53.66 53.66a8 8 0 1 0 11.32 11.32L132 138.63V208a8 8 0 0 0 16 0v-69.37l53.37 54.34a8 8 0 0 0 11.32-11.32Z"/></svg></i><b>Pipeline</b><span>Basin ingest</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M128 24C74.17 24 32 48.6 32 80v96c0 31.4 42.17 56 96 56s96-24.6 96-56V80c0-31.4-42.17-56-96-56Zm80 104c0 9.62-7.88 19.43-21.61 26.92C170.93 163.35 150.19 168 128 168s-42.93-4.65-58.39-13.08C55.88 147.43 48 137.62 48 128V80c0 9.62 7.88 19.43 21.61 26.92C85.07 115.35 105.81 120 128 120s42.93-4.65 58.39-13.08C200.12 99.43 208 89.62 208 80Z"/></svg></i><b>R2 / Iceberg</b><span>your warehouse</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M229.66 218.34 179.6 168.28a88.11 88.11 0 1 0-11.32 11.32l50.06 50.07a8 8 0 0 0 11.32-11.33ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg></i><b>Basin SQL</b><span>historical queries</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M224 200h-8V40a8 8 0 0 0-8-8h-56a8 8 0 0 0-8 8v40H88a8 8 0 0 0-8 8v40H48a8 8 0 0 0-8 8v64h-8a8 8 0 0 0 0 16h192a8 8 0 0 0 0-16ZM160 48h40v152h-40Zm-56 48h40v104h-40Zm-48 48h24v56H56Z"/></svg></i><b>Dashboard</b><span>reads SQL + DO</span></li>
+        </ol>
+      </div>
     </div>
-
   </section>
 
-  <section class="deploy">
-    <span class="mono-label eyebrow">Self-host</span>
-    <h2>Deploy in three steps</h2>
-    <ol class="steps">
-      <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M224 112a44 44 0 0 0-44-44c-13.48 0-25.07 6.1-33.71 15.58A52.05 52.05 0 0 0 104 24a52 52 0 0 0-52 52v36a44 44 0 0 0 36 43.19V156a12 12 0 0 0 24 0v-16.49A52 52 0 0 0 144.66 87c1.11 16.41 4.7 25.35 14.34 30.94A36 36 0 0 0 224 112Zm-44-44a36 36 0 0 1 0 72 36 36 0 0 1 0-72Z"/></svg></i><div><b>Fork the repo</b><p>Infrastructure as code, nothing to click.</p></div></li>
-      <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M216.57 39.43A80 80 0 0 0 160 24a80.36 80.36 0 0 0-56.57 136.57l-71.43 71.43a12 12 0 0 0 17 17l80-80a80 80 0 0 0 87.57-129.57ZM160 88a24 24 0 1 1 24 24 24 24 0 0 1-24-24Z"/></svg></i><div><b>Add secrets</b><p>Cloudflare token, auth secret, salt, API tokens.</p></div></li>
-      <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M152 224a8 8 0 0 1-8 8h-32a8 8 0 0 1-8-8v-27.31a80 80 0 1 1 48 0Zm-45.93-80.94a8 8 0 0 0 11.32 11.32L128 143.9l10.59 10.59a8 8 0 0 0 11.32-11.32L114.9 108.15a8 8 0 0 0-11.32 0Zm45.93-61.68a8 8 0 0 0-11.32-11.32l-21.9 21.9a8 8 0 0 0 11.32 11.32l16.18-16.18Z"/></svg></i><div><b>Merge to main</b><p>GitHub Actions deploys with Alchemy.</p></div></li>
-    </ol>
-    <pre class="code">git clone {REPO}
+  <section class="start">
+    <h2>Running in an afternoon</h2>
+    <div class="term">
+      <div class="term-tabs" role="tablist" aria-label="Get started">
+        <button role="tab" id="t-deploy" aria-controls="p-deploy" aria-selected="true" tabindex="0">Deploy</button>
+        <button role="tab" id="t-track" aria-controls="p-track" aria-selected="false" tabindex="-1">Track</button>
+        <button role="tab" id="t-query" aria-controls="p-query" aria-selected="false" tabindex="-1">Query</button>
+        <button class="copy" id="copy-btn" aria-label="Copy snippet">Copy</button>
+      </div>
+      <div role="tabpanel" id="p-deploy" aria-labelledby="t-deploy">
+        <p class="cap">Fork, add secrets, merge. GitHub Actions deploys with Alchemy.</p>
+        <pre><code id="code-deploy">git clone {REPO}
 cp .env.example .env  # fill in the values
-# merge a PR → GitHub Actions deploys with Alchemy</pre>
+# merge a PR → GitHub Actions deploys with Alchemy</code></pre>
+      </div>
+      <div role="tabpanel" id="p-track" aria-labelledby="t-track" hidden>
+        <p class="cap">One tag, about 3 KB gzipped, no cookies.</p>
+        <pre><code id="code-track">&lt;script defer
+  src="https://analytics.example.com/tracker.js"
+  data-site-id="example.com"&gt;&lt;/script&gt;</code></pre>
+      </div>
+      <div role="tabpanel" id="p-query" aria-labelledby="t-query" hidden>
+        <p class="cap">A subset of Plausible's Stats API. <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>Parity doc</a>.</p>
+        <pre><code id="code-query">curl https://analytics.example.com/api/v2/query \
+  -H "Authorization: Bearer $STATS_API_TOKEN" \
+  -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</code></pre>
+      </div>
+    </div>
   </section>
 
-  <section class="two-col">
-    <div class="col">
-      <h2>Plausible-compatible API</h2>
-      <p class="lede">A subset of Plausible's APIs. See the <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>parity document</a>.</p>
-      <pre class="code">curl https://analytics.example.com/api/v2/query \
-  -H "Authorization: Bearer $STATS_API_TOKEN" \
-  -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</pre>
-    </div>
-    <div class="col">
-      <h2>Add the script</h2>
-      <p class="lede">One tag, about 3&nbsp;KB gzipped, no cookies.</p>
-      <pre class="code">&lt;script defer
-  src="https://analytics.example.com/tracker.js"
-  data-site-id="example.com"&gt;&lt;/script&gt;</pre>
+  <section class="close">
+    <p class="close-line">Your analytics. Your account. Forgotten by morning.</p>
+    <div class="btns">
+      <a class="btn cta" href={`${REPO}#deployment`}>Deploy to your Cloudflare account</a>
+      <a class="btn secondary" href={REPO}>View on GitHub</a>
     </div>
   </section>
 
@@ -155,156 +189,332 @@ cp .env.example .env  # fill in the values
       <PostList posts={latest} size="compact" headingLevel={3} showTags={false} />
     </section>
   )}
+
+  <script>
+    // --- hero request-card sequence: data-step toggles, ~7s loop ---
+    const card = document.getElementById("req-card");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (card && !reduced) {
+      const steps = [0, 1, 2, 3, 4, 5, 6];
+      let i = 0, timer = 0, running = false;
+      const hold = [900, 1100, 1100, 1100, 1100, 1200, 900];
+      const tick = () => {
+        if (!running) return;
+        i = (i + 1) % steps.length;
+        card.dataset.step = String(steps[i]);
+        if (i === steps.length - 1) {
+          const c = document.getElementById("vis-count");
+          if (c) c.textContent = "1,285";
+        }
+        if (i === 0) {
+          const c = document.getElementById("vis-count");
+          if (c) c.textContent = "1,284";
+        }
+        timer = setTimeout(tick, hold[i]);
+      };
+      const io = new IntersectionObserver(([e]) => {
+        running = e.isIntersecting;
+        if (running) { timer = setTimeout(tick, hold[i]); } else { clearTimeout(timer); }
+      });
+      io.observe(card);
+    } else if (card) {
+      card.dataset.step = "6";
+      const c = document.getElementById("vis-count");
+      if (c) c.textContent = "1,285";
+    }
+
+    // --- midnight timeline: playhead + scramble ---
+    const track = document.getElementById("track");
+    if (track && !reduced) {
+      const head = document.getElementById("playhead");
+      const chip = document.getElementById("vchip");
+      const hashEl = document.getElementById("vhash");
+      const hashes = ["a3f9c1", "7c21e4", "e08b5d"];
+      const hex = "0123456789abcdef";
+      const DUR = 9000, R = 66.6; // run is 2/3 of track width? use full: W=66.6% loop each segment? use full sweep
+      let raf = 0, t0 = 0, running = false, seg = 0;
+      const scramble = (target: string) => {
+        let n = 0;
+        const iv = setInterval(() => {
+          n++;
+          hashEl!.textContent = target.split("").map((ch, j) => (j < n ? ch : hex[(Math.random() * 16) | 0])).join("");
+          if (n >= target.length) clearInterval(iv);
+        }, 50);
+      };
+      const frame = (t: number) => {
+        if (!running) return;
+        if (!t0) t0 = t;
+        const p = ((t - t0) % DUR) / DUR;
+        const x = p * 100;
+        head!.style.left = x + "%";
+        chip!.style.left = x + "%";
+        const newSeg = x < 33.33 ? 0 : x < 66.66 ? 1 : 2;
+        if (newSeg !== seg) {
+          seg = newSeg;
+          scramble(hashes[seg]);
+          const dv = track.querySelectorAll<HTMLElement>(".divider i")[seg - 1];
+          if (dv) { dv.classList.remove("flash"); void dv.offsetWidth; dv.classList.add("flash"); }
+        }
+        if (x < 1) { seg = 0; }
+        raf = requestAnimationFrame(frame);
+      };
+      const io2 = new IntersectionObserver(([e]) => {
+        running = e.isIntersecting;
+        if (running) { t0 = 0; raf = requestAnimationFrame(frame); } else { cancelAnimationFrame(raf); }
+      });
+      io2.observe(track);
+    }
+
+    // --- architecture traveling dot ---
+    const dot = document.getElementById("flow-dot");
+    if (dot && !reduced) {
+      const items = document.querySelectorAll<HTMLElement>(".flow li i");
+      const rail = dot.parentElement!;
+      const D2 = 4000;
+      let raf2 = 0, t1 = 0, running2 = false;
+      const frame2 = (t: number) => {
+        if (!running2) return;
+        if (!t1) t1 = t;
+        const p = ((t - t1) % D2) / D2;
+        const vertical = matchMedia("(max-width: 860px)").matches;
+        if (vertical) { dot.style.top = p * 100 + "%"; dot.style.left = ""; }
+        else { dot.style.left = p * 100 + "%"; dot.style.top = ""; }
+        items.forEach((el, j) => {
+          const on = Math.abs(p * (items.length - 1) - j) < 0.45;
+          el.classList.toggle("pulse", on);
+        });
+        raf2 = requestAnimationFrame(frame2);
+      };
+      const io3 = new IntersectionObserver(([e]) => {
+        running2 = e.isIntersecting;
+        if (running2) { t1 = 0; raf2 = requestAnimationFrame(frame2); } else { cancelAnimationFrame(raf2); }
+      });
+      io3.observe(rail);
+    }
+
+    // --- get-started tabs + copy ---
+    const tabs = [...document.querySelectorAll<HTMLElement>("[role=tab]")];
+    const panels = [...document.querySelectorAll<HTMLElement>("[role=tabpanel]")];
+    const activate = (t: HTMLElement) => {
+      tabs.forEach((x) => { x.setAttribute("aria-selected", String(x === t)); x.tabIndex = x === t ? 0 : -1; });
+      panels.forEach((p) => { p.hidden = p.id !== t.getAttribute("aria-controls"); });
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => activate(t));
+      t.addEventListener("keydown", (e) => {
+        const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (d) { e.preventDefault(); const n = tabs[(i + d + tabs.length) % tabs.length]; activate(n); n.focus(); }
+      });
+    });
+    document.getElementById("copy-btn")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget as HTMLElement;
+      const vis = panels.find((p) => !p.hidden);
+      const code = vis?.querySelector("code")?.innerText ?? "";
+      try { await navigator.clipboard.writeText(code); btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy"), 1500); }
+      catch { /* clipboard unavailable */ }
+    });
+  </script>
 </PageLayout>
 <style>
-  .hero { padding: 4rem 0 2.5rem; max-width: 46rem; }
-  .hero h1 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-size: clamp(2.4rem, 5vw, 3.8rem); margin: 0 0 1rem; line-height: 1.05; letter-spacing: -0.025em; font-weight: 400; }
-  .hero h1 em { font-style: normal; color: var(--color-kumo-brand); }
+  /* ---------- hero ---------- */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 3rem; align-items: center; padding: 5rem 0 4rem; }
+  .hero h1 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-size: clamp(2.8rem, 5.2vw, 5.5rem); line-height: 1.0; letter-spacing: -0.035em; font-weight: 400; margin: 0 0 1.25rem; }
+  .eyebrow { display: block; margin-bottom: 1.25rem; }
+  .kw { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); border-radius: 8px; padding: 0 .14em; }
   .sub { font-size: 1.15rem; color: var(--color-kumo-subtle); max-width: 62ch; text-wrap: pretty; }
   .btns { display: flex; gap: .75rem; margin-top: 1.75rem; flex-wrap: wrap; }
   .btn { display: inline-flex; align-items: center; height: 42px; padding: 0 1.2rem; font-weight: 600; text-decoration: none; }
   .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); padding: 0 1.5rem; }
   .btn.secondary { background: transparent; border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); padding: 0 1.5rem; }
-  .kw { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); border-radius: 8px; padding: 0 .14em; }
-  .eyebrow { display: block; margin-bottom: 1rem; }
-  .shot { margin: 2rem 0 1rem; }
-  .shot img { width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(28,25,23,.04), 0 12px 32px rgba(28,25,23,.08); }
+
+  /* ---------- request card ---------- */
+  .req-card {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 12.5px; line-height: 1.75;
+    background: var(--color-kumo-elevated);
+    border: 1px solid var(--color-kumo-line);
+    border-radius: 14px; padding: 1.1rem 1.25rem;
+    overflow: hidden;
+  }
+  .req-head { display: flex; gap: 0.6rem; align-items: baseline; padding-bottom: 0.7rem; border-bottom: 1px solid var(--color-kumo-hairline); margin-bottom: 0.7rem; }
+  .method { color: var(--color-kumo-brand); font-weight: 500; }
+  .req-card dl { margin: 0; min-width: 0; }
+  .req-card .row { display: flex; gap: 0.75rem; margin: 0.45rem 0; min-height: 1.6em; min-width: 0; }
+  .req-card dt { flex: none; width: 7.5em; color: var(--color-kumo-subtle); }
+  .req-card dd { margin: 0; min-width: 0; overflow-wrap: anywhere; text-wrap: pretty; }
+  .req-card .old { color: var(--color-kumo-default); transition: opacity .28s ease-out, transform .28s ease-out; }
+  .req-card .new { display: none; color: var(--color-kumo-brand); }
+  .req-card .cap { color: var(--color-kumo-subtle); font-size: 11px; }
+  .req-card .add { display: none; }
+  .req-card[data-step="6"] .stored, .req-card .stored { }
+  .stored { display: inline-block; font-size: 11px; padding: 2px 12px; border-radius: 999px; background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); opacity: 0; transition: opacity .3s; }
+  .req-card[data-step="6"] .stored { opacity: 1; }
+  .req-foot { display: flex; justify-content: space-between; align-items: baseline; margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--color-kumo-hairline); }
+  .counter { font-variant-numeric: tabular-nums; color: var(--color-kumo-default); }
+  .counter b { font-weight: 500; }
+  .req-rm { display: none; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  .req-rm .chip { display: inline-flex; align-items: center; gap: 0.4rem; font-family: "IBM Plex Mono", monospace; font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px dashed var(--color-kumo-control-line); color: var(--color-kumo-subtle); text-decoration: line-through; }
+  .req-rm .chip i { font-style: normal; text-decoration: none; }
+  /* step states: each row flips old→new as steps progress */
+  .req-carddata-step="1"],[data-step="2"],[data-step="3"],[data-step="4"],[data-step="5"],[data-step="6"] .row[data-row=ip] .old,.req-card[data-step="1"] .row[data-row="ip"] .old,
+  .req-card[data-step="2"] .row[data-row="ip"] .old,
+  .req-card[data-step="3"] .row[data-row="ip"] .old,
+  .req-card[data-step="4"] .row[data-row="ip"] .old,
+  .req-card[data-step="5"] .row[data-row="ip"] .old,
+  .req-card[data-step="6"] .row[data-row="ip"] .old,
+  .req-card[data-step="2"] .row[data-row="ua"] .old,
+  .req-card[data-step="3"] .row[data-row="ua"] .old,
+  .req-card[data-step="4"] .row[data-row="ua"] .old,
+  .req-card[data-step="5"] .row[data-row="ua"] .old,
+  .req-card[data-step="6"] .row[data-row="ua"] .old,
+
+  .req-card[data-step="4"] .row[data-row="ref"] .old,
+  .req-card[data-step="5"] .row[data-row="ref"] .old,
+  .req-card[data-step="6"] .row[data-row="ref"] .old { opacity: 0.35; text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); }
+.req-card[data-step="1"] .row[data-row="ip"] .new,
+  .req-card[data-step="2"] .row[data-row="ip"] .new,
+  .req-card[data-step="3"] .row[data-row="ip"] .new,
+  .req-card[data-step="4"] .row[data-row="ip"] .new,
+  .req-card[data-step="5"] .row[data-row="ip"] .new,
+  .req-card[data-step="6"] .row[data-row="ip"] .new,
+  .req-card[data-step="2"] .row[data-row="ua"] .new,
+  .req-card[data-step="3"] .row[data-row="ua"] .new,
+  .req-card[data-step="4"] .row[data-row="ua"] .new,
+  .req-card[data-step="5"] .row[data-row="ua"] .new,
+  .req-card[data-step="6"] .row[data-row="ua"] .new,
+
+  .req-card[data-step="4"] .row[data-row="ref"] .new,
+  .req-card[data-step="5"] .row[data-row="ref"] .new,
+  .req-card[data-step="6"] .row[data-row="ref"] .new { display: inline; animation: fade-slide .28s ease-out; }
+.req-card[data-step="3"] .row[data-row="utm"],
+  .req-card[data-step="4"] .row[data-row="utm"],
+  .req-card[data-step="5"] .row[data-row="utm"],
+  .req-card[data-step="6"] .row[data-row="utm"],
+  .req-card[data-step="3"] .row[data-row="path"],
+  .req-card[data-step="4"] .row[data-row="path"],
+  .req-card[data-step="5"] .row[data-row="path"],
+  .req-card[data-step="6"] .row[data-row="path"],
+  .req-card[data-step="5"] .row[data-row="vid"],
+  .req-card[data-step="6"] .row[data-row="vid"] { display: flex; animation: fade-slide .28s ease-out; }
+.req-card[data-step="5"] .row[data-row="vid"] .new,
+  .req-card[data-step="6"] .row[data-row="vid"] .new { display: inline; color: var(--color-kumo-brand); }
+  .req-card .cap { margin-left: 0.75rem; }
+  .req-card[data-step="3"] .row[data-row="url"] .drop,
+  .req-card[data-step="4"] .row[data-row="url"] .drop,
+  .req-card[data-step="5"] .row[data-row="url"] .drop,
+  .req-card[data-step="6"] .row[data-row="url"] .drop { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0.35; }
+  .req-card[data-step="3"] .row[data-row="utm"] .new, .req-card[data-step="4"] .row[data-row="utm"] .new,
+  .req-card[data-step="5"] .row[data-row="utm"] .new, .req-card[data-step="6"] .row[data-row="utm"] .new,
+  .req-card[data-step="3"] .row[data-row="path"] .new, .req-card[data-step="4"] .row[data-row="path"] .new,
+  .req-card[data-step="5"] .row[data-row="path"] .new, .req-card[data-step="6"] .row[data-row="path"] .new { display: inline; color: var(--color-kumo-brand); animation: fade-slide .28s ease-out; }
+  @keyframes fade-slide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- annotated shot ---------- */
+  .annotated h2, .start h2, .close .close-line { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1.5rem; text-wrap: balance; }
+  section { padding: 4.5rem 0; }
+  .shot { position: relative; margin: 0; }
+  .shot img { display: block; width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(28,25,23,.04), 0 12px 32px rgba(28,25,23,.08); }
   :global(html[data-mode="dark"]) .shot img { box-shadow: none; }
   .shot figcaption { margin-top: .6rem; font-size: .85rem; color: var(--color-kumo-subtle); }
-  section { padding: 6rem 0; margin: 0; }
-  section:nth-of-type(even) {
-    background: var(--color-kumo-elevated);
-    border-block: 1px solid var(--color-kumo-hairline);
-    margin-left: calc(50% - 50vw);
-    margin-right: calc(50% - 50vw);
-    padding-left: calc(50vw - 50%);
-    padding-right: calc(50vw - 50%);
+  .callout { position: absolute; left: var(--x); top: var(--y); transform: translate(-50%, -50%); display: flex; align-items: center; gap: 0.45rem; background: none; border: 0; cursor: help; padding: 0; }
+  .callout i { width: 10px; height: 10px; border-radius: 999px; background: var(--color-kumo-brand); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kumo-brand) 25%, transparent); flex: none; }
+  .callout span { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.02em; white-space: nowrap; padding: 3px 9px; border-radius: 999px; background: var(--color-kumo-elevated); border: 1px solid var(--color-kumo-line); color: var(--color-kumo-default); opacity: 0.85; transition: opacity .15s; }
+  .callout:hover span, .callout:focus-visible span { opacity: 1; border-color: var(--color-kumo-brand); }
+  .callout-list { display: none; margin: 1rem 0 0; padding-left: 1.1rem; color: var(--color-kumo-subtle); font-size: .9rem; }
+  @media (max-width: 859px) { .callout { display: none; } .callout-list { display: block; } }
+
+  /* ---------- midnight band ---------- */
+  .midnight {
+    background: #0e1713; color: #e6eee9;
+    margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+    padding-left: calc(50vw - 50%); padding-right: calc(50vw - 50%);
+    padding-top: 6rem; padding-bottom: 6rem;
   }
-  section h2 { font-size: 2rem; letter-spacing: -0.02em; text-wrap: balance; }
-  section h2::before { content: ""; display: block; }
-  @media (max-width: 860px) { section { padding: 4rem 0; } }
-  h2 { font-size: 1.6rem; margin-bottom: 1rem; letter-spacing: -0.01em; }
-  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
-  .card { border: 1px solid var(--color-kumo-line); background: var(--color-kumo-elevated); border-radius: 14px; padding: 1.5rem; }
-  .card h3 { font-size: 1.05rem; margin: 0 0 1rem; }
-  .card ul { margin: 0; padding: 0; list-style: none; color: var(--color-kumo-subtle); }
-  .card li { display: flex; align-items: baseline; gap: .7rem; margin: .5rem 0; font-size: .95rem; }
-  .ic { font-weight: 700; flex: none; }
-  .ic.check { color: var(--color-kumo-brand); }
-  .ic.x { color: var(--color-kumo-subtle); }
-  .model .note { margin-top: 1.25rem; color: var(--color-kumo-subtle); max-width: 560px; text-wrap: pretty; }
+  .midnight .eyebrow { color: #93a39a; }
+  .midnight h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; font-size: clamp(1.8rem, 3.4vw, 2.8rem); margin: 0 0 1.5rem; max-width: 20ch; text-wrap: balance; }
+  .mid-time { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; font-size: clamp(3rem, 8vw, 7rem); color: #4fc08d; line-height: 1; margin-bottom: 3rem; }
+  .days { display: flex; font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #93a39a; margin-bottom: 0.75rem; }
+  .days .day-name { flex: 1; text-align: center; }
+  .days .day-name:first-child { flex: 1.5; text-align: left; }
+  .days .day-name:last-child { flex: 1.5; text-align: right; }
+  .days .tick { position: relative; width: 1px; }
+  .days .tick i { font-style: normal; position: absolute; top: -1.2em; left: 50%; transform: translateX(-50%); font-size: 11px; color: #93a39a; white-space: nowrap; }
+  .track { position: relative; height: 90px; }
+  .track .divider { position: absolute; top: 0; bottom: 0; left: 0; width: 1px; }
+  .track .divider i { position: absolute; inset: 0; border-left: 1px dashed rgba(230,238,233,.35); }
+  .track .divider i.flash { animation: dflash .5s ease-out; }
+  @keyframes dflash { 0% { border-color: #4fc08d; box-shadow: 0 0 14px #4fc08d; } 100% { box-shadow: none; } }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 1px; background: rgba(230,238,233,.3); }
+  .chip-v { position: absolute; top: 30px; transform: translateX(-50%); transition: none; }
+  .chip-v b { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 15px; padding: 6px 16px; border-radius: 999px; background: rgba(79,192,141,.16); color: #4fc08d; border: 1px solid rgba(79,192,141,.35); }
+  .static-chips { display: none; }
+  .mid-line { margin-top: 2rem; color: #93a39a; font-size: 1rem; }
+
+  /* ---------- architecture ---------- */
+  .arch { background: var(--color-kumo-elevated); border-block: 1px solid var(--color-kumo-hairline); margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); padding-left: calc(50vw - 50%); padding-right: calc(50vw - 50%); }
+  .arch h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1.5rem; text-wrap: balance; }
   .account { border: 1px dashed var(--color-kumo-control-line); border-radius: 14px; padding: 1.5rem; position: relative; }
-  .account-label { position: absolute; top: -0.7em; left: 1.25rem; background: var(--color-kumo-canvas); padding: 0 .5rem; font-size: .8rem; color: var(--color-kumo-subtle); }
-  .flow { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; align-items: stretch; }
-  .flow li { border: 1px solid var(--color-kumo-line); background: var(--color-kumo-elevated); border-radius: 10px; padding: .6rem .7rem; font-size: .85rem; position: relative; }
-  .flow li + li::before { content: "→"; position: absolute; left: -0.45rem; top: 50%; transform: translateY(-50%); color: var(--color-kumo-subtle); font-size: .8rem; }
+  .account-label { position: absolute; top: -0.7em; left: 1.25rem; background: var(--color-kumo-elevated); padding: 0 .5rem; font-size: .8rem; color: var(--color-kumo-subtle); }
+  .flow-wrap { position: relative; }
+  .rail { position: absolute; left: 0; right: 0; top: 16px; height: 1px; background: var(--color-kumo-line); }
+  .rail .dot { position: absolute; top: -4px; width: 9px; height: 9px; border-radius: 999px; background: var(--color-kumo-brand); }
+  .flow { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; position: relative; }
+  .flow li i { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--color-kumo-tint); color: var(--color-kumo-brand); margin-bottom: 0.5rem; transition: background .25s, color .25s; position: relative; }
+  .flow li i.pulse { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand); }
+  .flow li i svg { width: 18px; height: 18px; fill: currentColor; }
   .flow b { display: block; font-size: .9rem; }
   .flow span { font-size: .75rem; color: var(--color-kumo-subtle); }
-  .lede { color: var(--color-kumo-subtle); max-width: 68ch; font-size: 1rem; text-wrap: pretty; }
-  .code { font-family: ui-monospace, monospace; font-size: .82rem; background: var(--color-kumo-recessed); padding: 1rem; border-radius: 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
-  .steps { list-style: none; padding: 0; margin: 0 0 1.25rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
-  .steps li { display: flex; gap: .9rem; }
-  .steps .num { flex: none; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--color-kumo-control-line); display: grid; place-items: center; font-size: .85rem; font-weight: 600; }
-  .steps b { display: block; margin-bottom: .25rem; }
-  .steps p { margin: 0; color: var(--color-kumo-subtle); font-size: .9rem; }
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-  .two-col .code { margin-top: .75rem; }
 
-  /* feature bento */
-  .bento-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 1.5rem; }
-  .bento-card {
-    margin: 0; border: 1px solid var(--color-kumo-line); background: var(--color-kumo-elevated);
-    border-radius: 14px; overflow: hidden;
-    transition: transform 0.18s ease;
-  }
-  .bento-card img {
-    display: block; width: 100%; aspect-ratio: 16/10; height: auto;
-    object-fit: cover; object-position: top left;
-    border-bottom: 1px solid var(--color-kumo-hairline);
-    background: var(--color-kumo-recessed);
-  }
-  .bento-card img.fit-contain {
-    object-fit: contain; padding: 0.75rem;
-  }
-  .bento-card figcaption { padding: 1rem 1.25rem 1.1rem; }
-  .bento-card b { display: block; font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; font-size: 1.05rem; letter-spacing: -0.02em; }
-  .bento-card span { font-size: 0.9rem; color: var(--color-kumo-subtle); }
-  .bento-note { margin-top: 0.75rem; font-size: 0.8rem; color: var(--color-kumo-subtle); }
-  @media (prefers-reduced-motion: no-preference) {
-    .bento-card:hover { transform: translateY(-2px); }
-  }
+  /* ---------- get started ---------- */
+  .term { border: 1px solid var(--color-kumo-line); border-radius: 14px; background: var(--color-kumo-elevated); overflow: hidden; }
+  .term-tabs { display: flex; gap: .4rem; align-items: center; padding: .7rem .9rem; border-bottom: 1px solid var(--color-kumo-hairline); }
+  .term-tabs [role=tab] { border: 0; background: transparent; padding: 5px 14px; border-radius: 999px; font: inherit; font-size: .85rem; color: var(--color-kumo-subtle); cursor: pointer; }
+  .term-tabs [role=tab][aria-selected="true"] { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); }
+  .term-tabs .copy { margin-left: auto; border: 1px solid var(--color-kumo-line); background: transparent; border-radius: 999px; padding: 4px 12px; font-size: .8rem; color: var(--color-kumo-subtle); cursor: pointer; }
+  .term-tabs .copy:hover { color: var(--color-kumo-default); }
+  .term [role=tabpanel] { padding: 1rem 1.25rem 1.25rem; }
+  .term .cap { margin: 0 0 .6rem; font-size: .9rem; color: var(--color-kumo-subtle); }
+  .term .cap a { color: var(--color-kumo-brand); }
+  .term pre { margin: 0; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.7; overflow-x: auto; }
 
-  /* privacy: anatomy + salt timeline */
-  .model-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 1.25rem; margin-top: 1.5rem; }
-  .event-card pre {
-    margin: 0.9rem 0 1rem; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
-    font-size: 0.8rem; line-height: 1.7; color: var(--color-kumo-default);
-    white-space: pre-wrap; word-break: break-word;
-  }
-  .event-card pre b { color: var(--color-kumo-brand); font-weight: 500; }
-  .never { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .never .chip {
-    display: inline-flex; align-items: center; gap: 0.4rem;
-    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.02em;
-    padding: 3px 10px; border-radius: 999px;
-    border: 1px dashed var(--color-kumo-control-line);
-    color: var(--color-kumo-subtle); text-decoration: line-through;
-  }
-  .never .chip i { font-style: normal; text-decoration: none; color: var(--color-kumo-subtle); }
-  .salt-card { display: flex; flex-direction: column; gap: 1.25rem; justify-content: space-between; }
-  .salt-days { display: grid; grid-template-columns: 1fr 1px 1fr 1px 1fr; align-items: stretch; flex: 1; }
-  .salt-days .day {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 1rem; padding: 2rem 0.5rem; flex: 1;
-  }
-  .salt-days .d { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--color-kumo-subtle); }
-  .salt-days .hash {
-    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 15px;
-    padding: 6px 16px; border-radius: 999px;
-    background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text);
-  }
-  .salt-days .divider {
-    position: relative;
-  }
-  .salt-days .divider::before {
-    content: ""; position: absolute; top: 14px; bottom: 0; left: 0;
-    border-left: 1px dashed var(--color-kumo-control-line);
-  }
-  .salt-days .divider::after {
-    content: "00:00 UTC"; position: absolute; top: 0; left: 0;
-    transform: translateX(-50%);
-    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: 9px;
-    letter-spacing: 0.04em; color: var(--color-kumo-subtle);
-    background: var(--color-kumo-elevated); padding: 0 3px; white-space: nowrap;
-  }
+  /* ---------- closing ---------- */
+  .close { border-top: 1px solid var(--color-kumo-hairline); text-align: center; padding: 5rem 0 4rem; }
+  .close-line { font-size: clamp(1.6rem, 3vw, 2.4rem); max-width: none; margin-bottom: 1.75rem; }
+  .close .btns { justify-content: center; }
 
-  .salt-line { margin: 0; font-size: 0.95rem; color: var(--color-kumo-subtle); }
+  .latest { padding-top: 3rem; }
+  .latest h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1rem; }
 
-  /* arch icons */
-  .flow li i {
-    display: grid; place-items: center; width: 32px; height: 32px;
-    border-radius: 8px; background: var(--color-kumo-tint); color: var(--color-kumo-brand);
-    margin-bottom: 0.5rem;
+  /* ---------- responsive ---------- */
+  @media (max-width: 1023px) {
+    .hero { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; }
   }
-  .flow li i svg { width: 18px; height: 18px; fill: currentColor; }
-
-  /* deploy icons */
-  .steps li i {
-    display: grid; place-items: center; flex: none; width: 32px; height: 32px;
-    border-radius: 8px; background: var(--color-kumo-tint); color: var(--color-kumo-brand);
-  }
-  .steps li i svg { width: 18px; height: 18px; fill: currentColor; }
-
-  .sr-only {
-    position: absolute; width: 1px; height: 1px; overflow: hidden;
-    clip: rect(0 0 0 0); white-space: nowrap;
-  }
-
   @media (max-width: 860px) {
-    .cards, .steps, .two-col, .bento-grid, .model-grid { grid-template-columns: 1fr; }
-    .bento-card img { aspect-ratio: 16/10; height: auto; }
-    .flow { grid-template-columns: 1fr; gap: .4rem; }
-    .flow li + li::before { content: ""; }
-    .flow li + li::after { content: "↓"; position: absolute; left: 1rem; top: -0.55rem; color: var(--color-kumo-subtle); font-size: .7rem; }
+    section { padding: 3.5rem 0; }
+    .mid-time { margin-bottom: 2rem; }
+    .rail { top: 0; bottom: 0; left: 16px; right: auto; width: 1px; height: auto; background: var(--color-kumo-line); }
+    .rail .dot { top: 0; left: -4px; }
+    .flow { grid-template-columns: 1fr; gap: .75rem; padding-left: 2.25rem; }
+    .flow li { display: flex; gap: .8rem; align-items: center; }
+    .flow li i { margin-bottom: 0; }
+    .days { font-size: 10px; }
+    .chip-v b { font-size: 12px; padding: 4px 10px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .req-card .row[data-row="ip"] .old, .req-card .row[data-row="ua"] .old, .req-card .row[data-row="ref"] .old { display: none !important; }
+    .req-card .row[data-row="url"] .drop { text-decoration: line-through; opacity: 0.35; }
+    .req-card .new { display: inline !important; }
+    .req-card .add { display: flex !important; }
+    .req-card .cap { margin-left: .75rem; }
+    .req-card .stored { opacity: 1; }
+    .req-rm { display: flex; }
+    .playhead, .chip-v { display: none; }
+    .static-chips { display: flex; position: relative; height: 90px; }
+    .static-chips .hash { position: absolute; top: 30px; transform: translateX(-50%); font-family: "IBM Plex Mono", monospace; font-size: 15px; padding: 6px 16px; border-radius: 999px; background: rgba(79,192,141,.16); color: #4fc08d; border: 1px solid rgba(79,192,141,.35); }
+    .rail .dot { display: none; }
+    .flow li i.pulse { animation: none; }
+    .bento-card:hover { transform: none; }
   }
 </style>
