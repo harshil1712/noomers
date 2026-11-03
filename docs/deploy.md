@@ -21,6 +21,7 @@ separate policy on your zone; account permissions inside a zone policy grant not
 | Account · D1 · Write                           | ✓          | ✓       |
 | Account · Workers R2 Storage · Write           | ✓          | ✓       |
 | Account · Secrets Store · Write                | ✓          | ✓       |
+| Account · Account API Tokens · Edit            | ✓          | ✓       |
 | Account · Cloudflare Turnstile · Write         | ✓          | —       |
 | Account · Email Sending · Write                | ✓          | —       |
 | Zone `<domain>` · Workers Routes · Write       | ✓          | —       |
@@ -39,7 +40,6 @@ accept only Workers Scripts Write. Secrets Store is for Alchemy's state store
 | `CLOUDFLARE_ACCOUNT_ID`                     | Account ID (dashboard → overview)                                             |                                  |
 | `CLOUDFLARE_ZONE_ID`                        | Zone ID for the apex domain                                                   | Prod only — Turnstile + Email    |
 | `WORKERS_DEV_SUBDOMAIN`                     | your `*.workers.dev` subdomain                                                | Used to build preview URLs       |
-| `BETTER_AUTH_SECRET`                        | `openssl rand -base64 32`                                                     | Auth session signing             |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client; redirect `https://app.<domain>/api/auth/callback/google` | Optional — empty disables Google |
 | `OWNER_ADMIN_EMAIL`                         | verified owner email for admin bootstrap                                      |                                  |
 | `SIGNUP_DISABLED`                           | `production` **variable** (not secret) — `true` closes new sign-ups           | Optional — unset = open          |
@@ -73,18 +73,19 @@ dashboard's token editor before cutover.)
 
 ### Additional secrets (noomers analytics)
 
-| Secret                           | Purpose                                                    |
-| -------------------------------- | ---------------------------------------------------------- |
-| `VISITOR_SALT`                   | Daily-rotating visitor-id salt — **required for /collect** |
-| `SITES_API_TOKEN`                | Bearer for `/api/v1/*` (Plausible Sites API)               |
-| `STATS_API_TOKEN`                | Bearer for `/api/v2/query` (and /api/v1 fallback)          |
-| `SERVER_EVENTS_TOKEN`            | Optional first-party server tracker token                  |
-| `R2_SQL_TOKEN`                   | Basin SQL query token                                      |
-| `R2_CATALOG_TOKEN`               | R2 Data Catalog write — used by the Iceberg sink           |
-| `CF_ACCOUNT_ID`                  | Account id (runtime, for Basin SQL endpoint)               |
-| `R2_SQL_BUCKET` / `R2_SQL_TABLE` | Warehouse bucket / query table (`noomers.events`)          |
-| `R2_SQL_IMPORT_TABLE`            | Optional extra table UNIONed into queries (cutover helper) |
-| `CF_TRACKER_SCRIPT_NAME`         | Optional custom tracker script path                        |
+`alchemy.run.ts` mints `BETTER_AUTH_SECRET`, `VISITOR_SALT`, the Basin SQL
+token (`R2_SQL_TOKEN`) and the Data Catalog sink token, and derives
+`CF_ACCOUNT_ID` and `R2_SQL_BUCKET` from the provisioned account and bucket —
+none of these are secrets you set.
+
+| Secret                   | Purpose                                                    |
+| ------------------------ | ---------------------------------------------------------- |
+| `SITES_API_TOKEN`        | Bearer for `/api/v1/*` (Plausible Sites API)               |
+| `STATS_API_TOKEN`        | Bearer for `/api/v2/query` (and /api/v1 fallback)          |
+| `SERVER_EVENTS_TOKEN`    | Optional first-party server tracker token                  |
+| `R2_SQL_TABLE`           | Basin SQL query table (`noomers.events`)                   |
+| `R2_SQL_IMPORT_TABLE`    | Optional extra table UNIONed into queries (cutover helper) |
+| `CF_TRACKER_SCRIPT_NAME` | Optional custom tracker script path                        |
 
 ## Cutover from the wrangler-based deployment
 
@@ -101,15 +102,20 @@ dashboard's token editor before cutover.)
 - **Pipelines are not adopted.** The interactively-created stream/sink
   (old docs named the stream `noomers_events`, table `default.events`)
   will not match the new names (`noomers-events-stream`,
-  `noomers_events_sink`, table `noomers.events`). Either point
-  `R2_SQL_BUCKET`/`R2_SQL_TABLE` at the existing resources AND keep the
-  old table, or accept a new stream/table and keep the old table queryable
-  via `R2_SQL_IMPORT_TABLE`. Verify which names exist in the account
-  before cutover.
+  `noomers_events_sink`, table `noomers.events`). `R2_SQL_BUCKET` is bound
+  to the provisioned bucket, so the old table is queryable only through
+  `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives in the same bucket's
+  catalog; otherwise history starts fresh. Verify which names exist in the
+  account before cutover.
 - **Drain the SiteEvents DO first.** Unshipped buffered rows live in the
   old worker's DOs. Check `/api/health/ready` reports zero backlog on the
   old deployment before switching traffic, or those events are stranded.
-- **Re-supply Basin/R2 tokens** as the secrets above; wrangler-era
-  `CF_PASSWORD_HASH`, `CF_JWT_SECRET`, `CF_AUTH_ENABLED` are gone —
-  dashboard auth is Better Auth with `OWNER_ADMIN_EMAIL` bootstrapping the
-  first admin.
+- **Basin/R2 tokens are minted by the deploy** (`Account API Tokens · Edit`
+  on the CI token grants this). The minted R2 SQL token is read-only —
+  confirm the first real preview answers `/api/health/ready` before
+  switching traffic. Wrangler-era `CF_PASSWORD_HASH`, `CF_JWT_SECRET`,
+  `CF_AUTH_ENABLED` are gone — dashboard auth is Better Auth with
+  `OWNER_ADMIN_EMAIL` bootstrapping the first admin.
+- **New `VISITOR_SALT`.** Alchemy mints a fresh salt, so visitor IDs on the
+  cutover day won't match pre-cutover ones. Visitor IDs rotate daily in UTC
+  anyway, so the only effect is a one-day discontinuity in visitor counts.

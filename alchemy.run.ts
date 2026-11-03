@@ -32,6 +32,54 @@ const EventsCatalog = Cloudflare.R2.DataCatalog(`${PROJECT.name}-events-catalog`
   bucket: WarehouseBucket,
 });
 
+// Account API tokens minted by the deploy itself — no hand-managed secrets.
+// Minting requires the deploy token to have "Account API Tokens: Edit".
+const EventsSinkToken = Cloudflare.ApiToken.AccountApiToken(
+  `${PROJECT.name}-events-sink-token`,
+  Effect.gen(function* () {
+    const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
+    return {
+      name: `${PROJECT.name}-events-sink`,
+      accountId,
+      policies: [
+        {
+          effect: "allow" as const,
+          permissionGroups: [
+            "Workers R2 Data Catalog Write" as const,
+            "Workers R2 Storage Write" as const,
+          ],
+          resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
+        },
+      ],
+    };
+  }),
+);
+const R2SqlToken = Cloudflare.ApiToken.AccountApiToken(
+  `${PROJECT.name}-r2-sql-token`,
+  Effect.gen(function* () {
+    const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
+    return {
+      name: `${PROJECT.name}-r2-sql`,
+      accountId,
+      policies: [
+        {
+          effect: "allow" as const,
+          permissionGroups: [
+            "Workers R2 SQL Read" as const,
+            "Workers R2 Data Catalog Read" as const,
+            "Workers R2 Storage Read" as const,
+          ],
+          resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
+        },
+      ],
+    };
+  }),
+);
+
+// Generated secrets — minted once, persisted in alchemy state.
+const AuthSecret = Alchemy.Random(`${PROJECT.name}-auth-secret`);
+const VisitorSalt = Alchemy.Random(`${PROJECT.name}-visitor-salt`);
+
 // Durable events pipeline: SiteEvents DO → EVENT_STREAM → Iceberg table
 // `events` in namespace `noomers` (i.e. `noomers.events`, the default of
 // R2_SQL_TABLE). Schema comes from apps/web/pipelines/events.schema.json.
@@ -41,14 +89,19 @@ const EventsStream = Cloudflare.Pipelines.Stream(`${PROJECT.name}-events-stream`
   // No public HTTP ingest — the DO writes via the worker binding only.
   http: false,
 });
-const EventsSink = Cloudflare.Pipelines.Sink(`${PROJECT.name}-events-sink`, {
-  name: "noomers_events_sink",
-  type: "r2_data_catalog",
-  catalog: EventsCatalog,
-  table: { namespace: "noomers", name: "events" },
-  // Cloudflare API token with R2 Data Catalog write permission.
-  token: Config.Redacted("R2_CATALOG_TOKEN"),
-});
+const EventsSink = Cloudflare.Pipelines.Sink(
+  `${PROJECT.name}-events-sink`,
+  Effect.gen(function* () {
+    const token = yield* EventsSinkToken;
+    return {
+      name: "noomers_events_sink",
+      type: "r2_data_catalog" as const,
+      catalog: EventsCatalog,
+      table: { namespace: "noomers", name: "events" },
+      token: token.value,
+    };
+  }),
+);
 const EventsPipeline = Cloudflare.Pipelines.Pipeline(`${PROJECT.name}-events-pipeline`, {
   name: "noomers_events_pipeline",
   sql: `INSERT INTO noomers_events_sink SELECT * FROM noomers_events_stream`,
@@ -89,6 +142,11 @@ export const Web = Cloudflare.Website.Vite(
   Effect.gen(function* () {
     const widget = isProd ? yield* TurnstileWidget! : null;
     const eventsStream = yield* EventsStream;
+    const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
+    const warehouseBucket = yield* WarehouseBucket;
+    const r2SqlToken = yield* R2SqlToken;
+    const authSecret = yield* AuthSecret;
+    const visitorSalt = yield* VisitorSalt;
     return {
       // a Preview inherits script-level settings (name, domain) from its parent
       name: PREVIEW_NAME ? undefined : `${PROJECT.name}-web`,
@@ -148,7 +206,7 @@ export const Web = Cloudflare.Website.Vite(
         }),
         TURNSTILE_SECRET_KEY: widget ? widget.secret : "1x0000000000000000000000000000000AA",
         TURNSTILE_SITE_KEY: widget ? widget.sitekey : "1x00000000000000000000AA",
-        BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),
+        BETTER_AUTH_SECRET: authSecret.text,
         BETTER_AUTH_URL: Config.Redacted("BETTER_AUTH_URL").pipe(
           Config.withDefault(isProd ? `https://${APP_DOMAIN}` : "http://localhost:1338"),
         ),
@@ -162,22 +220,21 @@ export const Web = Cloudflare.Website.Vite(
         // --- noomers analytics core --------------------------------------
         // Daily-rotating visitor-id salt; required for /collect and
         // /api/event — the collector refuses traffic without it.
-        VISITOR_SALT: Config.Redacted("VISITOR_SALT"),
+        VISITOR_SALT: visitorSalt.text,
         // Bearer tokens for the Plausible-compat APIs.
         SITES_API_TOKEN: Config.Redacted("SITES_API_TOKEN").pipe(Config.withDefault("")),
         STATS_API_TOKEN: Config.Redacted("STATS_API_TOKEN").pipe(Config.withDefault("")),
         // First-party server tracker token (optional).
         SERVER_EVENTS_TOKEN: Config.Redacted("SERVER_EVENTS_TOKEN").pipe(Config.withDefault("")),
-        CF_ACCOUNT_ID: Config.String("CF_ACCOUNT_ID").pipe(Config.withDefault("")),
+        CF_ACCOUNT_ID: accountId,
         CF_TRACKER_SCRIPT_NAME: Config.String("CF_TRACKER_SCRIPT_NAME").pipe(
           Config.withDefault(""),
         ),
-        // Basin SQL warehouse — empty means Basin is not configured and the
-        // Stats API / readiness checks report "not configured".
-        R2_SQL_BUCKET: Config.String("R2_SQL_BUCKET").pipe(Config.withDefault("")),
+        // Basin SQL warehouse — bound from the provisioned bucket/token.
+        R2_SQL_BUCKET: warehouseBucket.bucketName,
         R2_SQL_TABLE: Config.String("R2_SQL_TABLE").pipe(Config.withDefault("noomers.events")),
         R2_SQL_IMPORT_TABLE: Config.String("R2_SQL_IMPORT_TABLE").pipe(Config.withDefault("")),
-        R2_SQL_TOKEN: Config.Redacted("R2_SQL_TOKEN").pipe(Config.withDefault("")),
+        R2_SQL_TOKEN: r2SqlToken.value,
       },
     };
   }),

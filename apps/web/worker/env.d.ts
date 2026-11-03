@@ -34,19 +34,19 @@ interface Env {
 
   // --- noomers analytics core ------------------------------------------------
   /** Daily-rotating salt for visitor identifiers. */
-  VISITOR_SALT?: string;
+  VISITOR_SALT: string;
   /** Bearer token for the Plausible Sites API (/api/v1/*). */
   SITES_API_TOKEN?: string;
   /** Bearer token for the Stats API (/api/v2/query); fallback for /api/v1. */
   STATS_API_TOKEN?: string;
   /** First-party server tracker token (SERVER-EVENTS header auth). */
   SERVER_EVENTS_TOKEN?: string;
-  CF_ACCOUNT_ID?: string;
+  CF_ACCOUNT_ID: string;
   /** Optional custom name for the served tracker script (<name>.js). */
   CF_TRACKER_SCRIPT_NAME?: string;
-  /** Basin SQL warehouse/table config — absent means Basin is not configured. */
-  R2_SQL_BUCKET?: string;
+  /** Basin SQL warehouse/table config — bound from the provisioned bucket/token. */
+  R2_SQL_BUCKET: string;
   R2_SQL_TABLE?: string;
   R2_SQL_IMPORT_TABLE?: string;
-  R2_SQL_TOKEN?: string;
+  R2_SQL_TOKEN: string;
 }
