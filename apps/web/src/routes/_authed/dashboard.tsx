@@ -1002,13 +1002,7 @@ function BreakdownTable({
             </Table.Head>
             <Table.Head className="w-24 text-right">
               <span className="mono-label">
-                {isGoals
-                  ? "Conversions"
-                  : card === "events"
-                    ? "Events"
-                    : card === "entry-pages" || card === "exit-pages"
-                      ? "Visits"
-                      : "Visitors"}
+                {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
               </span>
             </Table.Head>
             <Table.Head className="w-14 text-right">
@@ -1018,7 +1012,7 @@ function BreakdownTable({
         </Table.Header>
         <Table.Body>
           {shown.map((row, index) => {
-            const pct = row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
+            const pct = isGoals && row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}
