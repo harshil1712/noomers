@@ -1,0 +1,50 @@
+name: iceberg-erasure
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iceberg-erasure
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  erase:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      - name: Check secrets
+        id: secrets
+        run: |
+          if [ -z "${{ secrets.SITES_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "missing=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Skip when secrets are missing
+        if: steps.secrets.outputs.missing == 'true'
+        run: echo "::notice::SITES_API_TOKEN or CLOUDFLARE_API_TOKEN missing — erasure skipped"
+      - name: Read project config
+        if: steps.secrets.outputs.missing != 'true'
+        id: cfg
+        run: |
+          DOMAIN=$(grep -o 'domain: "[^"]*"' project.config.ts | head -1 | cut -d'"' -f2)
+          APP_SUB=$(grep -o 'appSubdomain: "[^"]*"' project.config.ts | head -1 | cut -d'"' -f2)
+          NAME=$(grep -o 'name: "[^"]*"' project.config.ts | head -1 | cut -d'"' -f2)
+          echo "app_url=https://${APP_SUB}.${DOMAIN}" >> "$GITHUB_OUTPUT"
+          echo "bucket=${NAME}-events" >> "$GITHUB_OUTPUT"
+      - name: Erase deleted-site rows from Iceberg
+        if: steps.secrets.outputs.missing != 'true'
+        env:
+          NOOMERS_APP_URL: ${{ steps.cfg.outputs.app_url }}
+          R2_SQL_BUCKET: ${{ steps.cfg.outputs.bucket }}
+          ICEBERG_TABLES: noomers.events,noomers.events_import
+          SITES_API_TOKEN: ${{ secrets.SITES_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: uv run scripts/iceberg-erasure/erase.py

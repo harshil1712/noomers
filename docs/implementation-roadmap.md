@@ -36,11 +36,11 @@ Last reviewed: 2026-11-05.
 
 ### 2. Complete deletion
 
-| Feature                      | Status  | Notes                                                                                                                                                                                                                                                                                                                                                                |
-| ---------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Iceberg row erasure          | Ready   | Site deletion tombstones the site, purges its Durable Object, and records a `pending` `site_deletion_jobs` row, but no processor runs and Iceberg rows survive. Add a scheduled job that deletes the site's rows through a writable Iceberg engine (PyIceberg via Basin Catalog), then relies on snapshot expiration and orphan cleanup, and marks the job complete. |
-| User-visible deletion status | Planned | Expose per-layer deletion progress without leaking infrastructure details, once automated erasure exists.                                                                                                                                                                                                                                                            |
-| Deletion monitoring and SLA  | Planned | Alert on overdue jobs once a processor exists.                                                                                                                                                                                                                                                                                                                       |
+| Feature                      | Status  | Notes                                                                                                                                                                                    |
+| ---------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Iceberg row erasure          | Partial | A daily PyIceberg job erases due sites' rows through Basin Catalog (≥1 hour after deletion) and managed snapshot expiration removes the files. Live validation pending — never deployed. |
+| User-visible deletion status | Planned | Expose per-layer deletion progress without leaking infrastructure details, once automated erasure exists.                                                                                |
+| Deletion monitoring and SLA  | Planned | Alert on overdue jobs once a processor exists.                                                                                                                                           |
 
 ### 3. Core analytics correctness
 

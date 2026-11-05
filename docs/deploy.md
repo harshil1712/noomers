@@ -90,3 +90,19 @@ none of these are secrets you set.
 The Basin/R2 account tokens are minted by the deploy itself (`Account API
 Tokens · Edit` on the CI token grants this); the minted R2 SQL token is
 read-only.
+
+### Iceberg erasure
+
+Deleting a site writes a `site_deletion_jobs` row. A scheduled workflow
+(`.github/workflows/iceberg-erasure.yml`, daily at 03:17 UTC plus manual
+`workflow_dispatch`) runs `scripts/iceberg-erasure/erase.py`, which fetches
+due jobs (older than one hour) from `/api/maintenance/deletion-jobs`,
+row-deletes the site's rows through Basin Catalog, verifies nothing is left,
+and reports `completed`/`failed` back to the Worker. Managed snapshot
+expiration on the Data Catalog (enabled in `alchemy.run.ts`) then removes
+the data files the deleted snapshots no longer reference.
+
+Secrets used: `SITES_API_TOKEN` (must exist in the production environment
+for the workflow to run; it skips with a notice otherwise),
+`CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. To run it by hand:
+Actions → iceberg-erasure → Run workflow.
