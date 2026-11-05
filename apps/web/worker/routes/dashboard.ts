@@ -14,7 +14,7 @@ import { GoalsRepository, type GoalType } from "../goals/repository";
 
 const PAGE_SIZE = 10;
 
-/** [dimension, visitors, secondary metric] tuples (CountRow in legacy-ui). */
+/** [dimension, visitors, secondary metric] tuples. */
 export type CountRow =
   | [string | [string, string], number, number]
   | [string | [string, string], number];
@@ -38,7 +38,7 @@ function searchParams(request: Request): URLSearchParams {
   return new URL(request.url).searchParams;
 }
 
-/** Shared body for the breakdown cards (was resources.shared.ts). */
+/** Shared body for the breakdown cards. */
 async function breakdown(
   c: Ctx,
   request: Request,
@@ -252,7 +252,7 @@ export async function props(c: Ctx, request: Request) {
   });
 }
 
-/** Card endpoints — one per legacy resources.* route. */
+/** Card endpoints — one breakdown handler per dashboard card. */
 export function paths(c: Ctx, r: Request) {
   return breakdown(c, r, "event:page", "views");
 }

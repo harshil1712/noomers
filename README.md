@@ -48,18 +48,18 @@ site visitor ──GET /collect or POST /api/event──▶ apps/web worker (Hon
 
 ### Secrets (GitHub environment `production`)
 
-| Secret                                           | Purpose                                           |
-| ------------------------------------------------ | ------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Deploy (needs Account API Tokens: Edit)           |
-| `OWNER_ADMIN_EMAIL`                              | First admin bootstrap (verified email match)      |
-| `SITES_API_TOKEN`                                | Bearer for `/api/v1/*` (site management)          |
-| `STATS_API_TOKEN`                                | Bearer for `/api/v2/query` (and /api/v1 fallback) |
-| `R2_SQL_TABLE`                                   | Query table (`noomers.events`)                    |
-| `R2_SQL_IMPORT_TABLE`                            | Optional table UNIONed into queries               |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`      | Optional Google OAuth                             |
-| `SIGNUP_DISABLED`                                | Optional — closes new sign-ups                    |
-| `CF_TRACKER_SCRIPT_NAME`                         | Optional custom tracker script path               |
-| `SERVER_EVENTS_TOKEN`                            | Optional first-party server tracker token         |
+| Secret                                           | Purpose                                                           |
+| ------------------------------------------------ | ----------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Deploy (needs Account API Tokens: Edit)                           |
+| `OWNER_ADMIN_EMAIL`                              | First admin bootstrap (verified email match)                      |
+| `SITES_API_TOKEN`                                | Bearer for `/api/v1/*` (site management)                          |
+| `STATS_API_TOKEN`                                | Bearer for `/api/v2/query` (and /api/v1 fallback)                 |
+| `R2_SQL_TABLE`                                   | Query table (`noomers.events`)                                    |
+| `R2_SQL_IMPORT_TABLE`                            | Optional imported-history table (see `scripts/plausible-import/`) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`      | Optional Google OAuth                                             |
+| `SIGNUP_DISABLED`                                | Optional — closes new sign-ups                                    |
+| `CF_TRACKER_SCRIPT_NAME`                         | Optional custom tracker script path                               |
+| `SERVER_EVENTS_TOKEN`                            | Optional first-party server tracker token                         |
 
 `BETTER_AUTH_SECRET`, `VISITOR_SALT`, the Basin SQL/Catalog tokens, `CF_ACCOUNT_ID`, and `R2_SQL_BUCKET` are minted or derived by `alchemy.run.ts` — they are not hand-managed secrets.
 

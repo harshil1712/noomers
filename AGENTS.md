@@ -15,7 +15,7 @@ noomers is a pnpm monorepo for self-hosted, privacy-first web analytics on Cloud
 | `alchemy.run.ts`    | All infrastructure (Alchemy IaC). No resource is created any other way.                                                                                                                                                                                                                  |
 | `project.config.ts` | Single source for names/domains.                                                                                                                                                                                                                                                         |
 
-Key references: `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, `docs/deploy.md` for CI/cutover.
+Key references: `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, `docs/deploy.md` for CI deploy.
 
 ## Toolchain
 
@@ -58,7 +58,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - `worker/routes/` — Hono handlers: health/readiness, collect, Plausible events, `/api/v1/sites*`, `/api/v2/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
 - `worker/realtime.ts` — `/realtime/:siteId` WebSocket; requires a Better Auth session with `role === "admin"`.
 - `worker/site-events.ts` — per-site DO: buffers canonical events, ships them to `EVENT_STREAM`, serves realtime aggregates.
-- `apps/web/migrations/` — ordered D1 migrations; 0001–0007 are live prod filenames.
+- `apps/web/migrations/` — ordered D1 migrations; `0001_init`/`0002_auth` are the baseline.
 
 ### Event data flow
 
@@ -114,7 +114,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 
 ## Database and schema changes
 
-- D1 migrations are append-only. Add the next numbered migration; **never edit or rename 0001–0007 or any applied migration** — the production DB's wrangler-era `d1_migrations` history is converted one-way into `__alchemy_migrations` keyed on those names.
+- D1 migrations are append-only. Add the next numbered migration; **never edit or rename `0001_init.sql`, `0002_auth.sql`, or any migration once a deployment has applied it** — Alchemy tracks applied migrations in `__alchemy_migrations` keyed on filename.
 - Make migrations safe for fresh installs and upgrades from every supported prior schema.
 - Update repository tests and migration expectations with every schema change.
 - Changes to canonical event fields require coordinated updates to the collector, Pipeline schema (`apps/web/pipelines/events.schema.json`), handwritten durable/normalized event interfaces, R2 SQL, tests, and documentation.
@@ -151,7 +151,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Do not deploy, create resources, apply remote migrations, rotate secrets, or modify a live Cloudflare account unless the user explicitly asks.
 - The `cd` workflow is manual-only and never deploys; real deploys happen via the PR preview/production workflows documented in `docs/deploy.md`.
 - Never commit `.dev.vars`, API tokens, passwords, salts, R2 SQL credentials, or files under `~/.noomers/`.
-- Pipeline/Data Catalog provisioning is Alchemy-owned in `alchemy.run.ts`; see the cutover section of `docs/deploy.md` for adopting existing wrangler-era resources.
+- Pipeline/Data Catalog provisioning is Alchemy-owned in `alchemy.run.ts`.
 - Use `EVENT_STREAM` consistently as the runtime Basin Pipeline binding; `SITE_EVENTS` is the per-site Durable Object; `DB` is the sole D1 binding; `COLLECT_RATE_LIMIT` (ns 1001) throttles collection, `RATE_LIMITER` (ns 1002) throttles auth.
 - Treat `/api/health` as a compatibility liveness response, not proof that D1, the DO, the Pipeline, or Basin SQL is healthy — `/api/health/ready` is the readiness signal.
 
