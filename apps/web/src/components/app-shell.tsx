@@ -4,7 +4,6 @@ import { Link as RouterLink, useLocation, useNavigate } from "@tanstack/react-ro
 import { Logo } from "@noomers/brand/Logo.tsx";
 import { Gear, Globe, Plus, SquaresFour } from "@phosphor-icons/react";
 import { useSession } from "../lib/auth-client";
-import { dashboardApi } from "../lib/dashboard-api";
 import { ThemeToggle } from "./theme-toggle";
 import { AddSiteDialog } from "./dashboard/add-site-dialog";
 import { UserMenu } from "./user-menu";
