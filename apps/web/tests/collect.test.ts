@@ -125,7 +125,7 @@ describe("collect endpoint", () => {
     expect(siteEventsRecord).toHaveBeenCalledOnce();
   });
 
-  test("accepts native engagement events without Analytics Engine or cache mutation", async () => {
+  test("accepts native engagement events without a cache header", async () => {
     const env = { ...mockEnv };
     const request = new Request("https://example.com/collect", {
       method: "POST",

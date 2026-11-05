@@ -9,28 +9,9 @@ function findReporterScript() {
     return el;
 }
 
-function getLegacySiteId(): string | undefined {
-    // backwards compatibility layer with legacy API for setting
-    // site id using inline script + global variables
-    type CommandName = "set" | "trackPageview";
-    type CommandArgs = string[];
-    type Command = [CommandName, ...CommandArgs];
-
-    let siteId = undefined;
-    const queue = (window.noomers && window.noomers.q) || [];
-    queue.forEach(function (cmd: Command) {
-        // only interested in grabbing siteId
-        if (cmd[0] === "set" && cmd[1] === "siteId") {
-            siteId = cmd[2];
-        }
-    });
-
-    return siteId;
-}
-
 function init() {
     const script = findReporterScript();
-    const siteId = script?.getAttribute("data-site-id") || getLegacySiteId();
+    const siteId = script?.getAttribute("data-site-id");
     const reportOnLocalhost = (script?.hasAttribute("data-report-localhost") && script?.getAttribute("data-report-localhost") !== "false") || false;
 
     const reporterUrl = script?.src.replace("tracker.js", "collect");
