@@ -338,18 +338,18 @@ noomers is a single-owner deployment: Better Auth provides sign-up/sign-in (with
 
 ### Remaining parity and operations
 
-| Feature                      | Status  | Remaining work                                                                                                                                                                                                  |
-| ---------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Complete site data erasure   | Partial | Collection stops immediately, the SiteEvents Durable Object is purged, and a `site_deletion_jobs` row is recorded, but Iceberg rows are not deleted — cleanup is manual.                                        |
-| Iceberg row deletion         | Blocked | Execute row-level deletion through a writable Iceberg engine, then expire snapshots and remove orphan files; the deletion job records the explicit `blocked` state with the reason until such an engine exists. |
-| Deletion-job processor       | Missing | No processor runs: deletion tombstones and purges the Durable Object synchronously and records a job for manual follow-up. Add an automated processor only if a writable Iceberg engine is adopted.             |
-| User-visible deletion status | Missing | Expose progress without leaking internal infrastructure details.                                                                                                                                                |
-| Configurable retention       | Missing | Add per-deployment or per-site durable-data policies.                                                                                                                                                           |
-| Deletion SLA                 | Missing | Monitor and alert on overdue jobs.                                                                                                                                                                              |
-| Traffic shields              | Missing | Add future-traffic exclusions by country, hostname, IP, and page.                                                                                                                                               |
-| Data residency controls      | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                                                                                                                       |
-| Export/data-subject workflow | Missing | Add a documented administrative export and deletion process.                                                                                                                                                    |
-| Broader bot filtering        | Partial | The implementation does not match Plausible's full UA, referrer, data-center, and behavioral filtering.                                                                                                         |
+| Feature                      | Status  | Remaining work                                                                                                                                                                                           |
+| ---------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Complete site data erasure   | Partial | Collection stops immediately, the SiteEvents Durable Object is purged, and a `site_deletion_jobs` row is recorded, but Iceberg rows are not deleted — cleanup is manual.                                 |
+| Iceberg row deletion         | Missing | Execute row-level deletion through a writable Iceberg engine (e.g. PyIceberg via Basin Catalog), then expire snapshots and remove orphan files. No such job exists yet, so deletion jobs stay `pending`. |
+| Deletion-job processor       | Missing | No processor runs: deletion tombstones and purges the Durable Object synchronously and records a job for manual follow-up. Add an automated processor only if a writable Iceberg engine is adopted.      |
+| User-visible deletion status | Missing | Expose progress without leaking internal infrastructure details.                                                                                                                                         |
+| Configurable retention       | Missing | Add per-deployment or per-site durable-data policies.                                                                                                                                                    |
+| Deletion SLA                 | Missing | Monitor and alert on overdue jobs.                                                                                                                                                                       |
+| Traffic shields              | Missing | Add future-traffic exclusions by country, hostname, IP, and page.                                                                                                                                        |
+| Data residency controls      | Missing | noomers inherits the selected Cloudflare account/resources and does not enforce a region.                                                                                                                |
+| Export/data-subject workflow | Missing | Add a documented administrative export and deletion process.                                                                                                                                             |
+| Broader bot filtering        | Partial | The implementation does not match Plausible's full UA, referrer, data-center, and behavioral filtering.                                                                                                  |
 
 ## Deployment and operations
 
