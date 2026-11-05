@@ -109,7 +109,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Keep request validation closed and bounded: reject unknown keys, unsafe identifiers, oversized bodies, unsupported combinations, and unbounded result requests.
 - Escape SQL values for Basin SQL. Never interpolate unvalidated identifiers.
 - Preserve Plausible response shapes, status codes, normalized query echoes, and timezone behavior when extending compatibility routes.
-- Add tests for both generated SQL dialects when changing dimensions, filters, metrics, or ordering.
+- Add generated-SQL tests (Basin SQL) and Stats API route tests when changing dimensions, filters, metrics, or ordering.
 - Do not advertise full Plausible parity. Update `docs/plausible-feature-parity.md` whenever a supported, partial, missing, deferred, or blocked capability changes.
 
 ## Database and schema changes

@@ -710,3 +710,114 @@ describe("Plausible Stats API v2", () => {
     });
   });
 });
+
+describe("visit:entry_page / visit:exit_page", () => {
+  const visitQuery = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors", "bounce_rate"],
+    dimensions: ["visit:entry_page"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+
+  test("entry page with session metrics goes through session SQL", async () => {
+    const sessions = {
+      getSessionMetrics: vi.fn(),
+      getSessionBreakdown: vi.fn().mockResolvedValue({
+        rows: [{ dimension: "/a", visitors: 3, bounces: 1, visits: 3 }],
+      }),
+      getBasicMetrics: vi.fn(),
+    };
+    const res = await action({
+      request: request(visitQuery()),
+      context: context({ sessionAnalytics: sessions }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(sessions.getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "visit:entry_page",
+      undefined,
+      expect.any(Object),
+    );
+  });
+
+  test("visitors-only still uses the session path", async () => {
+    const sessions = {
+      getSessionMetrics: vi.fn(),
+      getSessionBreakdown: vi.fn().mockResolvedValue({ rows: [] }),
+      getBasicMetrics: vi.fn(),
+    };
+    const res = await action({
+      request: request(visitQuery({ metrics: ["visitors"] })),
+      context: context({ sessionAnalytics: sessions }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(sessions.getSessionBreakdown).toHaveBeenCalled();
+    expect(sessions.getBasicMetrics).not.toHaveBeenCalled();
+  });
+
+  test("events metric with a visit dimension → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ metrics: ["visitors", "events"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("events is not supported with visit:entry_page"),
+    });
+  });
+
+  test("unsupported visit:referrer → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ dimensions: ["visit:referrer"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+  });
+
+  test("event:name with session metrics → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ dimensions: ["event:name"], metrics: ["visitors", "visits"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "event:name does not support session metrics",
+    });
+  });
+
+  test("order_by + pagination on visit:exit_page", async () => {
+    const sessions = {
+      getSessionMetrics: vi.fn(),
+      getSessionBreakdown: vi.fn().mockResolvedValue({ rows: [] }),
+      getBasicMetrics: vi.fn(),
+    };
+    const res = await action({
+      request: request(
+        visitQuery({
+          dimensions: ["visit:exit_page"],
+          metrics: ["visitors"],
+          order_by: [["visitors", "desc"]],
+          pagination: { limit: 10, offset: 5 },
+        }),
+      ),
+      context: context({ sessionAnalytics: sessions }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(sessions.getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "visit:exit_page",
+      undefined,
+      expect.objectContaining({
+        orderBy: [{ field: "visitors", direction: "desc" }],
+        pagination: { limit: 10, offset: 5 },
+      }),
+    );
+  });
+});

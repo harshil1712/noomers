@@ -125,6 +125,8 @@ export const dashboardApi = {
 
 export type BreakdownCard =
   | "paths"
+  | "entry-pages"
+  | "exit-pages"
   | "referrer"
   | "events"
   | "browser"

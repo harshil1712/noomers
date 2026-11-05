@@ -36,7 +36,9 @@ const SCALAR_DIMENSIONS = {
 const TIME_DIMENSIONS = ["time", "time:hour", "time:day", "time:week", "time:month"] as const;
 type ScalarDimension = keyof typeof SCALAR_DIMENSIONS;
 type TimeDimension = (typeof TIME_DIMENSIONS)[number];
-type Dimension = ScalarDimension | TimeDimension;
+const VISIT_DIMENSIONS = ["visit:entry_page", "visit:exit_page"] as const;
+type VisitDimension = (typeof VISIT_DIMENSIONS)[number];
+type Dimension = ScalarDimension | TimeDimension | VisitDimension;
 type FilterOperator = "is" | "is_not" | "contains" | "contains_not";
 type StatsFilter = [FilterOperator, ScalarDimension, string[]];
 
@@ -204,6 +206,7 @@ function parseQuery(
         typeof dimension !== "string" ||
         (!Object.hasOwn(SCALAR_DIMENSIONS, dimension) &&
           !TIME_DIMENSIONS.includes(dimension as TimeDimension) &&
+          !VISIT_DIMENSIONS.includes(dimension as VisitDimension) &&
           !/^event:props:[A-Za-z0-9_.-]{1,64}$/.test(dimension)),
     )
   ) {
@@ -442,11 +445,19 @@ export async function executeStatsQuery(
 ) {
   const query = parseQuery(input, reportingTimezone);
   if (!sessions) throw new StatsAPIError("Basin SQL is not configured");
-  const needsSessions = query.metrics.some(
-    (metric) => !["visitors", "pageviews", "events"].includes(metric),
-  );
+  const visitDimension =
+    query.dimensions[0] === "visit:entry_page" || query.dimensions[0] === "visit:exit_page";
+  const needsSessions =
+    visitDimension ||
+    query.metrics.some((metric) => !["visitors", "pageviews", "events"].includes(metric));
   if (needsSessions && !sessions) throw new StatsAPIError("R2 SQL is required for session metrics");
   const dimension = query.dimensions[0];
+  if (visitDimension && query.metrics.includes("events")) {
+    throw new StatsAPIError(`events is not supported with ${dimension}`);
+  }
+  if (needsSessions && dimension === "event:name") {
+    throw new StatsAPIError("event:name does not support session metrics");
+  }
   if (needsSessions && dimension === "event:hostname") {
     throw new StatsAPIError("event:hostname requires event:page when querying session metrics");
   }

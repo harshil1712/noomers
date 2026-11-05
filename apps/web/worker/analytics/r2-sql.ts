@@ -37,6 +37,8 @@ export type SessionDimension =
   | "visit:browser_version"
   | "visit:device_type"
   | "visit:device_model"
+  | "visit:entry_page"
+  | "visit:exit_page"
   | "time:hour"
   | "time:day"
   | "time:week"
@@ -66,6 +68,8 @@ const VISIT_DIMENSIONS: Partial<Record<SessionDimension, string>> = {
   "visit:browser_version": "browser_version",
   "visit:device_type": "device_type",
   "visit:device_model": "device_model",
+  "visit:entry_page": "pathname",
+  "visit:exit_page": "pathname",
 };
 
 export interface R2StatsFilter {
@@ -736,6 +740,9 @@ export class R2SQLAPI {
     const start = sqlString(startDate.toISOString());
     const end = sqlString(endDate.toISOString());
     const filterPredicate = filtersToPredicate(filters);
+    if (dimension === "event:name") {
+      throw new Error("event:name does not support session metrics");
+    }
     let eventDimension = VISIT_DIMENSIONS[dimension];
     let eventDimensionSql = eventDimension;
     let dimensionColumns: string[] = eventDimension ? [eventDimension] : [];
@@ -757,6 +764,9 @@ export class R2SQLAPI {
     }
     const visitDimension = dimension.startsWith("visit:");
     const timeUnit = dimension.startsWith("time:") ? dimension.slice("time:".length) : undefined;
+    if (!eventDimension && !dimension.startsWith("event:props:") && !timeUnit) {
+      throw new Error(`${dimension} does not support session metrics`);
+    }
     const bucketExpression = (column: string) =>
       timeBuckets
         ? `CASE ${timeBuckets
@@ -836,7 +846,12 @@ export class R2SQLAPI {
                     visitor_id,
                     session_number,
                     MIN(CASE WHEN event_type = 'pageview' THEN event_ts END) AS visit_start,
-                    FIRST_VALUE(${eventDimension ? "dimension_value" : "pathname"} ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page,
+                    FIRST_VALUE(${eventDimension ? "dimension_value" : "pathname"} ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page,
+                    ${
+                      dimension === "visit:exit_page"
+                        ? `FIRST_VALUE(dimension_value ORDER BY event_ts DESC, event_id DESC) FILTER (WHERE event_type = 'pageview') AS exit_page,`
+                        : ""
+                    }
                     SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
                     SUM(CASE WHEN event_type <> 'engagement' AND interactive THEN 1 ELSE 0 END) AS interactive_events,
                     SUM(matches_filter) AS matching_events,
@@ -848,7 +863,7 @@ export class R2SQLAPI {
             session_dimensions AS (
                 ${
                   eventDimension
-                    ? `SELECT visitor_id, session_number, entry_page AS dimension
+                    ? `SELECT visitor_id, session_number, ${dimension === "visit:exit_page" ? "exit_page" : "entry_page"} AS dimension
                        FROM sessions WHERE matching_events > 0`
                     : `SELECT visitor_id, session_number, ${sessionDimensionExpression} AS dimension
                        FROM sessions WHERE matching_events > 0`

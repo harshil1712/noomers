@@ -88,7 +88,14 @@ const PANELS: {
       { card: "campaigns", label: "Campaigns" },
     ],
   },
-  { title: "Pages", tabs: [{ card: "paths", label: "Top pages", filter: "path" }] },
+  {
+    title: "Pages",
+    tabs: [
+      { card: "paths", label: "Top pages", filter: "path" },
+      { card: "entry-pages", label: "Entry pages" },
+      { card: "exit-pages", label: "Exit pages" },
+    ],
+  },
   { title: "Locations", tabs: [{ card: "country", label: "Countries", filter: "country" }] },
   {
     title: "Devices",
@@ -995,7 +1002,13 @@ function BreakdownTable({
             </Table.Head>
             <Table.Head className="w-24 text-right">
               <span className="mono-label">
-                {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
+                {isGoals
+                  ? "Conversions"
+                  : card === "events"
+                    ? "Events"
+                    : card === "entry-pages" || card === "exit-pages"
+                      ? "Visits"
+                      : "Visitors"}
               </span>
             </Table.Head>
             <Table.Head className="w-14 text-right">

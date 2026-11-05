@@ -260,6 +260,12 @@ export async function props(c: Ctx, request: Request) {
 export function paths(c: Ctx, r: Request) {
   return breakdown(c, r, "event:page", "views");
 }
+export function entryPages(c: Ctx, r: Request) {
+  return breakdown(c, r, "visit:entry_page", "visits");
+}
+export function exitPages(c: Ctx, r: Request) {
+  return breakdown(c, r, "visit:exit_page", "visits");
+}
 export function referrer(c: Ctx, r: Request) {
   return breakdown(c, r, "visit:referrer", "visits");
 }
@@ -325,6 +331,8 @@ export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>
   .post("/api/dashboard/goals", (c) => mutateGoal(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/props", (c) => props(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/paths", (c) => paths(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/entry-pages", (c) => entryPages(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/exit-pages", (c) => exitPages(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/referrer", (c) => referrer(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/events", (c) => events(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/browser", (c) => browser(c.get("ctx"), c.req.raw))
