@@ -28,11 +28,11 @@ Last reviewed: 2026-11-05.
 
 ### 1. First-run experience
 
-| Feature                    | Status  | Notes                                                                                                                                                                                                                                                                                  |
-| -------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard site management  | Ready   | A fresh install cannot add a site without a `POST /api/v1/sites` curl command and a bearer token — the add-site dialog only prints that command. Add site create/update/delete UI (including goals, timezone, and tracker configuration) so a deployment is usable without API access. |
-| Guided first deploy        | Blocked | The stack has never been applied to a live account. Run a real `alchemy deploy`, then validate collection, Pipeline delivery, and Basin SQL reads end to end.                                                                                                                          |
-| Live Basin SQL conformance | Blocked | Depends on the first deploy. Run representative basic, session, filter, time-bucket, pagination, and error queries against the live service and pin supported constructs.                                                                                                              |
+| Feature                    | Status  | Notes                                                                                                                                                                     |
+| -------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard site management  | Partial | Admins can add, re-time-zone, and delete sites from the dashboard. Goal management and tracker configuration UI remain API-only.                                          |
+| Guided first deploy        | Blocked | The stack has never been applied to a live account. Run a real `alchemy deploy`, then validate collection, Pipeline delivery, and Basin SQL reads end to end.             |
+| Live Basin SQL conformance | Blocked | Depends on the first deploy. Run representative basic, session, filter, time-bucket, pagination, and error queries against the live service and pin supported constructs. |
 
 ### 2. Complete deletion
 
