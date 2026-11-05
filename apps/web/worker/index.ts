@@ -17,6 +17,7 @@ import { handleRealtimeRoute } from "./routes/realtime";
 import { handleTrackerScript, handlePlausibleScript } from "./routes/scripts";
 import { handleFavicon } from "./routes/favicon";
 import { sitesApi } from "./routes/v1-sites";
+import { maintenanceApi } from "./routes/maintenance";
 import { handleStatsQuery, v2MethodNotAllowed } from "./routes/v2-query";
 import { sessionAnalyticsFactory } from "./lib/context";
 import * as dashboard from "./routes/dashboard";
@@ -77,6 +78,7 @@ app.all("/api/event", handlePlausibleEventMethodNotAllowed);
 
 // --- Plausible Sites API (v1) ----------------------------------------------
 app.route("/", sitesApi);
+app.route("/", maintenanceApi);
 
 // --- Stats API (v2) ----------------------------------------------------------
 app.post("/api/v2/query", (c) =>
