@@ -11,6 +11,7 @@ import {
 import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
+import { createDashboardSite, updateDashboardSite, deleteDashboardSite } from "./dashboard-sites";
 
 const PAGE_SIZE = 10;
 
@@ -123,10 +124,13 @@ function toCountryRows(rows: CountRow[]): CountRow[] {
   });
 }
 
-/** GET /api/dashboard/sites — registered site domains. */
+/** GET /api/dashboard/sites — registered site domains (+ timezone details). */
 export async function listSites(c: Ctx) {
   const { sites } = await new SitesRepository(c.env.DB).list({ limit: 100 });
-  return Response.json({ sites: sites.map(({ domain }) => domain) });
+  return Response.json({
+    sites: sites.map(({ domain }) => domain),
+    details: sites.map(({ domain, timezone }) => ({ domain, timezone })),
+  });
 }
 
 /** GET /api/dashboard/stats */
@@ -308,6 +312,13 @@ export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>
     await next();
   })
   .get("/api/dashboard/sites", (c) => listSites(c.get("ctx")))
+  .post("/api/dashboard/sites", (c) => createDashboardSite(c.get("ctx"), c.req.raw))
+  .patch("/api/dashboard/sites/:domain", (c) =>
+    updateDashboardSite(c.get("ctx"), c.req.raw, c.req.param("domain")),
+  )
+  .delete("/api/dashboard/sites/:domain", (c) =>
+    deleteDashboardSite(c.get("ctx"), c.req.param("domain")),
+  )
   .get("/api/dashboard/stats", (c) => stats(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/timeseries", (c) => timeseries(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/goals", (c) => goals(c.get("ctx"), c.req.raw))

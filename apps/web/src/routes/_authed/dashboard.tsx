@@ -28,6 +28,7 @@ import {
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
+import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 import {
   dashboardApi,
   type BreakdownCard,
@@ -254,7 +255,6 @@ function Dashboard() {
 
   const trackingSnippet = `<script defer\n  src="${location.origin}/tracker.js"\n  data-site-id="${site || "example.com"}"></script>`;
   const plausibleSnippet = `<script defer\n  src="${location.origin}/js/pa-XXXX.js"\n  data-domain="${site || "example.com"}"></script>`;
-  const addSiteCmd = `curl -X POST ${location.origin}/api/v1/sites \\\n  -H "Authorization: Bearer $SITES_API_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{"domain": "example.com"}'`;
 
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -411,9 +411,9 @@ function Dashboard() {
         <DashboardSkeleton />
       ) : sites !== null && sites.length === 0 ? (
         <Empty
-          title="No sites registered"
-          description="Sites are registered through the Sites API — there's no site-management UI yet."
-          commandLine={addSiteCmd}
+          title="No sites yet"
+          description="Add a site to start tracking it."
+          contents={<AddSiteDialog />}
         />
       ) : !site ? (
         <DashboardSkeleton />

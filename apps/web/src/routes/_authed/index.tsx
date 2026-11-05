@@ -238,8 +238,6 @@ function SitesOverview() {
   };
   const basinDown = failures.size >= 3;
 
-  const addCmd = `curl -X POST ${location.origin}/api/v1/sites \\\n  -H "Authorization: Bearer $SITES_API_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{"domain": "example.com"}'`;
-
   return (
     <div className="flex flex-col gap-5 p-6">
       <PageHeader
@@ -299,9 +297,9 @@ function SitesOverview() {
         </div>
       ) : sites.length === 0 ? (
         <Empty
-          title="No sites registered"
-          description="Sites are registered through the Sites API — there's no site-management UI yet."
-          commandLine={addCmd}
+          title="No sites yet"
+          description="Add a site to start tracking it."
+          contents={<AddSiteDialog onAdded={() => location.reload()} />}
         />
       ) : (
         <Grid variant="3up" gap="base">
