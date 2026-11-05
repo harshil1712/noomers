@@ -44,6 +44,7 @@ function context(
         tracker_script_configuration: "{}",
       },
     ),
+    all: vi.fn().mockResolvedValue({ results: (overrides.goalRows as unknown[]) ?? [] }),
   };
   const sessions =
     "sessionAnalytics" in overrides
@@ -819,5 +820,167 @@ describe("visit:entry_page / visit:exit_page", () => {
         pagination: { limit: 10, offset: 5 },
       }),
     );
+  });
+});
+
+describe("event:goal", () => {
+  const goalRows = [
+    {
+      id: "1",
+      site_id: "example.com",
+      name: "signup",
+      type: "event",
+      value: "signup",
+      custom_props: "{}",
+      created_at: "2026-01-01",
+    },
+    {
+      id: "2",
+      site_id: "example.com",
+      name: "thanks",
+      type: "pageview",
+      value: "/thanks",
+      custom_props: "{}",
+      created_at: "2026-01-02",
+    },
+    {
+      id: "3",
+      site_id: "example.com",
+      name: "zero",
+      type: "event",
+      value: "zero",
+      custom_props: "{}",
+      created_at: "2026-01-03",
+    },
+  ];
+  const breakdown = (
+    over: Partial<{
+      visitors: number;
+      goals: { uniques: number; total: number }[];
+      anyUniques: number;
+    }> = {},
+  ) => ({
+    getSessionMetrics: vi.fn(),
+    getSessionBreakdown: vi.fn(),
+    getBasicMetrics: vi.fn(),
+    getGoalBreakdown: vi.fn().mockResolvedValue({
+      visitors: 100,
+      goals: [
+        { uniques: 10, total: 15 },
+        { uniques: 5, total: 5 },
+        { uniques: 0, total: 0 },
+      ],
+      anyUniques: 12,
+      ...over,
+    }),
+  });
+  const goalQuery = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors", "events", "conversion_rate"],
+    dimensions: ["event:goal"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+
+  test("dimension returns uniques/total/rate, omits zero goals, rounds", async () => {
+    const res = await action({
+      request: request(goalQuery({ include: { total_rows: true } })),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { dimensions: string[]; metrics: number[] }[];
+      meta: { total_rows: number };
+    }>();
+    expect(body.results).toEqual([
+      { dimensions: ["signup"], metrics: [10, 15, 10] },
+      { dimensions: ["thanks"], metrics: [5, 5, 5] },
+    ]);
+    expect(body.meta.total_rows).toBe(2);
+  });
+
+  test("order_by + pagination on event:goal", async () => {
+    const res = await action({
+      request: request(
+        goalQuery({
+          metrics: ["visitors"],
+          order_by: [["event:goal", "desc"]],
+          pagination: { limit: 1, offset: 0 },
+        }),
+      ),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { dimensions: string[] }[] }>();
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0].dimensions).toEqual(["thanks"]);
+  });
+
+  test("disallowed metric → 400", async () => {
+    const res = await action({
+      request: request(goalQuery({ metrics: ["visitors", "pageviews"] })),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "event:goal supports only visitors, events and conversion_rate",
+    });
+  });
+
+  test("conversion_rate without goal dimension or filter → 400", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "conversion_rate requires an event:goal filter or dimension",
+    });
+  });
+
+  test("goal filter + conversion_rate → aggregate", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+        filters: [["is", "event:goal", ["signup", "thanks"]]],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { metrics: number[] }[] }>();
+    expect(body.results).toEqual([{ dimensions: [], metrics: [12] }]);
+  });
+
+  test("unknown goal name → 400", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+        filters: [["is", "event:goal", ["nope"]]],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({ error: "Unknown goal: nope" });
+  });
+
+  test("contains on event:goal → 400", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+        filters: [["contains", "event:goal", ["signup"]]],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
   });
 });

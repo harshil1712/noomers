@@ -229,21 +229,33 @@ describe("dashboard handlers (ported loader tests)", () => {
     const domain = `g${crypto.randomUUID().slice(0, 8)}.dev`;
     await seedSite(domain);
     await seedGoal(domain, { name: "signup", type: "event", value: "signup" });
-    const getSessionMetrics = vi.fn().mockResolvedValue({ visitors: 10 });
-    const getBasicMetrics = vi.fn().mockResolvedValue({ rows: [{ events: 4 }] });
+    const getGoalBreakdown = vi.fn().mockResolvedValue({
+      visitors: 10,
+      goals: [{ uniques: 4, total: 7 }],
+      anyUniques: 4,
+    });
     const res = await goals(
       {
         env: { DB: (await import("cloudflare:test")).env.DB } as unknown as Env,
-        sessionAnalytics: () => ({ getSessionMetrics, getBasicMetrics }) as unknown as R2SQLAPI,
+        sessionAnalytics: () => ({ getGoalBreakdown }) as unknown as R2SQLAPI,
       },
       url(`goals?site=${domain}&interval=7d`),
     );
     expect(res.status).toBe(200);
+    expect(getGoalBreakdown).toHaveBeenCalledWith(domain, expect.any(Date), expect.any(Date), {}, [
+      expect.objectContaining({ name: "signup", type: "event", value: "signup" }),
+    ]);
     const body = await res.json<{
-      goals: { name: string; conversions: number; conversionRate: number }[];
+      goals: {
+        name: string;
+        conversions: number;
+        totalConversions: number;
+        conversionRate: number;
+      }[];
     }>();
     expect(body.goals[0].name).toBe("signup");
     expect(body.goals[0].conversions).toBe(4);
+    expect(body.goals[0].totalConversions).toBe(7);
     expect(body.goals[0].conversionRate).toBe(40);
   });
 
@@ -263,12 +275,13 @@ describe("dashboard handlers (ported loader tests)", () => {
       new Request("http://x/api/dashboard/goals", { method: "POST", body: form }),
     );
     expect(res.status).toBe(200);
-    const getSessionMetrics = vi.fn().mockResolvedValue({ visitors: 0 });
-    const getBasicMetrics = vi.fn().mockResolvedValue({ rows: [] });
+    const getGoalBreakdown = vi
+      .fn()
+      .mockResolvedValue({ visitors: 0, goals: [{ uniques: 0, total: 0 }], anyUniques: 0 });
     const list = await goals(
       {
         env,
-        sessionAnalytics: () => ({ getSessionMetrics, getBasicMetrics }) as unknown as R2SQLAPI,
+        sessionAnalytics: () => ({ getGoalBreakdown }) as unknown as R2SQLAPI,
       },
       url(`goals?site=${domain}&interval=7d`),
     );

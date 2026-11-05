@@ -42,6 +42,7 @@ export interface Goal {
   type: string;
   value: string;
   conversions: number;
+  totalConversions: number;
   conversionRate: number;
 }
 

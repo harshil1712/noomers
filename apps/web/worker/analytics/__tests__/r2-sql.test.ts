@@ -1018,3 +1018,86 @@ describe("entry/exit page dimensions", () => {
     ).rejects.toThrow("event:name does not support session metrics");
   });
 });
+
+describe("getGoalBreakdown", () => {
+  const captured = async (
+    goals: Array<{
+      type: "event" | "pageview";
+      value: string;
+      customProps: Record<string, string>;
+    }>,
+  ) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: { rows: [{ visitors: 9, u_0: 3, t_0: 5, u_1: 2, t_1: 2, any_uniques: 4 }] },
+        }),
+        { status: 200 },
+      ),
+    );
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    const result = await api.getGoalBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      goals,
+    );
+    return {
+      result,
+      query: JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body)).query as string,
+    };
+  };
+
+  test("one query with per-goal u_i/t_i columns and any_uniques", async () => {
+    const { result, query } = await captured([
+      { type: "event", value: "signup", customProps: {} },
+      { type: "pageview", value: "/thanks", customProps: {} },
+    ]);
+    expect(query).toContain("COUNT(DISTINCT visitor_id) AS visitors");
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN (event_type <> 'engagement' AND event_name = 'signup') THEN visitor_id END) AS u_0",
+    );
+    expect(query).toContain(
+      "SUM(CASE WHEN (event_type <> 'engagement' AND event_name = 'signup') THEN 1 ELSE 0 END) AS t_0",
+    );
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN (event_type = 'pageview' AND pathname = '/thanks') THEN visitor_id END) AS u_1",
+    );
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN (event_type <> 'engagement' AND event_name = 'signup') OR (event_type = 'pageview' AND pathname = '/thanks') THEN visitor_id END) AS any_uniques",
+    );
+    expect(result).toEqual({
+      visitors: 9,
+      goals: [
+        { uniques: 3, total: 5 },
+        { uniques: 2, total: 2 },
+      ],
+      anyUniques: 4,
+    });
+  });
+
+  test("custom props predicate escapes values", async () => {
+    const { query } = await captured([
+      { type: "event", value: "plan", customProps: { tier: "pro's" } },
+    ]);
+    expect(query).toContain("json_get_str(event_properties, 'tier') = 'pro''s'");
+  });
+
+  test("bad prop key throws", async () => {
+    const api = new R2SQLAPI("a", "b", "t", "n.e", vi.fn() as never);
+    await expect(
+      api.getGoalBreakdown("s", new Date(), new Date(), {}, [
+        { type: "event", value: "x", customProps: { "bad key!": "1" } },
+      ]),
+    ).rejects.toThrow("Invalid goal property key");
+  });
+
+  test("empty goals selects no per-goal columns", async () => {
+    const { query, result } = await captured([]);
+    expect(query).not.toContain(" u_0");
+    expect(query).not.toContain("any_uniques");
+    expect(result.goals).toEqual([]);
+  });
+});

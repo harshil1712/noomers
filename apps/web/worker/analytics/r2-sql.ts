@@ -689,32 +689,76 @@ export class R2SQLAPI {
     };
   }
 
-  async getGoalConversions(
+  async getGoalBreakdown(
     siteId: string,
     startDate: Date,
     endDate: Date,
     filters: SearchFilters | R2StatsFilter[],
-    goal: { type: string; value: string },
-  ): Promise<number> {
+    goals: Array<{
+      type: "event" | "pageview";
+      value: string;
+      customProps: Record<string, string>;
+    }>,
+  ): Promise<{
+    visitors: number;
+    goals: Array<{ uniques: number; total: number }>;
+    anyUniques: number;
+  }> {
+    if (goals.length > 20) {
+      throw new Error(`At most 20 goals per breakdown (got ${goals.length})`);
+    }
     const start = sqlString(startDate.toISOString());
     const end = sqlString(endDate.toISOString());
-    const goalPredicate =
-      goal.type === "pageview"
-        ? `event_type = 'pageview' AND pathname = ${sqlString(goal.value)}`
-        : `event_type <> 'engagement' AND event_name = ${sqlString(goal.value)}`;
-    const rows = await this.query<{ conversions?: string | number | null }>(
-      `WITH ${deduplicatedEventsCte(this.table, siteId, start, end, ["pathname", "event_name", ...FILTER_COLUMN_LIST])}
-            SELECT COUNT(DISTINCT visitor_id) AS conversions
+    const usesProps = goals.some((goal) => Object.keys(goal.customProps).length > 0);
+    const predicates = goals.map((goal) => {
+      const parts = [
+        goal.type === "pageview"
+          ? `event_type = 'pageview' AND pathname = ${sqlString(goal.value)}`
+          : `event_type <> 'engagement' AND event_name = ${sqlString(goal.value)}`,
+      ];
+      for (const [key, value] of Object.entries(goal.customProps)) {
+        if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key)) {
+          throw new Error(`Invalid goal property key: ${key}`);
+        }
+        parts.push(`json_get_str(event_properties, ${sqlString(key)}) = ${sqlString(value)}`);
+      }
+      return `(${parts.join(" AND ")})`;
+    });
+    const goalColumns = goals
+      .map(
+        (_, i) => `,COUNT(DISTINCT CASE WHEN ${predicates[i]} THEN visitor_id END) AS u_${i}
+                    ,SUM(CASE WHEN ${predicates[i]} THEN 1 ELSE 0 END) AS t_${i}`,
+      )
+      .join("\n");
+    const anyColumn =
+      goals.length > 0
+        ? `,COUNT(DISTINCT CASE WHEN ${predicates.join(" OR ")} THEN visitor_id END) AS any_uniques`
+        : "";
+    const rows = await this.query<Record<string, string | number | null>>(
+      `WITH ${deduplicatedEventsCte(this.table, siteId, start, end, [
+        "pathname",
+        "event_name",
+        ...(usesProps ? ["event_properties"] : []),
+        ...FILTER_COLUMN_LIST,
+      ])}
+            SELECT COUNT(DISTINCT visitor_id) AS visitors${goalColumns}${anyColumn}
             FROM deduplicated_events
             WHERE ${KEEP_DEDUPLICATED_ROW}
                 AND visitor_id <> ''
                 AND ${filtersToPredicate(filters)}
-                AND ${goalPredicate}
                 AND TRY_CAST(received_at AS TIMESTAMP) >= TRY_CAST(${start} AS TIMESTAMP)
                 AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)`,
       endDate.getTime(),
     );
-    return Number(rows[0]?.conversions || 0);
+    const row = rows[0] || {};
+    return {
+      visitors: Number(row.visitors || 0),
+      goals: goals.map((_, i) => ({
+        uniques: Number(row[`u_${i}`] || 0),
+        total: Number(row[`t_${i}`] || 0),
+      })),
+      anyUniques: Number(row.any_uniques || 0),
+    };
   }
 
   async getSessionBreakdown(

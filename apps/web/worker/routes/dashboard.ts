@@ -184,31 +184,20 @@ export async function timeseries(c: Ctx, request: Request) {
 /** GET /api/dashboard/goals */
 export async function goals(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
-  const timezone = searchParams(request).get("timezone") || "UTC";
+  const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
   const repository = new GoalsRepository(c.env.DB);
   const goalList = await repository.list(site);
-  const { startDate, endDate } = getDateTimeRange(interval, timezone);
+  const { startDate, endDate } = getDateTimeRange(interval, tz);
   const analytics = c.sessionAnalytics();
-  const counts = await analytics.getSessionMetrics(site, startDate, endDate, filters);
-  const conversions = await Promise.all(
-    goalList.map(async (goal) => {
-      const rows = await analytics.getBasicMetrics(
-        site,
-        startDate,
-        endDate,
-        { ...filters, name: goal.name },
-        "event:name",
-      );
-      return rows.rows.reduce((acc, row) => acc + row.events, 0);
-    }),
-  );
+  const result = await analytics.getGoalBreakdown(site, startDate, endDate, filters, goalList);
   return Response.json({
     goals: goalList.map((goal, index) => ({
       ...goal,
-      conversions: conversions[index],
+      conversions: result.goals[index]?.uniques ?? 0,
+      totalConversions: result.goals[index]?.total ?? 0,
       conversionRate:
-        counts.visitors > 0 ? Math.min(100, (conversions[index] / counts.visitors) * 100) : 0,
+        result.visitors > 0 ? (result.goals[index].uniques / result.visitors) * 100 : 0,
     })),
   });
 }
