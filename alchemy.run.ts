@@ -12,15 +12,10 @@ const isProd = process.env.ALCHEMY_STAGE === "prod";
 // Resources
 // ---------------------------------------------------------------------------
 
-// Analytics/registry database. `name` matches the existing production D1
-// ("noomers-goals") so the stack reuses it instead of creating a second DB.
-// Alchemy keeps applied-migration bookkeeping in its own
-// `__alchemy_migrations` table; a DB previously migrated by
-// `wrangler d1 migrations apply` (the `d1_migrations` table) is converted
-// one-way on first deploy — the wrangler table is left frozen, and 0001–0007
-// are never re-applied.
+// Analytics/registry database. No explicit `name`: Alchemy generates a
+// unique one, so a fresh deploy can never adopt a stray pre-existing DB.
+// Applied-migration bookkeeping lives in `__alchemy_migrations`.
 const DB = Cloudflare.D1.Database(`${PROJECT.name}-db`, {
-  name: "noomers-goals",
   migrations: "./apps/web/migrations",
 });
 
@@ -198,8 +193,7 @@ export const Web = Cloudflare.Website.Vite(
           namespaceId: 1002,
           simple: { limit: 60, period: 60 },
         }),
-        // Per-IP throttle on /collect — namespace 1001 matches the
-        // wrangler-era binding already in production.
+        // Per-IP throttle on /collect and /api/event — namespace 1001.
         COLLECT_RATE_LIMIT: Cloudflare.RateLimit("COLLECT_RATE_LIMIT", {
           namespaceId: 1001,
           simple: { limit: 100, period: 60 },
