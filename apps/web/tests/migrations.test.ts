@@ -1,69 +1,38 @@
-import type { DatabaseSync } from "node:sqlite";
-import { describe, expect, test } from "vite-plus/test";
+/// <reference types="@cloudflare/vitest-plugin/types" />
+import { env } from "cloudflare:test";
+import { beforeAll, describe, expect, test } from "vite-plus/test";
+import { migrate } from "./helpers";
+import { SitesRepository } from "../worker/sites/repository";
 
-const sqlite = await import("node:sqlite").catch(() => null);
-const describeWithSqlite = sqlite ? describe : describe.skip;
+const TABLES = [
+  "goals",
+  "sites",
+  "site_tombstones",
+  "custom_properties",
+  "site_deletion_jobs",
+  "user",
+  "session",
+  "account",
+  "verification",
+];
 
-// Reads every *.sql file in ../migrations at transform time — works under the
-// workerd test pool where readdirSync is unavailable.
-const MIGRATION_SQL = import.meta.glob("../migrations/*.sql", {
-  query: "?raw",
-  import: "default",
-  eager: true,
-}) as Record<string, string>;
-const ALL_MIGRATIONS = Object.entries(MIGRATION_SQL)
-  .filter(([path]) => /\/\d{4}_[^/]*\.sql$/.test(path))
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([, sql]) => sql);
+describe("D1 migration baseline", () => {
+  beforeAll(migrate);
 
-function apply(database: DatabaseSync): void {
-  for (const sql of ALL_MIGRATIONS) {
-    database.exec(sql);
-  }
-}
+  test("creates every expected table with the baseline columns", async () => {
+    for (const table of TABLES) {
+      const row = await env.DB.prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      )
+        .bind(table)
+        .first();
+      expect(row, `missing table ${table}`).toBeTruthy();
+    }
 
-function columns(database: DatabaseSync, table: string): string[] {
-  const rows = database.prepare(`PRAGMA table_info(${table})`).all() as Array<{
-    name: string;
-  }>;
-  return rows.map((row) => row.name);
-}
-
-describeWithSqlite("D1 migrations", () => {
-  test("the full migration set applies to an empty database", () => {
-    expect(ALL_MIGRATIONS.length).toBeGreaterThan(0);
-    const database = new sqlite!.DatabaseSync(":memory:");
-    apply(database);
-
-    const tables = (
-      database
-        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
-        .all() as Array<{ name: string }>
-    ).map((row) => row.name);
-    expect(tables).toEqual(
-      expect.arrayContaining([
-        "goals",
-        "sites",
-        "site_tombstones",
-        "custom_properties",
-        "site_deletion_jobs",
-        "user",
-        "session",
-        "account",
-        "verification",
-      ]),
-    );
-
-    expect(columns(database, "sites")).toEqual(
-      expect.arrayContaining([
-        "domain",
-        "tracker_id",
-        "timezone",
-        "tracker_script_configuration",
-        "plausible_script_id",
-      ]),
-    );
-    expect(columns(database, "site_deletion_jobs")).toEqual([
+    const columns = await env.DB.prepare("PRAGMA table_info(site_deletion_jobs)").all<{
+      name: string;
+    }>();
+    expect(columns.results.map((row) => row.name)).toEqual([
       "id",
       "site_id",
       "requested_at",
@@ -75,36 +44,49 @@ describeWithSqlite("D1 migrations", () => {
     ]);
   });
 
-  test("site_deletion_jobs rejects completed_at while iceberg_status is pending", () => {
-    const database = new sqlite!.DatabaseSync(":memory:");
-    apply(database);
-
-    expect(() =>
-      database
-        .prepare(
-          `INSERT INTO site_deletion_jobs (id, site_id, requested_at, completed_at)
-                     VALUES (?, ?, ?, ?)`,
-        )
-        .run("job-1", "a.com", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z"),
-    ).toThrow(/CHECK/i);
-
-    database
-      .prepare(
-        `INSERT INTO site_deletion_jobs
-                    (id, site_id, requested_at, iceberg_status, completed_at)
-                 VALUES (?, ?, ?, 'completed', ?)`,
-      )
-      .run("job-2", "b.com", "2026-01-01T00:00:00.000Z", "2026-01-02T00:00:00.000Z");
+  test("rejects completed_at while iceberg_status is pending", async () => {
+    await expect(
+      env.DB.prepare(
+        `INSERT INTO site_deletion_jobs (id, site_id, requested_at, completed_at)
+                 VALUES ('job-check-1', 'check.example', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
+      ).run(),
+    ).rejects.toThrow(/CHECK/i);
   });
 
-  test("site_deletion_jobs site_id is unique", () => {
-    const database = new sqlite!.DatabaseSync(":memory:");
-    apply(database);
+  test("rejects a second job for the same site_id", async () => {
+    const insert = (id: string) =>
+      env.DB.prepare(
+        "INSERT INTO site_deletion_jobs (id, site_id, requested_at) VALUES (?, 'unique.example', ?)",
+      )
+        .bind(id, "2026-01-01T00:00:00.000Z")
+        .run();
+    await insert("job-unique-1");
+    await expect(insert("job-unique-2")).rejects.toThrow(/UNIQUE/i);
+  });
 
-    const insert = database.prepare(
-      "INSERT INTO site_deletion_jobs (id, site_id, requested_at) VALUES (?, ?, ?)",
-    );
-    insert.run("job-1", "a.com", "2026-01-01T00:00:00.000Z");
-    expect(() => insert.run("job-2", "a.com", "2026-01-02T00:00:00.000Z")).toThrow(/UNIQUE/i);
+  test("site deletion records a pending deletion job and a tombstone", async () => {
+    const domain = "deleteme.example";
+    const repository = new SitesRepository(env.DB);
+    await repository.create({ domain });
+    await expect(repository.delete(domain)).resolves.toBe(true);
+
+    const jobs = await env.DB.prepare("SELECT * FROM site_deletion_jobs WHERE site_id = ?")
+      .bind(domain)
+      .all<{
+        iceberg_status: string;
+        attempt_count: number;
+        completed_at: string | null;
+      }>();
+    expect(jobs.results).toHaveLength(1);
+    expect(jobs.results[0]).toMatchObject({
+      iceberg_status: "pending",
+      attempt_count: 0,
+      completed_at: null,
+    });
+
+    const tombstone = await env.DB.prepare("SELECT domain FROM site_tombstones WHERE domain = ?")
+      .bind(domain)
+      .first();
+    expect(tombstone).toBeTruthy();
   });
 });

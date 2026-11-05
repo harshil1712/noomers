@@ -226,7 +226,7 @@ def catalog(env: str):
             "token": token,
         },
     )
-    return cat, cfg
+    return cat
 
 
 def import_table(cat, source_table, events_table, replace: bool):
@@ -271,7 +271,7 @@ def main():
     if missing:
         raise SystemExit(f"unknown plausible domains: {missing}")
 
-    cat, cfg = catalog(a.env)
+    cat = catalog(a.env)
     source = f"noomers.events_import"
     ev = cat.load_table("noomers.events")
     if not a.dry_run:
