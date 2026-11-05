@@ -1,4 +1,4 @@
-import { SitesRepository } from "./repository";
+import { normalizeDomain, SitesRepository } from "./repository";
 
 /**
  * Tombstone a site, drop its registry rows, record a deletion job, and purge
@@ -10,13 +10,14 @@ export async function deleteSite(
   env: Env,
   domain: string,
 ): Promise<{ deleted: false } | { deleted: true; purgeFailed: boolean }> {
-  const deleted = await new SitesRepository(env.DB).delete(domain);
+  const normalized = normalizeDomain(domain);
+  const deleted = await new SitesRepository(env.DB).delete(normalized);
   if (!deleted) return { deleted: false };
 
   const namespace = env.SITE_EVENTS;
   if (namespace) {
     try {
-      await namespace.get(namespace.idFromName(domain)).purge();
+      await namespace.get(namespace.idFromName(normalized)).purge();
     } catch (error) {
       console.error(
         JSON.stringify({

@@ -119,6 +119,17 @@ describe("/api/dashboard/sites mutations", () => {
     ).toBe(400);
   });
 
+  test("delete is case-insensitive on the domain", async () => {
+    const domain = `mixed-${crypto.randomUUID().slice(0, 8)}.dev`;
+    await req(BASE, "POST", { domain });
+    const del = await req(`${BASE}/${domain.toUpperCase()}`, "DELETE");
+    expect(del.status).toBe(200);
+    const row = await env.DB.prepare("SELECT domain FROM sites WHERE domain = ?")
+      .bind(domain)
+      .first();
+    expect(row).toBeNull();
+  });
+
   test("delete → 200, collection fails closed, deletion job pending, re-create → 400; unknown → 404", async () => {
     const domain = `z${crypto.randomUUID().slice(0, 8)}.dev`;
     await req(BASE, "POST", { domain });

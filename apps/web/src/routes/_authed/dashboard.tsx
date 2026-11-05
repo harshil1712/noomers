@@ -28,6 +28,7 @@ import {
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
+import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 import {
   dashboardApi,
@@ -194,19 +195,10 @@ function Dashboard() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
-  const [sites, setSites] = useState<string[] | null>(null);
-  const [sitesError, setSitesError] = useState(false);
+  const { sites: siteList, error: sitesError } = useSharedSites();
+  const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [nonce, setNonce] = useState(0);
   const [failures, setFailures] = useState<Set<string>>(new Set());
-
-  const loadSites = () => {
-    setSitesError(false);
-    dashboardApi
-      .sites()
-      .then((r) => setSites(r.sites))
-      .catch(() => setSitesError(true));
-  };
-  useEffect(loadSites, []);
 
   const site = search.site ?? "";
   useEffect(() => {
@@ -404,7 +396,7 @@ function Dashboard() {
             The dashboard API didn&apos;t respond. Check that you&apos;re signed in and try again.
           </p>
           <div className="mt-4 flex justify-center">
-            <Button onClick={loadSites}>Retry</Button>
+            <Button onClick={() => void refreshSites()}>Retry</Button>
           </div>
         </Surface>
       ) : sites === null && !site ? (

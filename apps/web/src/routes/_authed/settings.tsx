@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useId, useState, type FormEvent, useRef } from "react";
-import { Button, Input, Loader, Select, Text } from "@cloudflare/kumo";
+import { Button, Input, Loader, Text } from "@cloudflare/kumo";
 import { authClient, useSession } from "../../lib/auth-client";
 
 /** Settings card over Kumo LayerCard: title/description/body in Primary,
@@ -41,6 +41,8 @@ import { LayerCard, SensitiveInput } from "@cloudflare/kumo";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
 import { dashboardApi } from "../../lib/dashboard-api";
+import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
+import { TimezonePicker } from "../../components/dashboard/add-site-dialog";
 
 export const Route = createFileRoute("/_authed/settings")({ component: Settings });
 
@@ -308,29 +310,22 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
 
 function SitesSettings() {
   const navigate = useNavigate();
-  const [sites, setSites] = useState<{ domain: string; timezone: string }[] | null>(null);
+  const { sites, error: loadError } = useSharedSites();
   const [error, setError] = useState<string | null>(null);
   const [timezones, setTimezones] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
-  const load = () =>
-    dashboardApi
-      .sites()
-      .then((r) => {
-        setSites(r.details);
-        setTimezones(Object.fromEntries(r.details.map((d) => [d.domain, d.timezone])));
-      })
-      .catch(() => setError("Couldn't load your sites."));
-
   useEffect(() => {
-    void load();
-  }, []);
+    if (loadError) setError("Couldn't load your sites.");
+    if (sites) setTimezones(Object.fromEntries(sites.map((d) => [d.domain, d.timezone])));
+  }, [sites, loadError]);
 
   const saveTimezone = async (domain: string) => {
     setBusy(domain);
     try {
       await dashboardApi.updateSite(domain, timezones[domain]);
+      void refreshSites();
       toast.success("Timezone saved", domain);
     } catch (e) {
       toast.error("Couldn't save timezone", e instanceof Error ? e.message : domain);
@@ -343,8 +338,8 @@ function SitesSettings() {
     try {
       await dashboardApi.deleteSite(domain);
       toast.success(`${domain} deleted`, "Collection has stopped.");
+      void refreshSites();
       const remaining = (sites ?? []).filter((s) => s.domain !== domain);
-      setSites(remaining);
       const active = new URLSearchParams(location.search).get("site");
       if (active === domain || remaining.length === 0) {
         void navigate({ to: "/dashboard", search: { site: remaining[0]?.domain } });
@@ -376,18 +371,10 @@ function SitesSettings() {
             >
               <Text>{site.domain}</Text>
               <div className="w-56">
-                <Select
-                  value={timezones[site.domain]}
-                  onValueChange={(v) =>
-                    setTimezones((t) => ({ ...t, [site.domain]: (v as string) || t[site.domain] }))
-                  }
-                >
-                  {Intl.supportedValuesOf("timeZone").map((tz) => (
-                    <Select.Option key={tz} value={tz}>
-                      {tz}
-                    </Select.Option>
-                  ))}
-                </Select>
+                <TimezonePicker
+                  value={timezones[site.domain] ?? site.timezone}
+                  onChange={(tz) => setTimezones((t) => ({ ...t, [site.domain]: tz }))}
+                />
               </div>
               <Button
                 variant="secondary"

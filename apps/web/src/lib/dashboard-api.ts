@@ -107,9 +107,13 @@ export const dashboardApi = {
       timezone ? { domain, timezone } : { domain },
     ),
   updateSite: (domain: string, timezone: string) =>
-    request<{ domain: string; timezone: string }>(`${DASH}/sites/${domain}`, "PATCH", { timezone }),
+    request<{ domain: string; timezone: string }>(
+      `${DASH}/sites/${encodeURIComponent(domain)}`,
+      "PATCH",
+      { timezone },
+    ),
   deleteSite: (domain: string) =>
-    request<{ deleted: boolean }>(`${DASH}/sites/${domain}`, "DELETE"),
+    request<{ deleted: boolean }>(`${DASH}/sites/${encodeURIComponent(domain)}`, "DELETE"),
   stats: (q: DashboardQuery) => get<StatsResponse>(`${DASH}/stats`, params(q)),
   timeseries: (q: DashboardQuery) => get<TimeseriesResponse>(`${DASH}/timeseries`, params(q)),
   goals: (q: DashboardQuery) => get<{ goals: Goal[] }>(`${DASH}/goals`, params(q)),

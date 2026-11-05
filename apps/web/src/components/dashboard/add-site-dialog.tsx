@@ -3,10 +3,17 @@ import { useNavigate } from "@tanstack/react-router";
 import { Button, Code, Combobox, Dialog, Field, Input, Text } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
 import { dashboardApi } from "../../lib/dashboard-api";
+import { refreshSites } from "../../lib/use-sites";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
-function TimezonePicker({ value, onChange }: { value: string; onChange: (tz: string) => void }) {
+export function TimezonePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (tz: string) => void;
+}) {
   return (
     <Combobox
       value={value}
@@ -30,13 +37,7 @@ function TimezonePicker({ value, onChange }: { value: string; onChange: (tz: str
 }
 
 /** "Add site" dialog — registers a site, then shows its tracker snippet. */
-export function AddSiteDialog({
-  trigger,
-  onAdded,
-}: {
-  trigger?: ReactElement;
-  onAdded?: (domain: string) => void;
-}) {
+export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [domain, setDomain] = useState("");
@@ -67,7 +68,7 @@ export function AddSiteDialog({
         domain: site.domain,
         snippet: `<script defer src="${location.origin}/tracker.js" data-site-id="${site.domain}"></script>`,
       });
-      onAdded?.(site.domain);
+      void refreshSites();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't add the site.");
     } finally {

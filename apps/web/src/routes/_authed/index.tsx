@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import * as echarts from "echarts/core";
 import { LineChart } from "echarts/charts";
 import { GridComponent, TooltipComponent } from "echarts/components";
@@ -13,6 +13,7 @@ import { useIsDark as dark } from "../../lib/use-is-dark";
 import { dashboardApi, type DashboardQuery } from "../../lib/dashboard-api";
 import { DeltaBadge } from "../../components/dashboard/delta-badge";
 import { PageHeader } from "../../components/page-header";
+import { useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
@@ -215,18 +216,11 @@ function SitesOverview() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
-  const [sites, setSites] = useState<string[] | null>(null);
-  const [sitesError, setSitesError] = useState(false);
+  const { sites: siteList, error: sitesError } = useSharedSites();
+  const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [failures, setFailures] = useState<Set<string>>(new Set());
   const interval = search.interval || "1d";
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-  useEffect(() => {
-    dashboardApi
-      .sites()
-      .then((r) => setSites(r.sites))
-      .catch(() => setSitesError(true));
-  }, []);
 
   const reportError = (key: string, failed: boolean) => {
     setFailures((prev) => {
@@ -299,7 +293,7 @@ function SitesOverview() {
         <Empty
           title="No sites yet"
           description="Add a site to start tracking it."
-          contents={<AddSiteDialog onAdded={() => location.reload()} />}
+          contents={<AddSiteDialog />}
         />
       ) : (
         <Grid variant="3up" gap="base">
