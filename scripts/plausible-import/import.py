@@ -9,11 +9,12 @@
 """Import Plausible ClickHouse events into the noomers Basin catalog.
 
 Usage:
-  uv run scripts/plausible-import/import.py --env dev [--sites harshil.dev,...]
+  uv run scripts/plausible-import/import.py --env dev [--sites example.com,...]
       [--dry-run] [--replace]
 
 Prereqs:
-  - SSH access to the Plausible host (key agent / ~/.ssh/id_ed25519_do)
+  - SSH access to the Plausible host (NOOMERS_PLAUSIBLE_HOST, optional
+    NOOMERS_SSH_KEY for the identity file)
   - NOOMERS_CF_TOKEN_FILE pointing at a Cloudflare API token file
   - apps/web/.dev.vars (KEY=VALUE) for Basin wiring
 """
@@ -32,9 +33,14 @@ import pyarrow.parquet as pq
 
 REPO = Path(__file__).resolve().parents[2]
 EXPORT_DIR = Path.home() / ".noomers-import"
-SSH = ["ssh", "-i", os.path.expanduser("~/.ssh/id_ed25519_do"),
-       "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
-       "root@167.172.160.245"]
+_SSH_KEY = os.environ.get("NOOMERS_SSH_KEY")
+_SSH_HOST = os.environ.get("NOOMERS_PLAUSIBLE_HOST")
+SSH = (
+    ["ssh"]
+    + (["-i", os.path.expanduser(_SSH_KEY)] if _SSH_KEY else [])
+    + ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
+       _SSH_HOST or "root@plausible-host"]
+)
 CH = ("docker exec plausible_plausible_events_db_1 "
       "clickhouse-client --readonly=1 -q ")
 PG = ("docker exec plausible_plausible_db_1 "
@@ -191,8 +197,7 @@ def transform(rows, domain: str):
 
 
 def catalog(env: str):
-    # Reads `apps/web/.dev.vars` (KEY=VALUE lines) for the Basin wiring —
-    # the old packages/server/wrangler.<env>.json files are gone.
+    # Reads `apps/web/.dev.vars` (KEY=VALUE lines) for the Basin wiring.
     # `env` selects `.dev.vars.<env>` if present, else `.dev.vars`.
     candidates = [
         REPO / f"apps/web/.dev.vars.{env}",

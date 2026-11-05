@@ -38,7 +38,7 @@ export default defineConfig({
       "apps/web/worker/realtime.ts",
       "apps/web/worker/readiness.ts",
       "apps/web/migrations/**",
-      // Ported legacy test harnesses.
+      // Route-level and integration tests (cloudflare:test env).
       "apps/web/tests/**",
     ],
     jsPlugins: [

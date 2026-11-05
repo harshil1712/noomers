@@ -69,7 +69,7 @@ On top of the table above the deploy token also needs, because
 (If `cf-token-preflight.sh` doesn't already name them, grant Pipelines and
 Data Catalog write — the account-scope groups they live under are
 "Workers Pipelines" and "R2" — verify exact permission names in the
-dashboard's token editor before cutover.)
+dashboard's token editor.)
 
 ### Additional secrets (noomers analytics)
 
@@ -78,44 +78,15 @@ token (`R2_SQL_TOKEN`) and the Data Catalog sink token, and derives
 `CF_ACCOUNT_ID` and `R2_SQL_BUCKET` from the provisioned account and bucket —
 none of these are secrets you set.
 
-| Secret                   | Purpose                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| `SITES_API_TOKEN`        | Bearer for `/api/v1/*` (Plausible Sites API)               |
-| `STATS_API_TOKEN`        | Bearer for `/api/v2/query` (and /api/v1 fallback)          |
-| `SERVER_EVENTS_TOKEN`    | Optional first-party server tracker token                  |
-| `R2_SQL_TABLE`           | Basin SQL query table (`noomers.events`)                   |
-| `R2_SQL_IMPORT_TABLE`    | Optional extra table UNIONed into queries (cutover helper) |
-| `CF_TRACKER_SCRIPT_NAME` | Optional custom tracker script path                        |
+| Secret                   | Purpose                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| `SITES_API_TOKEN`        | Bearer for `/api/v1/*` (Plausible Sites API)                                       |
+| `STATS_API_TOKEN`        | Bearer for `/api/v2/query` (and /api/v1 fallback)                                  |
+| `SERVER_EVENTS_TOKEN`    | Optional first-party server tracker token                                          |
+| `R2_SQL_TABLE`           | Basin SQL query table (`noomers.events`)                                           |
+| `R2_SQL_IMPORT_TABLE`    | Optional imported-history table UNIONed into queries (`scripts/plausible-import/`) |
+| `CF_TRACKER_SCRIPT_NAME` | Optional custom tracker script path                                                |
 
-## Cutover from the wrangler-based deployment
-
-- **D1 `noomers-goals` is adopted by name.** Alchemy reuses the existing
-  database and does not create a second one. Its own bookkeeping table is
-  `__alchemy_migrations`; a database previously migrated by
-  `wrangler d1 migrations apply` (wrangler's `d1_migrations` table) is
-  converted one-way on first `alchemy deploy` — the wrangler table is left
-  frozen and 0001–0007 are never re-applied.
-- **Worker name changes** from the wrangler-era name to `noomers-web`.
-  The old worker and its routes/custom domain are NOT removed
-  automatically — verify `noomers-web` serves everything, then retire the
-  old worker manually.
-- **Pipelines are not adopted.** The interactively-created stream/sink
-  (old docs named the stream `noomers_events`, table `default.events`)
-  will not match the new names (`noomers-events-stream`,
-  `noomers_events_sink`, table `noomers.events`). `R2_SQL_BUCKET` is bound
-  to the provisioned bucket, so the old table is queryable only through
-  `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives in the same bucket's
-  catalog; otherwise history starts fresh. Verify which names exist in the
-  account before cutover.
-- **Drain the SiteEvents DO first.** Unshipped buffered rows live in the
-  old worker's DOs. Check `/api/health/ready` reports zero backlog on the
-  old deployment before switching traffic, or those events are stranded.
-- **Basin/R2 tokens are minted by the deploy** (`Account API Tokens · Edit`
-  on the CI token grants this). The minted R2 SQL token is read-only —
-  confirm the first real preview answers `/api/health/ready` before
-  switching traffic. Wrangler-era `CF_PASSWORD_HASH`, `CF_JWT_SECRET`,
-  `CF_AUTH_ENABLED` are gone — dashboard auth is Better Auth with
-  `OWNER_ADMIN_EMAIL` bootstrapping the first admin.
-- **New `VISITOR_SALT`.** Alchemy mints a fresh salt, so visitor IDs on the
-  cutover day won't match pre-cutover ones. Visitor IDs rotate daily in UTC
-  anyway, so the only effect is a one-day discontinuity in visitor counts.
+The Basin/R2 account tokens are minted by the deploy itself (`Account API
+Tokens · Edit` on the CI token grants this); the minted R2 SQL token is
+read-only.

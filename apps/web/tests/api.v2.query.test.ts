@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { handleStatsQuery, v2MethodNotAllowed } from "../worker/routes/v2-query";
 
-// Harness shim: the old tests exercised the React Router action/loader via a
-// { request, context } arg; the Hono port takes (request, env,
-// sessionAnalytics) directly. Behaviour is identical — only the call shape
-// changed.
+// Harness shim: keeps the { request, context } call shape while the Hono
+// handler takes (request, env, sessionAnalytics) directly.
 async function action(args: {
   request: Request;
   context: {
@@ -70,14 +68,6 @@ function context(
         STATS_API_TOKEN: "stats-secret",
         DB: { prepare: vi.fn(() => siteStatement) },
       },
-    },
-    analyticsEngine: {
-      query: vi.fn().mockResolvedValue(
-        Response.json({
-          data: [{ visitors: 12, pageviews: 20, events: 24 }],
-        }),
-      ),
-      fromClause: 'FROM "metricsDataset"',
     },
     ...overrides,
   };
@@ -230,7 +220,6 @@ describe("Plausible Stats API v2", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { results: { metrics: unknown[] }[] };
     expect(body.results[0].metrics).toEqual([8, 10, 18, 1.8, 40, 42, 21]);
-    expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
     expect(getSessionMetrics).toHaveBeenCalledOnce();
   });
 
@@ -263,7 +252,6 @@ describe("Plausible Stats API v2", () => {
     await expect(response.json()).resolves.toMatchObject({
       results: [{ dimensions: ["/pricing"], metrics: [4, 5, 8, 40] }],
     });
-    expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
     expect(getSessionBreakdown).toHaveBeenCalledWith(
       "example.com",
       new Date("2026-08-01T00:00:00.000Z"),
@@ -564,7 +552,6 @@ describe("Plausible Stats API v2", () => {
       results: [{ dimensions: [], metrics: [7, 11, 13] }],
     });
     expect(getBasicMetrics).toHaveBeenCalledOnce();
-    expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
   });
 
   test("applies client-side offset to scalar R2 aggregates without a dimension", async () => {
