@@ -200,6 +200,7 @@ export async function createGoal(c: C) {
       page_path?: string;
       display_name?: string;
       custom_props?: Record<string, string>;
+      currency?: string;
     };
     const siteId = input.site_id || "";
     const site = await requireSite(c.env.DB, siteId);
@@ -234,6 +235,7 @@ export async function createGoal(c: C) {
         name:
           input.display_name?.trim() || (type === "event" ? value.trim() : `Visit ${value.trim()}`),
         customProps,
+        currency: input.currency,
       }));
     return Response.json({ domain: canonicalSiteId, ...goalResponse(goal) });
   } catch (error) {

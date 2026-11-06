@@ -698,11 +698,17 @@ export class R2SQLAPI {
       type: "event" | "pageview";
       value: string;
       customProps: Record<string, string>;
+      currency?: string | null;
     }>,
   ): Promise<{
     visitors: number;
-    goals: Array<{ uniques: number; total: number }>;
+    goals: Array<{
+      uniques: number;
+      total: number;
+      revenue: { total: number; count: number } | null;
+    }>;
     anyUniques: number;
+    anyRevenue: { total: number; count: number } | null;
   }> {
     if (goals.length > 20) {
       throw new Error(`At most 20 goals per breakdown (got ${goals.length})`);
@@ -710,6 +716,7 @@ export class R2SQLAPI {
     const start = sqlString(startDate.toISOString());
     const end = sqlString(endDate.toISOString());
     const usesProps = goals.some((goal) => Object.keys(goal.customProps).length > 0);
+    const usesRevenue = goals.some((goal) => goal.currency);
     const predicates = goals.map((goal) => {
       const parts = [
         goal.type === "pageview"
@@ -725,23 +732,40 @@ export class R2SQLAPI {
       return `(${parts.join(" AND ")})`;
     });
     const goalColumns = goals
-      .map(
-        (_, i) => `,COUNT(DISTINCT CASE WHEN ${predicates[i]} THEN visitor_id END) AS u_${i}
-                    ,SUM(CASE WHEN ${predicates[i]} THEN 1 ELSE 0 END) AS t_${i}`,
-      )
+      .map((goal, i) => {
+        const base = `,COUNT(DISTINCT CASE WHEN ${predicates[i]} THEN visitor_id END) AS u_${i}
+                    ,SUM(CASE WHEN ${predicates[i]} THEN 1 ELSE 0 END) AS t_${i}`;
+        if (!goal.currency) return base;
+        const revCond = `${predicates[i]} AND revenue_currency = ${sqlString(goal.currency)} AND TRY_CAST(revenue_amount AS DOUBLE) IS NOT NULL`;
+        return `${base}
+                    ,SUM(CASE WHEN ${revCond} THEN TRY_CAST(revenue_amount AS DOUBLE) ELSE 0 END) AS r_${i}
+                    ,SUM(CASE WHEN ${revCond} THEN 1 ELSE 0 END) AS rc_${i}`;
+      })
       .join("\n");
     const anyColumn =
       goals.length > 0
         ? `,COUNT(DISTINCT CASE WHEN ${predicates.join(" OR ")} THEN visitor_id END) AS any_uniques`
         : "";
+    const revenuePreds = goals
+      .map((goal, i) =>
+        goal.currency
+          ? `(${predicates[i]} AND revenue_currency = ${sqlString(goal.currency)} AND TRY_CAST(revenue_amount AS DOUBLE) IS NOT NULL)`
+          : null,
+      )
+      .filter((p): p is string => p !== null);
+    const anyRevColumn = revenuePreds.length
+      ? `,SUM(CASE WHEN ${revenuePreds.join(" OR ")} THEN TRY_CAST(revenue_amount AS DOUBLE) ELSE 0 END) AS any_rev_total
+            ,SUM(CASE WHEN ${revenuePreds.join(" OR ")} THEN 1 ELSE 0 END) AS any_rev_count`
+      : "";
     const rows = await this.query<Record<string, string | number | null>>(
       `WITH ${deduplicatedEventsCte(this.table, siteId, start, end, [
         "pathname",
         "event_name",
         ...(usesProps ? ["event_properties"] : []),
+        ...(usesRevenue ? ["revenue_amount", "revenue_currency"] : []),
         ...FILTER_COLUMN_LIST,
       ])}
-            SELECT COUNT(DISTINCT visitor_id) AS visitors${goalColumns}${anyColumn}
+            SELECT COUNT(DISTINCT visitor_id) AS visitors${goalColumns}${anyColumn}${anyRevColumn}
             FROM deduplicated_events
             WHERE ${KEEP_DEDUPLICATED_ROW}
                 AND visitor_id <> ''
@@ -751,13 +775,24 @@ export class R2SQLAPI {
       endDate.getTime(),
     );
     const row = rows[0] || {};
+    const anyRev =
+      revenuePreds.length > 0
+        ? {
+            total: Number(row.any_rev_total || 0),
+            count: Number(row.any_rev_count || 0),
+          }
+        : null;
     return {
       visitors: Number(row.visitors || 0),
-      goals: goals.map((_, i) => ({
+      goals: goals.map((goal, i) => ({
         uniques: Number(row[`u_${i}`] || 0),
         total: Number(row[`t_${i}`] || 0),
+        revenue: goal.currency
+          ? { total: Number(row[`r_${i}`] || 0), count: Number(row[`rc_${i}`] || 0) }
+          : null,
       })),
       anyUniques: Number(row.any_uniques || 0),
+      anyRevenue: anyRev,
     };
   }
 

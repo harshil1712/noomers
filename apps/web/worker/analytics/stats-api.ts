@@ -27,6 +27,8 @@ const METRICS = [
   "visit_duration",
   "events",
   "conversion_rate",
+  "total_revenue",
+  "average_revenue",
 ] as const;
 type Metric = (typeof METRICS)[number];
 
@@ -442,6 +444,32 @@ function metricValue(
   return sessions.averageVisitDuration === null ? 0 : Math.round(sessions.averageVisitDuration);
 }
 
+function formatRevenue(value: number, currency: string) {
+  const rounded = Math.round(value * 100) / 100;
+  return {
+    value: rounded,
+    currency,
+    short: new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(rounded),
+    long: new Intl.NumberFormat("en", { style: "currency", currency }).format(rounded),
+  };
+}
+
+const NO_REVENUE_GOALS = {
+  code: "no_revenue_goals_matching",
+  warning: "Revenue metrics are null as there are no matching revenue goals.",
+};
+const NO_SINGLE_CURRENCY = {
+  code: "no_single_revenue_currency",
+  warning:
+    "Revenue metrics are null as there are multiple currencies for the selected event:goals.",
+};
+const REVENUE_METRICS = ["total_revenue", "average_revenue"] as const;
+
 export async function executeStatsQuery(
   sessions: R2SQLAPI | undefined,
   input: unknown,
@@ -463,9 +491,12 @@ export async function executeStatsQuery(
       }
     }
     const selected = wanted ? goals.filter((g) => wanted.includes(g.name)) : goals;
+    const revenueRequested = query.metrics.filter((m) =>
+      REVENUE_METRICS.includes(m as (typeof REVENUE_METRICS)[number]),
+    );
     const allowed = goalDimension
-      ? ["visitors", "events", "conversion_rate"]
-      : ["conversion_rate", "visitors", "events"];
+      ? ["visitors", "events", "conversion_rate", ...REVENUE_METRICS]
+      : ["conversion_rate", "visitors", "events", ...REVENUE_METRICS];
     if (query.metrics.some((m) => !allowed.includes(m))) {
       throw new StatsAPIError(
         goalDimension
@@ -480,13 +511,27 @@ export async function executeStatsQuery(
       toR2Filters(rowFilters),
       selected,
     );
+    const revenueGoals = selected.filter((g) => g.currency);
+    const currencies = new Set(revenueGoals.map((g) => g.currency as string));
+    const metricWarnings: Record<string, { code: string; warning: string }> = {};
+    const revenueMetricValue = (
+      m: string,
+      rev: { total: number; count: number } | null,
+      currency: string | null,
+    ) => {
+      if (!rev || !currency) return null;
+      const value = m === "total_revenue" ? rev.total : rev.count > 0 ? rev.total / rev.count : 0;
+      return formatRevenue(value, currency);
+    };
     let results;
     if (goalDimension) {
       results = selected
         .map((goal, i) => ({
           name: goal.name,
+          currency: goal.currency,
           uniques: result.goals[i]?.uniques ?? 0,
           total: result.goals[i]?.total ?? 0,
+          revenue: result.goals[i]?.revenue ?? null,
         }))
         .filter((g) => g.uniques > 0)
         .map((g) => ({
@@ -496,11 +541,25 @@ export async function executeStatsQuery(
               ? g.uniques
               : m === "events"
                 ? g.total
-                : Math.round((g.uniques / (result.visitors || 1)) * 100 * 100) / 100,
+                : m === "conversion_rate"
+                  ? Math.round((g.uniques / (result.visitors || 1)) * 100 * 100) / 100
+                  : revenueMetricValue(m, g.revenue, g.currency),
           ),
         }));
+      if (revenueRequested.length && revenueGoals.length === 0) {
+        for (const m of revenueRequested) metricWarnings[m] = NO_REVENUE_GOALS;
+      }
     } else {
       const total = result.goals.reduce((acc, g) => acc + g.total, 0);
+      const aggregateCurrency =
+        currencies.size === 1 ? [...currencies][0] : revenueGoals.length === 0 ? null : null;
+      if (revenueRequested.length) {
+        if (revenueGoals.length === 0) {
+          for (const m of revenueRequested) metricWarnings[m] = NO_REVENUE_GOALS;
+        } else if (currencies.size !== 1) {
+          for (const m of revenueRequested) metricWarnings[m] = NO_SINGLE_CURRENCY;
+        }
+      }
       results = [
         {
           dimensions: [] as string[],
@@ -509,7 +568,9 @@ export async function executeStatsQuery(
               ? Math.round((result.anyUniques / (result.visitors || 1)) * 100 * 100) / 100
               : m === "visitors"
                 ? result.anyUniques
-                : total,
+                : m === "events"
+                  ? total
+                  : revenueMetricValue(m, result.anyRevenue, aggregateCurrency),
           ),
         },
       ];
@@ -517,8 +578,16 @@ export async function executeStatsQuery(
     const orderBy = query.order_by[0] ?? ["visitors", "desc"];
     const fieldIndex = query.metrics.indexOf(orderBy[0] as Metric);
     results.sort((a, b) => {
-      const left = fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0];
-      const right = fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0];
+      let left: unknown = fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0];
+      let right: unknown = fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0];
+      const leftObj = left as { value?: number } | null;
+      const rightObj = right as { value?: number } | null;
+      if (leftObj !== null && typeof leftObj === "object" && "value" in leftObj)
+        left = leftObj.value;
+      if (rightObj !== null && typeof rightObj === "object" && "value" in rightObj)
+        right = rightObj.value;
+      if (left === null && right !== null) return 1;
+      if (left !== null && right === null) return -1;
       const comparison = left === right ? 0 : (left ?? 0) < (right ?? 0) ? -1 : 1;
       if (comparison !== 0) return orderBy[1] === "asc" ? comparison : -comparison;
       const ld = String(a.dimensions[0] || "");
@@ -530,9 +599,14 @@ export async function executeStatsQuery(
       query.pagination.offset,
       query.pagination.offset + query.pagination.limit,
     );
-    const meta: { total_rows?: number; imports_included?: boolean } = {};
+    const meta: {
+      total_rows?: number;
+      imports_included?: boolean;
+      metric_warnings?: Record<string, { code: string; warning: string }>;
+    } = {};
     if (query.include.imports) meta.imports_included = false;
     if (query.include.total_rows) meta.total_rows = totalRows;
+    if (Object.keys(metricWarnings).length) meta.metric_warnings = metricWarnings;
     return {
       results,
       meta,
@@ -548,10 +622,17 @@ export async function executeStatsQuery(
       },
     };
   }
+  const revenueOnly = query.metrics.filter((m) =>
+    REVENUE_METRICS.includes(m as (typeof REVENUE_METRICS)[number]),
+  );
+  if (revenueOnly.length && query.dimensions[0] !== undefined) {
+    throw new StatsAPIError(
+      `${revenueOnly.join("/")} require no dimension or the event:goal dimension`,
+    );
+  }
   if (query.metrics.includes("conversion_rate")) {
     throw new StatsAPIError("conversion_rate requires an event:goal filter or dimension");
   }
-
   const visitDimension =
     query.dimensions[0] === "visit:entry_page" || query.dimensions[0] === "visit:exit_page";
   const needsSessions =
@@ -679,13 +760,54 @@ export async function executeStatsQuery(
   } else {
     throw new StatsAPIError("Basin SQL is not configured");
   }
+  const revenueNoContext = revenueOnly.length > 0 && query.dimensions.length === 0;
+  let goalRevenue: {
+    revenue: { total: number; count: number } | null;
+    currency: string | null;
+    warnings: Record<string, { code: string; warning: string }>;
+  } | null = null;
+  if (revenueNoContext) {
+    const revenueGoals = goals.filter((g) => g.currency);
+    const currencies = new Set(revenueGoals.map((g) => g.currency as string));
+    const warnings: Record<string, { code: string; warning: string }> = {};
+    let revenue: { total: number; count: number } | null = null;
+    let currency: string | null = null;
+    if (revenueGoals.length === 0) {
+      for (const m of revenueOnly) warnings[m] = NO_REVENUE_GOALS;
+    } else if (currencies.size !== 1) {
+      for (const m of revenueOnly) warnings[m] = NO_SINGLE_CURRENCY;
+    } else {
+      currency = [...currencies][0];
+      const breakdown = await sessions.getGoalBreakdown(
+        query.site_id,
+        query.start,
+        query.end,
+        toR2Filters(query.filters),
+        revenueGoals,
+      );
+      revenue = breakdown.anyRevenue;
+    }
+    goalRevenue = { revenue, currency, warnings };
+  }
   const basicRows = basicResult.rows;
   let results = basicRows.map((row) => {
     const rowSessionMetrics =
       "sessionMetrics" in row ? (row.sessionMetrics as SessionMetrics) : sessionMetrics;
     return {
       dimensions: query.dimensions.length ? [row.dimension || ""] : [],
-      metrics: query.metrics.map((metric) => metricValue(metric, row, rowSessionMetrics)),
+      metrics: query.metrics.map((metric) => {
+        if (REVENUE_METRICS.includes(metric as (typeof REVENUE_METRICS)[number])) {
+          if (!goalRevenue?.revenue || !goalRevenue.currency) return null;
+          const value =
+            metric === "total_revenue"
+              ? goalRevenue.revenue.total
+              : goalRevenue.revenue.count > 0
+                ? goalRevenue.revenue.total / goalRevenue.revenue.count
+                : 0;
+          return formatRevenue(value, goalRevenue.currency);
+        }
+        return metricValue(metric, row, rowSessionMetrics);
+      }),
     };
   });
   const timeDimension = query.dimensions.find((dimension) =>
@@ -711,9 +833,17 @@ export async function executeStatsQuery(
       query.pagination.offset + query.pagination.limit,
     );
   }
-  const meta: { total_rows?: number; time_labels?: string[]; imports_included?: boolean } = {};
+  const meta: {
+    total_rows?: number;
+    time_labels?: string[];
+    imports_included?: boolean;
+    metric_warnings?: Record<string, { code: string; warning: string }>;
+  } = {};
   if (query.include.imports) meta.imports_included = false;
   if (query.include.total_rows) meta.total_rows = basicResult.totalRows;
+  if (goalRevenue && Object.keys(goalRevenue.warnings).length) {
+    meta.metric_warnings = goalRevenue.warnings;
+  }
   if (query.include.time_labels && timeDimension) {
     meta.time_labels = getTimeLabels(
       timeDimension,

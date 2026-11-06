@@ -29,6 +29,9 @@ describe("D1 migration baseline", () => {
       expect(row, `missing table ${table}`).toBeTruthy();
     }
 
+    const goalColumns = await env.DB.prepare("PRAGMA table_info(goals)").all<{ name: string }>();
+    expect(goalColumns.results.map((r) => r.name)).toContain("currency");
+
     const columns = await env.DB.prepare("PRAGMA table_info(site_deletion_jobs)").all<{
       name: string;
     }>();
