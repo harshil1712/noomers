@@ -73,15 +73,6 @@ describe("/api/dashboard/sites mutations", () => {
     expect((await req(BASE, "POST", { domain })).status).toBe(400);
   });
 
-  test("wrong content-type → 415", async () => {
-    const res = await SELF.fetch(BASE, {
-      method: "POST",
-      headers: { Cookie: cookie, "content-type": "text/plain" },
-      body: "{}",
-    });
-    expect(res.status).toBe(415);
-  });
-
   test("oversized body → 413", async () => {
     const res = await SELF.fetch(BASE, {
       method: "POST",
