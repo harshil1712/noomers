@@ -1,40 +1,19 @@
 import { z } from "zod";
+import { readCollectBody } from "../analytics/collect";
 
 export const MAX_BODY_BYTES = 4 * 1024;
 
 /**
- * Bounded, schema-validated JSON body for dashboard mutations: content-type
- * must be application/json and the payload is capped at 4 KiB on both the
- * declared length and the streamed body.
+ * Bounded, schema-validated JSON body for admin mutations: the 4 KiB
+ * cap is the shared collection reader's (declared and streamed length).
  */
 export async function readJsonBody<Schema extends z.ZodType>(
   request: Request,
   schema: Schema,
 ): Promise<Response | z.infer<Schema>> {
-  const contentType = request.headers.get("content-type") || "";
-  if (!contentType.toLowerCase().startsWith("application/json")) {
-    return Response.json({ error: "Content-Type must be application/json" }, { status: 415 });
-  }
-  const contentLength = Number(request.headers.get("content-length"));
-  if (contentLength > MAX_BODY_BYTES) {
+  const text = await readCollectBody(request, MAX_BODY_BYTES);
+  if (text === null) {
     return Response.json({ error: "Request body is too large" }, { status: 413 });
-  }
-  let text = "";
-  if (request.body) {
-    const reader = request.body.getReader();
-    const decoder = new TextDecoder();
-    let size = 0;
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_BODY_BYTES) {
-        await reader.cancel();
-        return Response.json({ error: "Request body is too large" }, { status: 413 });
-      }
-      text += decoder.decode(value, { stream: true });
-    }
-    text += decoder.decode();
   }
   let json: z.infer<Schema>;
   try {
