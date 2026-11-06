@@ -36,15 +36,15 @@ This is not yet a drop-in replacement for the full Plausible product.
 
 P0 items block safe installation, correct core analytics, or complete deletion. P1 items expand compatibility after that baseline is reliable.
 
-| Priority | Feature                                          | Why it matters                                                                                                                                                                                                                             |
-| -------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| P0       | Live deployment and Basin SQL validation         | noomers has never been deployed; generated SQL, response shapes, the Pipeline sink, and the Durable Object are unvalidated against real Cloudflare resources.                                                                              |
-| P0       | Complete deletion execution                      | Site deletion tombstones the site, purges its Durable Object, and records a deletion job; a daily GitHub Actions run erases the Iceberg rows (≥1 hour after deletion, unvalidated live) and managed snapshot expiration removes the files. |
-| P1       | Entry and exit page dimensions and reports       | `visit:entry_page`/`visit:exit_page` exist in the Stats API and dashboard; still missing `exit_rate`, `*_hostname` variants, visit-dimension filters, and live validation.                                                                 |
-| P1       | Goal, revenue, and conversion reporting          | The Stats API has `event:goal`, goal `is`-filters, and `conversion_rate`; the dashboard reports per-goal uniques, totals, and rates. Revenue metrics and wildcard/property-value-filtered goals remain missing.                            |
-| P1       | Visit dimensions in the Stats API                | `visit:*` first-pageview attribution exists internally for dashboard cards but is not exposed through `/api/v2/query`; channel classification is missing.                                                                                  |
-| P1       | Historical imports beyond self-hosted raw export | Only the self-hosted Plausible `events_v2` → Iceberg import path exists; GA4, CSV, and hosted-Plausible imports are missing, and imports have no job tracking or deduplication.                                                            |
-| P1       | Broader Stats API query model                    | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                                                                                                                         |
+| Priority | Feature                                          | Why it matters                                                                                                                                                                                                                                                        |
+| -------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0       | Live deployment and Basin SQL validation         | noomers has never been deployed; generated SQL, response shapes, the Pipeline sink, and the Durable Object are unvalidated against real Cloudflare resources.                                                                                                         |
+| P0       | Complete deletion execution                      | Site deletion tombstones the site, purges its Durable Object, and records a deletion job; a daily GitHub Actions run erases the Iceberg rows (≥1 hour after deletion, unvalidated live) and managed snapshot expiration removes the files.                            |
+| P1       | Entry and exit page dimensions and reports       | `visit:entry_page`/`visit:exit_page` exist in the Stats API and dashboard; still missing `exit_rate`, `*_hostname` variants, visit-dimension filters, and live validation.                                                                                            |
+| P1       | Goal, revenue, and conversion reporting          | `event:goal`, goal `is`-filters, `conversion_rate`, `total_revenue`/`average_revenue` ship in the Stats API; the dashboard reports uniques, totals, rates, and revenue per goal. Left: wildcard goals, `group_conversion_rate`, currency conversion, live validation. |
+| P1       | Visit dimensions in the Stats API                | `visit:*` first-pageview attribution exists internally for dashboard cards but is not exposed through `/api/v2/query`; channel classification is missing.                                                                                                             |
+| P1       | Historical imports beyond self-hosted raw export | Only the self-hosted Plausible `events_v2` → Iceberg import path exists; GA4, CSV, and hosted-Plausible imports are missing, and imports have no job tracking or deduplication.                                                                                       |
+| P1       | Broader Stats API query model                    | Multiple dimensions, logical filters, regex, behavioral filters, and property filters are missing.                                                                                                                                                                    |
 
 ## Events API and tracking
 
@@ -58,20 +58,20 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 
 ### Remaining parity
 
-| Feature                           | Status    | Remaining work                                                                                                                                                                             |
-| --------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Official Plausible tracker script | Partial   | noomers accepts official tracker payloads and serves a per-site `pa-<id>.js` Plausible-compat snippet from a template. Validate current official tracker versions continuously.            |
-| Outbound-link tracking            | Missing   | Add automatic browser instrumentation and compatible event/property names.                                                                                                                 |
-| File-download tracking            | Missing   | Detect configured file extensions and emit compatible events.                                                                                                                              |
-| Form-submission tracking          | Missing   | Add form instrumentation and compatible properties.                                                                                                                                        |
-| Tagged-event tracking             | Missing   | Support Plausible's CSS-class and data-attribute conventions.                                                                                                                              |
-| Automatic 404 tracking            | Missing   | Detect and report 404 pages through the served tracker integration.                                                                                                                        |
-| Automatic scroll-depth reporting  | Supported | The noomers tracker generates bounded scroll-depth values sent with engagement events and stored in the Iceberg table. Stats API `scroll_depth` metrics and dashboard reports are missing. |
-| Revenue tracking                  | Partial   | Revenue is validated and stored in durable events, but Stats API, goals, and the dashboard do not report it.                                                                               |
-| Engagement reporting              | Partial   | The native tracker emits bounded engagement-time deltas and scroll-depth values. Engagement events are stored in the Iceberg table; visit duration is computed from session event spans.   |
-| Tracker configuration             | Partial   | Sites API stores Plausible-style tracker settings, but most settings do not alter the served noomers tracker.                                                                              |
-| Native `/collect` bot filtering   | Supported | `/collect` shares the UA-based bot policy with `/api/event`, exempting only the first-party `noomers-tracker-server/` UA prefix.                                                           |
-| Collection rate limiting          | Partial   | `COLLECT_RATE_LIMIT` throttles `/collect` and `/api/event` per IP+site; per-site quotas and fair-use limits beyond that are missing.                                                       |
+| Feature                           | Status    | Remaining work                                                                                                                                                                                                                     |
+| --------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Official Plausible tracker script | Partial   | noomers accepts official tracker payloads and serves a per-site `pa-<id>.js` Plausible-compat snippet from a template. Validate current official tracker versions continuously.                                                    |
+| Outbound-link tracking            | Missing   | Add automatic browser instrumentation and compatible event/property names.                                                                                                                                                         |
+| File-download tracking            | Missing   | Detect configured file extensions and emit compatible events.                                                                                                                                                                      |
+| Form-submission tracking          | Missing   | Add form instrumentation and compatible properties.                                                                                                                                                                                |
+| Tagged-event tracking             | Missing   | Support Plausible's CSS-class and data-attribute conventions.                                                                                                                                                                      |
+| Automatic 404 tracking            | Missing   | Detect and report 404 pages through the served tracker integration.                                                                                                                                                                |
+| Automatic scroll-depth reporting  | Supported | The noomers tracker generates bounded scroll-depth values sent with engagement events and stored in the Iceberg table. Stats API `scroll_depth` metrics and dashboard reports are missing.                                         |
+| Revenue tracking                  | Partial   | Revenue is validated, stored, and reported via `total_revenue`/`average_revenue` and the goals card. No FX conversion — only events whose `revenue_currency` equals the goal currency count; Plausible converts. Unvalidated live. |
+| Engagement reporting              | Partial   | The native tracker emits bounded engagement-time deltas and scroll-depth values. Engagement events are stored in the Iceberg table; visit duration is computed from session event spans.                                           |
+| Tracker configuration             | Partial   | Sites API stores Plausible-style tracker settings, but most settings do not alter the served noomers tracker.                                                                                                                      |
+| Native `/collect` bot filtering   | Supported | `/collect` shares the UA-based bot policy with `/api/event`, exempting only the first-party `noomers-tracker-server/` UA prefix.                                                                                                   |
+| Collection rate limiting          | Partial   | `COLLECT_RATE_LIMIT` throttles `/collect` and `/api/event` per IP+site; per-site quotas and fair-use limits beyond that are missing.                                                                                               |
 
 ## Stats API v2
 
@@ -120,16 +120,16 @@ Query behavior:
 
 ### Remaining metrics
 
-| Metric                          | Status  | Remaining work                                                                                                                                                                                           |
-| ------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scroll_depth`                  | Missing | Query durable scroll data and define page/session aggregation.                                                                                                                                           |
-| `percentage`                    | Missing | Implement breakdown percentage semantics.                                                                                                                                                                |
-| `conversion_rate`               | Partial | Per-goal and goal-filter aggregate rates in the Stats API (unique converting visitors / visitors, 2 decimals); dashboard shows per-goal rates. `group_conversion_rate` missing, live validation pending. |
-| `group_conversion_rate`         | Missing | Implement grouped conversion semantics.                                                                                                                                                                  |
-| `average_revenue`               | Missing | Aggregate revenue by goal and currency.                                                                                                                                                                  |
-| `total_revenue`                 | Missing | Aggregate revenue by goal and currency.                                                                                                                                                                  |
-| `time_on_page`                  | Missing | Derive page engagement from engagement events.                                                                                                                                                           |
-| Revenue formatting and warnings | Missing | Return currency metadata and metric warnings in Plausible's response shape.                                                                                                                              |
+| Metric                          | Status  | Remaining work                                                                                                                                                                                                                         |
+| ------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scroll_depth`                  | Missing | Query durable scroll data and define page/session aggregation.                                                                                                                                                                         |
+| `percentage`                    | Missing | Implement breakdown percentage semantics.                                                                                                                                                                                              |
+| `conversion_rate`               | Partial | Per-goal and goal-filter aggregate rates in the Stats API (unique converting visitors / visitors, 2 decimals); dashboard shows per-goal rates. `group_conversion_rate` missing, live validation pending.                               |
+| `group_conversion_rate`         | Missing | Implement grouped conversion semantics.                                                                                                                                                                                                |
+| `average_revenue`               | Partial | Mean revenue per conversion per goal (only revenue-carrying events count); same-currency only, no FX. Unvalidated live.                                                                                                                |
+| `total_revenue`                 | Partial | Sum of revenue amounts per goal/aggregate; same-currency only, no FX. Unvalidated live.                                                                                                                                                |
+| `time_on_page`                  | Missing | Derive page engagement from engagement events.                                                                                                                                                                                         |
+| Revenue formatting and warnings | Partial | `{value, currency, short, long}` objects and `meta.metric_warnings` (`no_revenue_goals_matching`, `no_single_revenue_currency`) implemented; `short`/`long` formatting is approximate, not byte-identical to Plausible's Money format. |
 
 ### Remaining dimensions
 
@@ -197,19 +197,19 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 
 ### Remaining parity
 
-| Feature                              | Status   | Remaining work                                                                                                    |
-| ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| Domain rename                        | Missing  | Define a migration/alias strategy because existing durable event records are immutable.                           |
-| Page-goal wildcards                  | Missing  | Add Plausible-compatible wildcard validation and query behavior.                                                  |
-| Property-filtered goals              | Partial  | `custom_props` exact-match constraints are counted in conversions (dashboard and `event:goal`). Unvalidated live. |
-| Revenue goals                        | Missing  | Store goal currency/configuration and connect revenue events to reporting.                                        |
-| Tracker URL generation               | Partial  | Stored tracker configuration does not produce Plausible's configuration-specific script behavior.                 |
-| Full validation/status compatibility | Partial  | Conformance-test cursor, request-content, error, and status behavior against the live API.                        |
-| Real teams                           | Deferred | Replace the synthetic team with persisted ownership and membership only if multi-organization support is adopted. |
-| Site transfers                       | Deferred | Requires real teams and ownership.                                                                                |
-| Guests                               | Deferred | Authenticated endpoints currently return `501 Not Implemented`.                                                   |
-| Shared links                         | Deferred | Authenticated endpoints currently return `501 Not Implemented`.                                                   |
-| Subscription/site limits             | Deferred | No billing or plan enforcement exists.                                                                            |
+| Feature                              | Status   | Remaining work                                                                                                                       |
+| ------------------------------------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Domain rename                        | Missing  | Define a migration/alias strategy because existing durable event records are immutable.                                              |
+| Page-goal wildcards                  | Missing  | Add Plausible-compatible wildcard validation and query behavior.                                                                     |
+| Property-filtered goals              | Partial  | `custom_props` exact-match constraints are counted in conversions (dashboard and `event:goal`). Unvalidated live.                    |
+| Revenue goals                        | Partial  | Goals accept an optional ISO 4217 `currency` (event goals only); revenue counts only same-currency events (no FX). Unvalidated live. |
+| Tracker URL generation               | Partial  | Stored tracker configuration does not produce Plausible's configuration-specific script behavior.                                    |
+| Full validation/status compatibility | Partial  | Conformance-test cursor, request-content, error, and status behavior against the live API.                                           |
+| Real teams                           | Deferred | Replace the synthetic team with persisted ownership and membership only if multi-organization support is adopted.                    |
+| Site transfers                       | Deferred | Requires real teams and ownership.                                                                                                   |
+| Guests                               | Deferred | Authenticated endpoints currently return `501 Not Implemented`.                                                                      |
+| Shared links                         | Deferred | Authenticated endpoints currently return `501 Not Implemented`.                                                                      |
+| Subscription/site limits             | Deferred | No billing or plan enforcement exists.                                                                                               |
 
 ## Goals, properties, and ecommerce
 
@@ -222,7 +222,7 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 | Total conversions                 | Supported | Dashboard reports per-goal uniques, totals, and rates; the Stats API exposes totals via `events` on `event:goal` (unvalidated live).                                   |
 | Conversion rates in Stats API     | Partial   | `conversion_rate` works with `event:goal` and goal `is`-filters; `group_conversion_rate` missing.                                                                      |
 | Property-filtered conversions     | Partial   | Exact-match `custom_props` constraints are applied when counting conversions (dashboard and `event:goal`). Unvalidated live.                                           |
-| Revenue goals and attribution     | Missing   | Connect durable revenue records to goals, currency, and conversion reports.                                                                                            |
+| Revenue goals and attribution     | Partial   | Revenue events attribute to same-currency revenue goals; `total_revenue`/`average_revenue` work with no dimension or `event:goal` only.                                |
 | Custom-property registration      | Supported | Keep Sites API metadata behavior compatible.                                                                                                                           |
 | Property dimensions and filters   | Partial   | `event:props:<key>` breakdowns work in the Stats API (with an `event:name` filter) and the dashboard; property-value filters and registration enforcement are missing. |
 | Property registration enforcement | Missing   | Decide whether unregistered keys are accepted, hidden, or rejected — today any well-formed key is queryable.                                                           |
@@ -255,7 +255,7 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 | Scroll depth                   | Missing   | Tracker generation is supported; add page-level average scroll reporting via Stats API and dashboard.                                                                                             |
 | Time on page                   | Missing   | Derive engagement and expose page metrics.                                                                                                                                                        |
 | Native average visit duration  | Supported | Computed from session event spans (max−min of non-engagement events) in Basin SQL. Unvalidated live.                                                                                              |
-| Revenue/ecommerce dashboard    | Missing   | Add revenue goal cards, trends, and breakdowns.                                                                                                                                                   |
+| Revenue/ecommerce dashboard    | Partial   | Goals card shows a Revenue column (total per goal) when a goal has a currency; no trends or breakdowns.                                                                                           |
 | Custom-property reports        | Partial   | A per-event property breakdown card exists (`/api/dashboard/props`); no property filters or standalone property report.                                                                           |
 | Expanded report metrics        | Missing   | Allow report-specific engagement, conversion, and revenue columns.                                                                                                                                |
 | Multi-select/exclusion filters | Partial   | Stats API supports richer filters; dashboard controls remain equality-oriented.                                                                                                                   |

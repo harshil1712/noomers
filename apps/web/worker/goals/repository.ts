@@ -8,6 +8,7 @@ export interface Goal {
   type: GoalType;
   value: string;
   customProps: Record<string, string>;
+  currency: string | null;
   createdAt: string;
 }
 
@@ -18,6 +19,7 @@ interface GoalRow {
   type: GoalType;
   value: string;
   custom_props?: string;
+  currency?: string | null;
   created_at: string;
 }
 
@@ -35,6 +37,7 @@ function toGoal(row: GoalRow): Goal {
     type: row.type,
     value: row.value,
     customProps,
+    currency: row.currency ?? null,
     createdAt: row.created_at,
   };
 }
@@ -45,7 +48,7 @@ export class GoalsRepository {
   async list(siteId: string): Promise<Goal[]> {
     const result = await this.database
       .prepare(
-        `SELECT id, site_id, name, type, value, custom_props, created_at
+        `SELECT id, site_id, name, type, value, custom_props, currency, created_at
                  FROM goals WHERE site_id = ? ORDER BY created_at ASC LIMIT ${MAX_GOALS_PER_SITE}`,
       )
       .bind(siteId)
@@ -59,6 +62,7 @@ export class GoalsRepository {
     type: GoalType;
     value: string;
     customProps?: Record<string, string>;
+    currency?: string;
   }): Promise<Goal> {
     const name = input.name.trim();
     const value = input.value.trim();
@@ -70,6 +74,14 @@ export class GoalsRepository {
     }
     if (input.type !== "event" && input.type !== "pageview") {
       throw new Error("Invalid goal type.");
+    }
+    // Currency is dropped silently for page goals, matching Plausible.
+    let currency: string | null = null;
+    if (input.currency !== undefined && input.type === "event") {
+      currency = input.currency.toUpperCase();
+      if (!Intl.supportedValuesOf("currency").includes(currency)) {
+        throw new Error(`Invalid goal currency.`);
+      }
     }
     const customProps = Object.fromEntries(
       Object.entries(input.customProps || {}).sort(([left], [right]) => left.localeCompare(right)),
@@ -93,12 +105,13 @@ export class GoalsRepository {
       type: input.type,
       value,
       customProps,
+      currency,
       createdAt: new Date().toISOString(),
     };
     const result = await this.database
       .prepare(
-        `INSERT INTO goals (id, site_id, name, type, value, custom_props, created_at)
-                 SELECT ?, ?, ?, ?, ?, ?, ?
+        `INSERT INTO goals (id, site_id, name, type, value, custom_props, currency, created_at)
+                 SELECT ?, ?, ?, ?, ?, ?, ?, ?
                  WHERE (SELECT COUNT(*) FROM goals WHERE site_id = ?) < ?`,
       )
       .bind(
@@ -108,6 +121,7 @@ export class GoalsRepository {
         goal.type,
         goal.value,
         JSON.stringify(goal.customProps),
+        goal.currency,
         goal.createdAt,
         goal.siteId,
         MAX_GOALS_PER_SITE,

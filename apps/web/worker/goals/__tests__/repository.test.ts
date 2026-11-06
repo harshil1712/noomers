@@ -38,6 +38,7 @@ describe("GoalsRepository", () => {
         type: "event",
         value: "Signup",
         customProps: {},
+        currency: null,
         createdAt: "2026-08-02T00:00:00Z",
       },
     ]);

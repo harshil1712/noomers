@@ -865,6 +865,8 @@ function BreakdownTable({
   const [data, setData] = useState<BreakdownResponse | null>(null);
   const [error, setError] = useState(false);
   const isGoals = card === "goals";
+  const [goalRevenue, setGoalRevenue] = useState<Record<string, string>>({});
+  const hasRevenue = isGoals && Object.values(goalRevenue).some((v) => v !== "-");
   const isProps = card === "events-props";
 
   useEffect(() => setPage(1), [realCard, query.site, query.interval, query.filters]);
@@ -891,6 +893,19 @@ function BreakdownTable({
               ]),
               page: 1,
             });
+            setGoalRevenue(
+              Object.fromEntries(
+                r.goals.map((g) => [
+                  g.name,
+                  g.currency
+                    ? new Intl.NumberFormat("en", {
+                        style: "currency",
+                        currency: g.currency,
+                      }).format(g.totalRevenue ?? 0)
+                    : "-",
+                ]),
+              ),
+            );
             onError?.(errKey, false);
           }),
         )
@@ -1005,6 +1020,11 @@ function BreakdownTable({
                 {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
               </span>
             </Table.Head>
+            {hasRevenue && (
+              <Table.Head className="w-24 text-right">
+                <span className="mono-label">Revenue</span>
+              </Table.Head>
+            )}
             <Table.Head className="w-14 text-right">
               <span className="mono-label">%</span>
             </Table.Head>
@@ -1040,6 +1060,11 @@ function BreakdownTable({
                     notation: row[1] >= 100000 ? "compact" : "standard",
                   }).format(row[1])}
                 </Table.Cell>
+                {hasRevenue && (
+                  <Table.Cell className="relative tabular-nums text-right">
+                    {goalRevenue[label(row[0])] ?? "-"}
+                  </Table.Cell>
+                )}
                 <Table.Cell className="relative tabular-nums text-right">{pct}%</Table.Cell>
               </Table.Row>
             );

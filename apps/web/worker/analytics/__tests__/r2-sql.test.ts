@@ -1071,10 +1071,11 @@ describe("getGoalBreakdown", () => {
     expect(result).toEqual({
       visitors: 9,
       goals: [
-        { uniques: 3, total: 5 },
-        { uniques: 2, total: 2 },
+        { uniques: 3, total: 5, revenue: null },
+        { uniques: 2, total: 2, revenue: null },
       ],
       anyUniques: 4,
+      anyRevenue: null,
     });
   });
 
@@ -1099,5 +1100,77 @@ describe("getGoalBreakdown", () => {
     expect(query).not.toContain(" u_0");
     expect(query).not.toContain("any_uniques");
     expect(result.goals).toEqual([]);
+  });
+});
+
+describe("getGoalBreakdown revenue", () => {
+  const captured = async (
+    goals: Array<{
+      type: "event" | "pageview";
+      value: string;
+      customProps: Record<string, string>;
+      currency?: string | null;
+    }>,
+  ) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            rows: [
+              {
+                visitors: 9,
+                u_0: 3,
+                t_0: 5,
+                r_0: 42.5,
+                rc_0: 2,
+                u_1: 1,
+                t_1: 1,
+                any_uniques: 4,
+                any_rev_total: 42.5,
+                any_rev_count: 2,
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    const result = await api.getGoalBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      goals,
+    );
+    return {
+      result,
+      query: JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body)).query as string,
+    };
+  };
+
+  test("revenue goals get r_i/rc_i columns with currency equality and TRY_CAST", async () => {
+    const { result, query } = await captured([
+      { type: "event", value: "buy", customProps: {}, currency: "USD" },
+      { type: "event", value: "free", customProps: {} },
+    ]);
+    expect(query).toContain(
+      "SUM(CASE WHEN (event_type <> 'engagement' AND event_name = 'buy') AND revenue_currency = 'USD' AND TRY_CAST(revenue_amount AS DOUBLE) IS NOT NULL THEN TRY_CAST(revenue_amount AS DOUBLE) ELSE 0 END) AS r_0",
+    );
+    expect(query).toContain("AS rc_0");
+    expect(query).not.toContain("r_1");
+    expect(query).toContain("revenue_amount, revenue_currency");
+    expect(query).toContain("AS any_rev_total");
+    expect(result.goals[0].revenue).toEqual({ total: 42.5, count: 2 });
+    expect(result.goals[1].revenue).toBeNull();
+    expect(result.anyRevenue).toEqual({ total: 42.5, count: 2 });
+  });
+
+  test("no revenue goals → no revenue columns or CTE fields", async () => {
+    const { result, query } = await captured([{ type: "event", value: "x", customProps: {} }]);
+    expect(query).not.toContain("revenue_");
+    expect(result.goals[0].revenue).toBeNull();
+    expect(result.anyRevenue).toBeNull();
   });
 });

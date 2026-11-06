@@ -196,6 +196,12 @@ export async function goals(c: Ctx, request: Request) {
       ...goal,
       conversions: result.goals[index]?.uniques ?? 0,
       totalConversions: result.goals[index]?.total ?? 0,
+      currency: goal.currency,
+      totalRevenue: result.goals[index]?.revenue?.total ?? null,
+      averageRevenue: (() => {
+        const rev = result.goals[index]?.revenue;
+        return rev && rev.count > 0 ? rev.total / rev.count : null;
+      })(),
       conversionRate:
         result.visitors > 0 ? (result.goals[index].uniques / result.visitors) * 100 : 0,
     })),
@@ -210,6 +216,7 @@ const goalAction = z.object({
   name: z.string().optional(),
   type: z.string().optional(),
   value: z.string().optional(),
+  currency: z.string().optional(),
 });
 export async function mutateGoal(c: Ctx, request: Request) {
   const form = await request.formData();
@@ -225,6 +232,7 @@ export async function mutateGoal(c: Ctx, request: Request) {
       name: body.name || "",
       type: (body.type || "") as GoalType,
       value: body.value || "",
+      currency: body.currency,
     });
   } else {
     await repository.delete(body.site, body.id || "");

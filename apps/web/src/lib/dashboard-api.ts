@@ -44,6 +44,9 @@ export interface Goal {
   conversions: number;
   totalConversions: number;
   conversionRate: number;
+  currency: string | null;
+  totalRevenue: number | null;
+  averageRevenue: number | null;
 }
 
 async function request<T>(path: string, method: string, body?: Record<string, string>): Promise<T> {

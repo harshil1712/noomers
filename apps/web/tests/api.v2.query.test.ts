@@ -984,3 +984,194 @@ describe("event:goal", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("revenue metrics", () => {
+  const revGoalRows = [
+    {
+      id: "1",
+      site_id: "example.com",
+      name: "buy",
+      type: "event",
+      value: "buy",
+      custom_props: "{}",
+      currency: "USD",
+      created_at: "2026-01-01",
+    },
+    {
+      id: "2",
+      site_id: "example.com",
+      name: "free",
+      type: "event",
+      value: "free",
+      custom_props: "{}",
+      currency: null,
+      created_at: "2026-01-02",
+    },
+    {
+      id: "3",
+      site_id: "example.com",
+      name: "eur",
+      type: "event",
+      value: "eur",
+      custom_props: "{}",
+      currency: "EUR",
+      created_at: "2026-01-03",
+    },
+  ];
+  const revBreakdown = (over: Record<string, unknown> = {}) => ({
+    getSessionMetrics: vi.fn(),
+    getSessionBreakdown: vi.fn(),
+    getBasicMetrics: vi.fn().mockResolvedValue({ rows: [{ visitors: 10, views: 10, events: 10 }] }),
+    getGoalBreakdown: vi.fn().mockResolvedValue({
+      visitors: 10,
+      goals: [
+        { uniques: 4, total: 6, revenue: { total: 123.456, count: 3 } },
+        { uniques: 2, total: 2, revenue: null },
+        { uniques: 1, total: 1, revenue: { total: 50, count: 1 } },
+      ],
+      anyUniques: 5,
+      anyRevenue: { total: 173.456, count: 4 },
+      ...over,
+    }),
+  });
+  const base = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+
+  test("event:goal rows carry per-goal revenue objects, null for non-revenue", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["visitors", "total_revenue"], dimensions: ["event:goal"] }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { dimensions: string[]; metrics: unknown[] }[] }>();
+    const rows = Object.fromEntries(body.results.map((r) => [r.dimensions[0], r.metrics]));
+    expect(rows.buy[1]).toEqual({
+      value: 123.46,
+      currency: "USD",
+      short: expect.any(String),
+      long: "$123.46",
+    });
+    expect(rows.free[1]).toBeNull();
+    expect(rows.eur[1]).toEqual(expect.objectContaining({ currency: "EUR", value: 50 }));
+  });
+
+  test("single-currency goal filter → aggregate object", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["total_revenue"], filters: [["is", "event:goal", ["buy"]]] }),
+      ),
+      context: context({
+        sessionAnalytics: revBreakdown({
+          anyRevenue: { total: 123.456, count: 3 },
+          goals: [{ uniques: 4, total: 6, revenue: { total: 123.456, count: 3 } }],
+        }),
+        goalRows: revGoalRows,
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { metrics: unknown[] }[] }>();
+    expect(body.results[0].metrics[0]).toEqual(
+      expect.objectContaining({ value: 123.46, currency: "USD" }),
+    );
+  });
+
+  test("multiple currencies → null + no_single_revenue_currency", async () => {
+    const res = await action({
+      request: request(
+        base({
+          metrics: ["total_revenue", "average_revenue"],
+          filters: [["is", "event:goal", ["buy", "eur"]]],
+        }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([null, null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_single_revenue_currency");
+    expect(body.meta.metric_warnings.average_revenue.code).toBe("no_single_revenue_currency");
+  });
+
+  test("no revenue goals → no_revenue_goals_matching", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["total_revenue"], filters: [["is", "event:goal", ["free"]]] }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_revenue_goals_matching");
+  });
+
+  test("no dimension + visitors & total_revenue → null + warning, no goal query", async () => {
+    const sessions = revBreakdown();
+    const res = await action({
+      request: request(base({ metrics: ["visitors", "total_revenue"] })),
+      context: context({ sessionAnalytics: sessions, goalRows: [revGoalRows[0]] }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([10, null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_revenue_goals_matching");
+    expect(sessions.getGoalBreakdown).not.toHaveBeenCalled();
+  });
+
+  test("revenue with event:page dimension → 400", async () => {
+    const res = await action({
+      request: request(base({ metrics: ["total_revenue"], dimensions: ["event:page"] })),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "total_revenue require no dimension or the event:goal dimension",
+    });
+  });
+
+  test("order_by total_revenue sorts by value", async () => {
+    const res = await action({
+      request: request(
+        base({
+          metrics: ["visitors", "total_revenue"],
+          dimensions: ["event:goal"],
+          order_by: [["total_revenue", "desc"]],
+        }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { dimensions: string[] }[] }>();
+    expect(body.results.map((r) => r.dimensions[0])).toEqual(["buy", "eur", "free"]);
+  });
+
+  test("average_revenue with zero count → value 0", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["average_revenue"], filters: [["is", "event:goal", ["buy"]]] }),
+      ),
+      context: context({
+        sessionAnalytics: revBreakdown({ anyRevenue: { total: 0, count: 0 } }),
+        goalRows: [revGoalRows[0]],
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { metrics: { value: number }[] }[] }>();
+    expect(body.results[0].metrics[0].value).toBe(0);
+  });
+});
