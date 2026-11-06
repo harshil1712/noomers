@@ -92,7 +92,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Collection must remain fail closed against the authoritative D1 site registry.
 - A deleted site's tombstone is permanent unless a deliberate product migration says otherwise.
 - Site deletion must continue blocking collection, Stats API access, and re-registration immediately.
-- Do not claim complete erasure while Iceberg deletion is pending. The internal deletion job records state, but no automatic processor runs; Iceberg cleanup is manual.
+- Do not claim complete erasure while Iceberg deletion is pending. A daily GitHub Actions job (`scripts/iceberg-erasure`) row-deletes due sites via Basin Catalog and reports back through `/api/maintenance/deletion-jobs`; managed snapshot expiration removes the data files (snapshots >7 days, keeping the last 5).
 - Never delete Iceberg objects directly with an R2 lifecycle rule. Row deletion must use a writable Iceberg-compatible engine followed by snapshot expiration and orphan cleanup.
 
 ### Analytics semantics

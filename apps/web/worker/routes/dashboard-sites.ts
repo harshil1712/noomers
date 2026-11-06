@@ -1,10 +1,8 @@
+import { readJsonBody } from "../lib/json-body";
 import { z } from "zod";
 import { SitesRepository } from "../sites/repository";
 import { deleteSite } from "../sites/service";
-import { readCollectBody } from "../analytics/collect";
 import type { Ctx } from "./dashboard";
-
-const MAX_BODY_BYTES = 4 * 1024;
 
 const createBody = z
   .object({
@@ -18,29 +16,6 @@ const patchBody = z
     timezone: z.string().min(1),
   })
   .strict();
-
-/**
- * Bounded, schema-validated JSON body for dashboard mutations: the 4 KiB
- * cap is the shared collection reader's (declared and streamed length).
- */
-async function readJsonBody<Schema extends z.ZodType>(
-  request: Request,
-  schema: Schema,
-): Promise<Response | z.infer<Schema>> {
-  const text = await readCollectBody(request, MAX_BODY_BYTES);
-  if (text === null) {
-    return Response.json({ error: "Request body is too large" }, { status: 413 });
-  }
-  let json: z.infer<Schema>;
-  try {
-    json = schema.parse(JSON.parse(text || "{}"));
-  } catch (error) {
-    const message =
-      error instanceof z.ZodError ? error.issues[0]?.message || "Invalid request" : "Invalid JSON";
-    return Response.json({ error: message }, { status: 400 });
-  }
-  return json;
-}
 
 function badRequest(message: string) {
   return Response.json({ error: message }, { status: 400 });

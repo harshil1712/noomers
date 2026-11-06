@@ -23,9 +23,6 @@ const DB = Cloudflare.D1.Database(`${PROJECT.name}-db`, {
 const WarehouseBucket = Cloudflare.R2.Bucket(`${PROJECT.name}-warehouse`, {
   name: `${PROJECT.name}-events`,
 });
-const EventsCatalog = Cloudflare.R2.DataCatalog(`${PROJECT.name}-events-catalog`, {
-  bucket: WarehouseBucket,
-});
 
 // Account API tokens minted by the deploy itself — no hand-managed secrets.
 // Minting requires the deploy token to have "Account API Tokens: Edit".
@@ -94,6 +91,23 @@ const EventsSink = Cloudflare.Pipelines.Sink(
       catalog: EventsCatalog,
       table: { namespace: "noomers", name: "events" },
       token: token.value,
+    };
+  }),
+);
+// Managed snapshot expiration physically removes the data files erased rows
+// left behind; the maintenance token lets the catalog run that cleanup.
+const EventsCatalog = Cloudflare.R2.DataCatalog(
+  `${PROJECT.name}-events-catalog`,
+  Effect.gen(function* () {
+    const token = yield* EventsSinkToken;
+    return {
+      bucket: WarehouseBucket,
+      token: token.value,
+      snapshotExpiration: {
+        state: "enabled" as const,
+        maxSnapshotAge: "7d",
+        minSnapshotsToKeep: 5,
+      },
     };
   }),
 );
