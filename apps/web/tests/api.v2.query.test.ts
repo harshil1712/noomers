@@ -1117,15 +1117,20 @@ describe("revenue metrics", () => {
     expect(body.meta.metric_warnings.total_revenue.code).toBe("no_revenue_goals_matching");
   });
 
-  test("no dimension + visitors & total_revenue → both computed", async () => {
+  test("no dimension + visitors & total_revenue → null + warning, no goal query", async () => {
+    const sessions = revBreakdown();
     const res = await action({
       request: request(base({ metrics: ["visitors", "total_revenue"] })),
-      context: context({ sessionAnalytics: revBreakdown(), goalRows: [revGoalRows[0]] }),
+      context: context({ sessionAnalytics: sessions, goalRows: [revGoalRows[0]] }),
     } as never);
     expect(res.status).toBe(200);
-    const body = await res.json<{ results: { metrics: unknown[] }[] }>();
-    expect(body.results[0].metrics[0]).toBe(10);
-    expect(body.results[0].metrics[1]).toEqual(expect.objectContaining({ currency: "USD" }));
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([10, null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_revenue_goals_matching");
+    expect(sessions.getGoalBreakdown).not.toHaveBeenCalled();
   });
 
   test("revenue with event:page dimension → 400", async () => {
