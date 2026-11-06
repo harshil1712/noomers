@@ -87,7 +87,7 @@ Verification before every change: `vp check`, `vp run -r test`, `vp run -r build
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) — repo rules and invariants
-- [docs/deploy.md](docs/deploy.md) — CI deploy, token permissions, secrets, wrangler cutover
+- [docs/deploy.md](docs/deploy.md) — CI deploy, token permissions, secrets
 - [docs/plausible-feature-parity.md](docs/plausible-feature-parity.md) — API capability coverage
 - [docs/implementation-roadmap.md](docs/implementation-roadmap.md) — feature backlog
 
