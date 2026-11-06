@@ -469,6 +469,44 @@ const NO_SINGLE_CURRENCY = {
     "Revenue metrics are null as there are multiple currencies for the selected event:goals.",
 };
 const REVENUE_METRICS = ["total_revenue", "average_revenue"] as const;
+type RevenueMetric = (typeof REVENUE_METRICS)[number];
+type RevenueValue = ReturnType<typeof formatRevenue>;
+type MetricValue = number | RevenueValue | null;
+
+function isRevenueMetric(metric: string): metric is RevenueMetric {
+  return REVENUE_METRICS.includes(metric as RevenueMetric);
+}
+
+function revenueWarnings(requested: RevenueMetric[], warning: { code: string; warning: string }) {
+  return Object.fromEntries(requested.map((m) => [m, warning]));
+}
+
+/** The revenue goals in scope, the single currency when there is one, and
+ *  the warnings to attach when there are none or several. */
+function resolveRevenue(goals: Goal[], requested: RevenueMetric[]) {
+  const revenueGoals = goals.filter((goal) => goal.currency);
+  const currencies = new Set(revenueGoals.map((goal) => goal.currency as string));
+  let currency: string | null = null;
+  let warnings: Record<string, { code: string; warning: string }> = {};
+  if (revenueGoals.length === 0) {
+    warnings = revenueWarnings(requested, NO_REVENUE_GOALS);
+  } else if (currencies.size !== 1) {
+    warnings = revenueWarnings(requested, NO_SINGLE_CURRENCY);
+  } else {
+    currency = [...currencies][0];
+  }
+  return { revenueGoals, currency, warnings };
+}
+
+function revenueMetricValue(
+  metric: Metric,
+  rev: { total: number; count: number } | null,
+  currency: string | null,
+): MetricValue {
+  if (!rev || !currency) return null;
+  const value = metric === "total_revenue" ? rev.total : rev.count > 0 ? rev.total / rev.count : 0;
+  return formatRevenue(value, currency);
+}
 
 export async function executeStatsQuery(
   sessions: R2SQLAPI | undefined,
@@ -491,9 +529,7 @@ export async function executeStatsQuery(
       }
     }
     const selected = wanted ? goals.filter((g) => wanted.includes(g.name)) : goals;
-    const revenueRequested = query.metrics.filter((m) =>
-      REVENUE_METRICS.includes(m as (typeof REVENUE_METRICS)[number]),
-    );
+    const revenueRequested = query.metrics.filter(isRevenueMetric);
     const allowed = goalDimension
       ? ["visitors", "events", "conversion_rate", ...REVENUE_METRICS]
       : ["conversion_rate", "visitors", "events", ...REVENUE_METRICS];
@@ -511,18 +547,16 @@ export async function executeStatsQuery(
       toR2Filters(rowFilters),
       selected,
     );
-    const revenueGoals = selected.filter((g) => g.currency);
-    const currencies = new Set(revenueGoals.map((g) => g.currency as string));
-    const metricWarnings: Record<string, { code: string; warning: string }> = {};
-    const revenueMetricValue = (
-      m: string,
-      rev: { total: number; count: number } | null,
-      currency: string | null,
-    ) => {
-      if (!rev || !currency) return null;
-      const value = m === "total_revenue" ? rev.total : rev.count > 0 ? rev.total / rev.count : 0;
-      return formatRevenue(value, currency);
-    };
+    const {
+      revenueGoals,
+      currency: aggregateCurrency,
+      warnings: aggregateWarnings,
+    } = resolveRevenue(selected, revenueRequested);
+    const metricWarnings = goalDimension
+      ? revenueGoals.length === 0
+        ? revenueWarnings(revenueRequested, NO_REVENUE_GOALS)
+        : {}
+      : aggregateWarnings;
     let results;
     if (goalDimension) {
       results = selected
@@ -546,20 +580,8 @@ export async function executeStatsQuery(
                   : revenueMetricValue(m, g.revenue, g.currency),
           ),
         }));
-      if (revenueRequested.length && revenueGoals.length === 0) {
-        for (const m of revenueRequested) metricWarnings[m] = NO_REVENUE_GOALS;
-      }
     } else {
       const total = result.goals.reduce((acc, g) => acc + g.total, 0);
-      const aggregateCurrency =
-        currencies.size === 1 ? [...currencies][0] : revenueGoals.length === 0 ? null : null;
-      if (revenueRequested.length) {
-        if (revenueGoals.length === 0) {
-          for (const m of revenueRequested) metricWarnings[m] = NO_REVENUE_GOALS;
-        } else if (currencies.size !== 1) {
-          for (const m of revenueRequested) metricWarnings[m] = NO_SINGLE_CURRENCY;
-        }
-      }
       results = [
         {
           dimensions: [] as string[],
@@ -577,15 +599,12 @@ export async function executeStatsQuery(
     }
     const orderBy = query.order_by[0] ?? ["visitors", "desc"];
     const fieldIndex = query.metrics.indexOf(orderBy[0] as Metric);
+    const orderByRevenue = isRevenueMetric(orderBy[0] as string);
+    const sortKey = (value: MetricValue | string | undefined): number | string | null =>
+      orderByRevenue ? ((value as RevenueValue | null)?.value ?? null) : (value as number | null);
     results.sort((a, b) => {
-      let left: unknown = fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0];
-      let right: unknown = fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0];
-      const leftObj = left as { value?: number } | null;
-      const rightObj = right as { value?: number } | null;
-      if (leftObj !== null && typeof leftObj === "object" && "value" in leftObj)
-        left = leftObj.value;
-      if (rightObj !== null && typeof rightObj === "object" && "value" in rightObj)
-        right = rightObj.value;
+      const left = sortKey(fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0]);
+      const right = sortKey(fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0]);
       if (left === null && right !== null) return 1;
       if (left !== null && right === null) return -1;
       const comparison = left === right ? 0 : (left ?? 0) < (right ?? 0) ? -1 : 1;
@@ -622,9 +641,7 @@ export async function executeStatsQuery(
       },
     };
   }
-  const revenueOnly = query.metrics.filter((m) =>
-    REVENUE_METRICS.includes(m as (typeof REVENUE_METRICS)[number]),
-  );
+  const revenueOnly = query.metrics.filter(isRevenueMetric);
   if (revenueOnly.length && query.dimensions[0] !== undefined) {
     throw new StatsAPIError(
       `${revenueOnly.join("/")} require no dimension or the event:goal dimension`,
@@ -767,17 +784,9 @@ export async function executeStatsQuery(
     warnings: Record<string, { code: string; warning: string }>;
   } | null = null;
   if (revenueNoContext) {
-    const revenueGoals = goals.filter((g) => g.currency);
-    const currencies = new Set(revenueGoals.map((g) => g.currency as string));
-    const warnings: Record<string, { code: string; warning: string }> = {};
+    const { revenueGoals, currency, warnings } = resolveRevenue(goals, revenueOnly);
     let revenue: { total: number; count: number } | null = null;
-    let currency: string | null = null;
-    if (revenueGoals.length === 0) {
-      for (const m of revenueOnly) warnings[m] = NO_REVENUE_GOALS;
-    } else if (currencies.size !== 1) {
-      for (const m of revenueOnly) warnings[m] = NO_SINGLE_CURRENCY;
-    } else {
-      currency = [...currencies][0];
+    if (currency !== null) {
       const breakdown = await sessions.getGoalBreakdown(
         query.site_id,
         query.start,
