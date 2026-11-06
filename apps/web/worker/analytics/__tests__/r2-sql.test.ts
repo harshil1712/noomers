@@ -200,7 +200,7 @@ describe("R2SQLAPI", () => {
     expect(query).toContain("hostname = 'example.com'");
     expect(query).toContain("pathname AS dimension");
     expect(query).toContain(
-      "FIRST_VALUE(dimension_value ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page",
+      "FIRST_VALUE(dimension_value ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page",
     );
     expect(query).not.toContain("MIN_BY");
     expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
@@ -961,5 +961,60 @@ describe("query cache", () => {
     const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher);
     await expect(api.query("SELECT 1")).rejects.toThrow();
     expect(cache.put).not.toHaveBeenCalled();
+  });
+});
+
+describe("entry/exit page dimensions", () => {
+  const captured = async (dimension: Parameters<R2SQLAPI["getSessionBreakdown"]>[4]) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, result: { rows: [] } }), { status: 200 }),
+      );
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    await api.getSessionBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      dimension,
+    );
+    return JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body)).query as string;
+  };
+
+  test("entry page uses the first pageview, deterministic on event_id", async () => {
+    const query = await captured("visit:entry_page");
+    expect(query).toContain(
+      "FIRST_VALUE(dimension_value ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page",
+    );
+    expect(query).not.toContain("AS exit_page");
+    expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
+  });
+
+  test("exit page adds the DESC aggregate and selects exit_page", async () => {
+    const query = await captured("visit:exit_page");
+    expect(query).toContain(
+      "FIRST_VALUE(dimension_value ORDER BY event_ts DESC, event_id DESC) FILTER (WHERE event_type = 'pageview') AS exit_page",
+    );
+    expect(query).toContain("SELECT visitor_id, session_number, exit_page AS dimension");
+  });
+
+  test("non-exit dimension contains no exit_page", async () => {
+    const query = await captured("visit:country");
+    expect(query).not.toContain("exit_page");
+  });
+
+  test("event:name throws for session metrics", async () => {
+    const fetcher = vi.fn();
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    await expect(
+      api.getSessionBreakdown(
+        "example.com",
+        new Date("2026-08-01T00:00:00.000Z"),
+        new Date("2026-08-02T00:00:00.000Z"),
+        {},
+        "event:name",
+      ),
+    ).rejects.toThrow("event:name does not support session metrics");
   });
 });

@@ -88,7 +88,14 @@ const PANELS: {
       { card: "campaigns", label: "Campaigns" },
     ],
   },
-  { title: "Pages", tabs: [{ card: "paths", label: "Top pages", filter: "path" }] },
+  {
+    title: "Pages",
+    tabs: [
+      { card: "paths", label: "Top pages", filter: "path" },
+      { card: "entry-pages", label: "Entry pages" },
+      { card: "exit-pages", label: "Exit pages" },
+    ],
+  },
   { title: "Locations", tabs: [{ card: "country", label: "Countries", filter: "country" }] },
   {
     title: "Devices",
@@ -1005,7 +1012,7 @@ function BreakdownTable({
         </Table.Header>
         <Table.Body>
           {shown.map((row, index) => {
-            const pct = row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
+            const pct = isGoals && row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}

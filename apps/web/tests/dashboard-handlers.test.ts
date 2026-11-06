@@ -5,6 +5,8 @@ import {
   browserVersion,
   country,
   device,
+  entryPages,
+  exitPages,
   events,
   goals,
   mutateGoal,
@@ -92,6 +94,8 @@ describe("dashboard handlers (ported loader tests)", () => {
   });
 
   test.each([
+    ["entry-pages", entryPages, "visit:entry_page"],
+    ["exit-pages", exitPages, "visit:exit_page"],
     ["browser", browser, "visit:browser"],
     ["browserversion", browserVersion, "visit:browser_version"],
     ["device", device, "visit:device_type"],
