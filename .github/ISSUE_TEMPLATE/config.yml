@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-    - name: Documentation
-      url: https://github.com/harshil1712/noomers#readme
-      about: Check the documentation for setup and usage information
-    - name: Discussions
-      url: https://github.com/harshil1712/noomers/discussions
-      about: Ask questions and discuss ideas with the community
+  - name: Documentation
+    url: https://github.com/harshil1712/noomers#readme
+    about: Check the documentation for setup and usage information
+  - name: Discussions
+    url: https://github.com/harshil1712/noomers/discussions
+    about: Ask questions and discuss ideas with the community

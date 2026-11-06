@@ -6,7 +6,10 @@ import type { CollectRequestParams } from "../../shared/types";
 global.fetch = vi.fn();
 
 class MockAbortController {
-    signal = {} as AbortSignal;
+    signal = {
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+    } as unknown as AbortSignal;
     abort = vi.fn();
 }
 
@@ -22,11 +25,6 @@ vi.mock("../../shared/utils", () => ({
 
 describe("makeRequest", () => {
     const mockFetch = fetch as ReturnType<typeof vi.fn>;
-    const mockAbort = vi.fn();
-    const mockAbortController = {
-        signal: {},
-        abort: mockAbort,
-    };
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -65,7 +63,10 @@ describe("makeRequest", () => {
                 "User-Agent": "noomers-tracker-server/3.4.1",
             },
             body: "p=%2Ftest&h=example.com&ip=203.0.113.10",
-            signal: mockAbortController.signal,
+            signal: expect.objectContaining({
+                addEventListener: expect.any(Function),
+                removeEventListener: expect.any(Function),
+            }),
         });
     });
 

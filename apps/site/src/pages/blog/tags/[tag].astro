@@ -1,0 +1,44 @@
+---
+import PageLayout from "../../../components/PageLayout.astro";
+import PostList from "../../../components/PostList.astro";
+import { getPublishedPosts, getPublishedTags, type Post } from "../../../lib/posts";
+import { PROJECT } from "#project";
+
+export async function getStaticPaths() {
+  const posts = await getPublishedPosts();
+  const tags = await getPublishedTags();
+  return tags.map((tag) => ({
+    params: { tag },
+    props: { tag, posts: posts.filter((p) => p.data.tags.includes(tag)) },
+  }));
+}
+
+interface Props {
+  tag?: string;
+  posts?: Post[];
+}
+// Derive from the URL when props are missing (same dev-adapter issue as blog/[slug]).
+const tag = Astro.props.tag ?? Astro.params.tag ?? "";
+const posts =
+  Astro.props.posts ?? (await getPublishedPosts()).filter((p) => p.data.tags.includes(tag));
+if (posts.length === 0) return new Response("Not found", { status: 404 });
+---
+<PageLayout title={`Posts tagged "${tag}" · ${PROJECT.productName}`} description={`${PROJECT.productName} blog posts tagged ${tag}.`}>
+  <p class="back"><a href="/blog/">← Blog</a></p>
+  <span class="mono-label eyebrow">Tagged</span>
+  <h1 class="font-display">{tag}</h1>
+  <PostList posts={posts} />
+</PageLayout>
+<style>
+  .back {
+    font-size: 14px;
+  }
+  .eyebrow { display: block; }
+  h1 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 36px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-top: 4px;
+  }
+</style>
