@@ -777,27 +777,10 @@ export async function executeStatsQuery(
   } else {
     throw new StatsAPIError("Basin SQL is not configured");
   }
+  // Per Plausible's docs, revenue metrics without an event:goal filter or
+  // dimension are null with a warning — no goal query runs at all.
   const revenueNoContext = revenueOnly.length > 0 && query.dimensions.length === 0;
-  let goalRevenue: {
-    revenue: { total: number; count: number } | null;
-    currency: string | null;
-    warnings: Record<string, { code: string; warning: string }>;
-  } | null = null;
-  if (revenueNoContext) {
-    const { revenueGoals, currency, warnings } = resolveRevenue(goals, revenueOnly);
-    let revenue: { total: number; count: number } | null = null;
-    if (currency !== null) {
-      const breakdown = await sessions.getGoalBreakdown(
-        query.site_id,
-        query.start,
-        query.end,
-        toR2Filters(query.filters),
-        revenueGoals,
-      );
-      revenue = breakdown.anyRevenue;
-    }
-    goalRevenue = { revenue, currency, warnings };
-  }
+  const noContextWarnings = revenueNoContext ? revenueWarnings(revenueOnly, NO_REVENUE_GOALS) : {};
   const basicRows = basicResult.rows;
   let results = basicRows.map((row) => {
     const rowSessionMetrics =
@@ -806,14 +789,7 @@ export async function executeStatsQuery(
       dimensions: query.dimensions.length ? [row.dimension || ""] : [],
       metrics: query.metrics.map((metric) => {
         if (REVENUE_METRICS.includes(metric as (typeof REVENUE_METRICS)[number])) {
-          if (!goalRevenue?.revenue || !goalRevenue.currency) return null;
-          const value =
-            metric === "total_revenue"
-              ? goalRevenue.revenue.total
-              : goalRevenue.revenue.count > 0
-                ? goalRevenue.revenue.total / goalRevenue.revenue.count
-                : 0;
-          return formatRevenue(value, goalRevenue.currency);
+          return null;
         }
         return metricValue(metric, row, rowSessionMetrics);
       }),
@@ -850,8 +826,8 @@ export async function executeStatsQuery(
   } = {};
   if (query.include.imports) meta.imports_included = false;
   if (query.include.total_rows) meta.total_rows = basicResult.totalRows;
-  if (goalRevenue && Object.keys(goalRevenue.warnings).length) {
-    meta.metric_warnings = goalRevenue.warnings;
+  if (Object.keys(noContextWarnings).length) {
+    meta.metric_warnings = noContextWarnings;
   }
   if (query.include.time_labels && timeDimension) {
     meta.time_labels = getTimeLabels(
