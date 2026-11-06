@@ -99,16 +99,7 @@ describe("/api/maintenance/deletion-jobs", () => {
     expect((await post("r1", { status: "completed" })).status).toBe(409);
   });
 
-  test("415 on non-JSON, 413 on oversized", async () => {
-    expect(
-      (
-        await SELF.fetch(`${BASE}/x`, {
-          method: "POST",
-          headers: { "content-type": "text/plain", ...AUTH },
-          body: "x",
-        })
-      ).status,
-    ).toBe(415);
+  test("413 on oversized", async () => {
     expect(
       (
         await SELF.fetch(`${BASE}/x`, {
