@@ -46,7 +46,7 @@ const DEFAULT_TRACKER_CONFIGURATION: TrackerScriptConfiguration = {
   pageview_props: false,
 };
 
-function normalizeDomain(value: string): string {
+export function normalizeDomain(value: string): string {
   const domain = value.trim().toLowerCase();
   if (!domain || domain.length > 253 || /[\s/:]/.test(domain)) {
     throw new Error("A valid domain is required.");

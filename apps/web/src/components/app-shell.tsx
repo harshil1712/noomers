@@ -1,25 +1,19 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CommandPalette, Link, Sidebar, useSidebar } from "@cloudflare/kumo";
 import { Link as RouterLink, useLocation, useNavigate } from "@tanstack/react-router";
 import { Logo } from "@noomers/brand/Logo.tsx";
 import { Gear, Globe, Plus, SquaresFour } from "@phosphor-icons/react";
 import { useSession } from "../lib/auth-client";
-import { dashboardApi } from "../lib/dashboard-api";
 import { ThemeToggle } from "./theme-toggle";
 import { AddSiteDialog } from "./dashboard/add-site-dialog";
 import { UserMenu } from "./user-menu";
+import { useSites as useSharedSites } from "../lib/use-sites";
 
 const FOCUS_RING = "focus-visible:ring-2 focus-visible:ring-kumo-brand focus-visible:ring-inset";
 
 function useSites() {
-  const [sites, setSites] = useState<string[]>([]);
-  useEffect(() => {
-    dashboardApi
-      .sites()
-      .then((r) => setSites(r.sites))
-      .catch(() => setSites([]));
-  }, []);
-  return sites;
+  const { sites } = useSharedSites();
+  return useMemo(() => (sites ?? []).map((s) => s.domain), [sites]);
 }
 
 function SiteCommands({ sites }: { sites: string[] }) {

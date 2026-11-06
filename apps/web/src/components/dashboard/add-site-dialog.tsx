@@ -1,18 +1,87 @@
-import { Button, Code, Dialog } from "@cloudflare/kumo";
+import { useState, type FormEvent, type ReactElement } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { Button, Code, Combobox, Dialog, Field, Input, Text } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
+import { dashboardApi } from "../../lib/dashboard-api";
+import { refreshSites } from "../../lib/use-sites";
 
-/** "Add site" explainer — sites are registered through the Sites API. */
-export function AddSiteDialog({ trigger }: { trigger?: React.ReactElement }) {
-  const cmd = `curl -X POST ${location.origin}/api/v1/sites \\
-  -H "Authorization: Bearer $SITES_API_TOKEN" \\
-  -H "Content-Type: application/json" \\
-  -d '{"domain": "example.com"}'`;
+const TIMEZONES = Intl.supportedValuesOf("timeZone");
+
+export function TimezonePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (tz: string) => void;
+}) {
   return (
-    <Dialog.Root>
+    <Combobox
+      value={value}
+      onValueChange={(v) => onChange((v as string) || value)}
+      items={TIMEZONES}
+    >
+      <Combobox.TriggerValue className="w-full" />
+      <Combobox.Content>
+        <Combobox.Input placeholder="Search timezones" />
+        <Combobox.Empty>No matching timezone.</Combobox.Empty>
+        <Combobox.List>
+          {(tz: string) => (
+            <Combobox.Item key={tz} value={tz}>
+              {tz}
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+      </Combobox.Content>
+    </Combobox>
+  );
+}
+
+/** "Add site" dialog — registers a site, then shows its tracker snippet. */
+export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [domain, setDomain] = useState("");
+  const [timezone, setTimezone] = useState(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "Etc/UTC",
+  );
+  const [error, setError] = useState("");
+  const [pending, setPending] = useState(false);
+  const [added, setAdded] = useState<{ domain: string; snippet: string } | null>(null);
+
+  const reset = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setDomain("");
+      setError("");
+      setPending(false);
+      setAdded(null);
+    }
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setPending(true);
+    try {
+      const site = await dashboardApi.createSite(domain.trim(), timezone);
+      setAdded({
+        domain: site.domain,
+        snippet: `<script defer src="${location.origin}/tracker.js" data-site-id="${site.domain}"></script>`,
+      });
+      void refreshSites();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't add the site.");
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={reset}>
       <Dialog.Trigger render={trigger ?? <Button variant="primary">Add site</Button>} />
       <Dialog className="p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <Dialog.Title>Add a site</Dialog.Title>
+          <Dialog.Title>{added ? `${added.domain} added` : "Add a site"}</Dialog.Title>
           <Dialog.Close
             aria-label="Close"
             render={(props) => (
@@ -26,13 +95,58 @@ export function AddSiteDialog({ trigger }: { trigger?: React.ReactElement }) {
             )}
           />
         </div>
-        <Dialog.Description>
-          Sites are registered through the Sites API — there is no site-creation UI. Use your
-          deployment&apos;s <Code code="SITES_API_TOKEN" /> as the Bearer token.
-        </Dialog.Description>
-        <div className="mt-3">
-          <Code.Block code={cmd} lang="bash" />
-        </div>
+        {added ? (
+          <>
+            <Dialog.Description>
+              Add this snippet to the site to start collecting.
+            </Dialog.Description>
+            <div className="mt-3">
+              <Code.Block code={added.snippet} lang="tsx" />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <Button
+                variant="primary"
+                onClick={() => {
+                  reset(false);
+                  void navigate({ to: "/dashboard", search: { site: added.domain } });
+                }}
+              >
+                Open dashboard
+              </Button>
+            </div>
+          </>
+        ) : (
+          <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+            <Dialog.Description>Register a site and start tracking it.</Dialog.Description>
+            <Field
+              label="Domain"
+              error={error ? { message: error, match: "customError" } : undefined}
+              required
+            >
+              <Input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                placeholder="example.com"
+                required
+                autoFocus
+              />
+            </Field>
+            <Field
+              label="Reporting timezone"
+              description="Dates and charts are grouped in this timezone."
+            >
+              <TimezonePicker value={timezone} onChange={setTimezone} />
+            </Field>
+            <div className="flex items-center justify-between gap-2">
+              <Text variant="secondary" size="xs">
+                Sites can also be managed via the Plausible-compatible Sites API.
+              </Text>
+              <Button variant="primary" type="submit" loading={pending}>
+                Add site
+              </Button>
+            </div>
+          </form>
+        )}
       </Dialog>
     </Dialog.Root>
   );

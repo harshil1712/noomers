@@ -8,6 +8,7 @@ import {
   type TrackerScriptConfiguration,
 } from "../sites/repository";
 import { validateTeamId, SINGLE_ORGANIZATION } from "../sites/team";
+import { deleteSite } from "../sites/service";
 import { GoalsRepository, type Goal, type GoalType } from "../goals/repository";
 import { CustomPropertiesRepository } from "../custom-properties/repository";
 
@@ -102,27 +103,16 @@ export async function mutateSite(c: C) {
   const repository = new SitesRepository(c.env.DB);
   if (request.method === "DELETE") {
     const siteId = c.req.param("site_id") || "";
-    const deleted = await repository.delete(siteId);
-    if (!deleted) return notFound();
-    const namespace = c.env.SITE_EVENTS;
-    if (namespace) {
-      try {
-        await namespace.get(namespace.idFromName(siteId)).purge();
-      } catch (error) {
-        console.error(
-          JSON.stringify({
-            message: "site events purge failed",
-            error: String(error),
-          }),
-        );
-        return Response.json(
-          {
-            deleted: "true",
-            warning: "site tombstoned, but realtime-buffered data purge failed",
-          },
-          { status: 502 },
-        );
-      }
+    const result = await deleteSite(c.env, siteId);
+    if (!result.deleted) return notFound();
+    if (result.purgeFailed) {
+      return Response.json(
+        {
+          deleted: "true",
+          warning: "site tombstoned, but realtime-buffered data purge failed",
+        },
+        { status: 502 },
+      );
     }
     return Response.json({ deleted: "true" });
   }

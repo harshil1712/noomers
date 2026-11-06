@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useId, useState, type FormEvent, useRef } from "react";
 import { Button, Input, Loader, Text } from "@cloudflare/kumo";
 import { authClient, useSession } from "../../lib/auth-client";
@@ -40,6 +40,9 @@ import { PageHeader } from "../../components/page-header";
 import { LayerCard, SensitiveInput } from "@cloudflare/kumo";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
+import { dashboardApi } from "../../lib/dashboard-api";
+import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
+import { TimezonePicker } from "../../components/dashboard/add-site-dialog";
 
 export const Route = createFileRoute("/_authed/settings")({ component: Settings });
 
@@ -83,6 +86,7 @@ function Settings() {
             <ProfileSection key={user.id} name={user.name} email={user.email} />
             <PasswordSection hasPassword={hasPassword} />
             <SessionsSection />
+            <SitesSettings />
             <DeleteAccountSection hasPassword={hasPassword} />
           </>
         )}
@@ -301,5 +305,113 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
         </ConfirmDialog>
       }
     />
+  );
+}
+
+function SitesSettings() {
+  const navigate = useNavigate();
+  const { sites, error: loadError } = useSharedSites();
+  const [error, setError] = useState<string | null>(null);
+  const [timezones, setTimezones] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState("");
+
+  useEffect(() => {
+    if (loadError) setError("Couldn't load your sites.");
+    if (sites) setTimezones(Object.fromEntries(sites.map((d) => [d.domain, d.timezone])));
+  }, [sites, loadError]);
+
+  const saveTimezone = async (domain: string) => {
+    setBusy(domain);
+    try {
+      await dashboardApi.updateSite(domain, timezones[domain]);
+      void refreshSites();
+      toast.success("Timezone saved", domain);
+    } catch (e) {
+      toast.error("Couldn't save timezone", e instanceof Error ? e.message : domain);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const deleteSite = async (domain: string) => {
+    try {
+      await dashboardApi.deleteSite(domain);
+      toast.success(`${domain} deleted`, "Collection has stopped.");
+      void refreshSites();
+      const remaining = (sites ?? []).filter((s) => s.domain !== domain);
+      const active = new URLSearchParams(location.search).get("site");
+      if (active === domain || remaining.length === 0) {
+        void navigate({ to: "/dashboard", search: { site: remaining[0]?.domain } });
+      }
+    } catch (e) {
+      toast.error("Couldn't delete the site", e instanceof Error ? e.message : domain);
+      return false;
+    }
+  };
+
+  return (
+    <SettingsSection
+      title="Sites"
+      description="Manage your tracked sites. Deleting a site is permanent."
+    >
+      {error && <FormError message={error} attempt={0} />}
+      {sites === null ? (
+        <Loader size="sm" aria-label="Loading sites" />
+      ) : sites.length === 0 ? (
+        <Text variant="secondary" size="sm">
+          No sites yet.
+        </Text>
+      ) : (
+        <ul className="flex flex-col gap-4">
+          {sites.map((site) => (
+            <li
+              key={site.domain}
+              className="flex flex-wrap items-center gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
+            >
+              <Text>{site.domain}</Text>
+              <div className="w-56">
+                <TimezonePicker
+                  value={timezones[site.domain] ?? site.timezone}
+                  onChange={(tz) => setTimezones((t) => ({ ...t, [site.domain]: tz }))}
+                />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={busy === site.domain}
+                disabled={timezones[site.domain] === site.timezone}
+                onClick={() => void saveTimezone(site.domain)}
+              >
+                Save
+              </Button>
+              <ConfirmDialog
+                title={`Delete ${site.domain}?`}
+                description="Collection stops immediately and this domain can never be added again. Stored history is queued for erasure — it is not erased instantly."
+                confirmLabel="Delete site"
+                variant="destructive"
+                confirmDisabled={confirmText !== site.domain}
+                onOpenChange={(open) => {
+                  if (!open) setConfirmText("");
+                }}
+                onConfirm={() => deleteSite(site.domain)}
+                trigger={
+                  <Button variant="secondary-destructive" size="sm">
+                    Delete
+                  </Button>
+                }
+              >
+                <Input
+                  label={`Type ${site.domain} to confirm`}
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  placeholder={site.domain}
+                />
+              </ConfirmDialog>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SettingsSection>
   );
 }

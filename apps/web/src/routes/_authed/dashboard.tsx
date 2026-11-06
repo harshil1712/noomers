@@ -28,6 +28,8 @@ import {
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
+import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
+import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 import {
   dashboardApi,
   type BreakdownCard,
@@ -193,19 +195,10 @@ function Dashboard() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
-  const [sites, setSites] = useState<string[] | null>(null);
-  const [sitesError, setSitesError] = useState(false);
+  const { sites: siteList, error: sitesError } = useSharedSites();
+  const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [nonce, setNonce] = useState(0);
   const [failures, setFailures] = useState<Set<string>>(new Set());
-
-  const loadSites = () => {
-    setSitesError(false);
-    dashboardApi
-      .sites()
-      .then((r) => setSites(r.sites))
-      .catch(() => setSitesError(true));
-  };
-  useEffect(loadSites, []);
 
   const site = search.site ?? "";
   useEffect(() => {
@@ -254,7 +247,6 @@ function Dashboard() {
 
   const trackingSnippet = `<script defer\n  src="${location.origin}/tracker.js"\n  data-site-id="${site || "example.com"}"></script>`;
   const plausibleSnippet = `<script defer\n  src="${location.origin}/js/pa-XXXX.js"\n  data-domain="${site || "example.com"}"></script>`;
-  const addSiteCmd = `curl -X POST ${location.origin}/api/v1/sites \\\n  -H "Authorization: Bearer $SITES_API_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{"domain": "example.com"}'`;
 
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -404,16 +396,16 @@ function Dashboard() {
             The dashboard API didn&apos;t respond. Check that you&apos;re signed in and try again.
           </p>
           <div className="mt-4 flex justify-center">
-            <Button onClick={loadSites}>Retry</Button>
+            <Button onClick={() => void refreshSites()}>Retry</Button>
           </div>
         </Surface>
       ) : sites === null && !site ? (
         <DashboardSkeleton />
       ) : sites !== null && sites.length === 0 ? (
         <Empty
-          title="No sites registered"
-          description="Sites are registered through the Sites API — there's no site-management UI yet."
-          commandLine={addSiteCmd}
+          title="No sites yet"
+          description="Add a site to start tracking it."
+          contents={<AddSiteDialog />}
         />
       ) : !site ? (
         <DashboardSkeleton />
