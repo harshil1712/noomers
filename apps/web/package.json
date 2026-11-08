@@ -22,7 +22,7 @@
     "@phosphor-icons/react": "2.1.10",
     "@tanstack/react-router": "1.170.46",
     "@vitejs/plugin-react": "6.1.2",
-    "better-auth": "1.7.12",
+    "better-auth": "1.7.16",
     "dayjs": "^1.11.11",
     "drizzle-orm": "0.45.4",
     "echarts": "6.0.0",
