@@ -38,8 +38,9 @@ const EventsCatalog = isDev
       `${PROJECT.name}-events-catalog`,
       Effect.gen(function* () {
         const token = yield* EventsSinkToken!;
+        const bucket = yield* WarehouseBucket!;
         return {
-          bucket: WarehouseBucket!,
+          bucket,
           token: token.value,
           snapshotExpiration: {
             state: "enabled" as const,
@@ -116,9 +117,10 @@ const EventsSink = isDev
       `${PROJECT.name}-events-sink`,
       Effect.gen(function* () {
         const token = yield* EventsSinkToken!;
+        const catalog = yield* EventsCatalog!;
         return {
           type: "r2_data_catalog" as const,
-          catalog: EventsCatalog!,
+          catalog,
           table: { namespace: "noomers", name: "events" },
           token: token.value,
         };
@@ -151,7 +153,7 @@ const TurnstileWidget = isProd
 // Email sending domain on the zone — prod only. Local dev uses alchemy's
 // .eml simulator (.alchemy/local/email), previews send nothing real.
 // Zone id comes from CLOUDFLARE_ZONE_ID (or a zone lookup) — never hardcode it.
-const _EmailDomain =
+const EmailDomain =
   isProd && process.env.CLOUDFLARE_ZONE_ID
     ? Cloudflare.Email.SendingSubdomain(`${PROJECT.name}-email`, {
         zoneId: process.env.CLOUDFLARE_ZONE_ID,
@@ -300,12 +302,13 @@ export default Alchemy.Stack(
   PROJECT.name,
   { providers: Cloudflare.providers(), state: Cloudflare.state() },
   Effect.gen(function* () {
-    // The pipeline resources aren't referenced by a binding, so yield them
-    // explicitly — unreferenced resource Effects are never applied.
+    // The pipeline resources and email domain aren't referenced by a binding,
+    // so yield them explicitly — unyielded resource Effects are never applied.
     if (!isDev) {
       yield* EventsSink!;
       yield* EventsPipeline!;
     }
+    if (EmailDomain) yield* EmailDomain;
     const web = yield* Web;
     const site = yield* Site;
     return { url: web.url, siteUrl: site.url };
