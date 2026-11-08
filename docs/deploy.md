@@ -67,10 +67,6 @@ On top of the table above the deploy token also needs, because
 | Account · Workers R2 SQL · Read                | minting the read-only Basin SQL token |
 | Account · Cloudflare Workers KV Storage · Read | DO state inspection (optional)        |
 
-(If `cf-token-preflight.sh` doesn't already name them, grant Pipelines and
-Data Catalog write — the account-scope groups they live under are
-"Workers Pipelines" and "R2" — verify exact permission names in the
-dashboard's token editor before cutover.)
 
 ### Additional secrets (noomers analytics)
 
