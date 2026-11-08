@@ -97,7 +97,8 @@ the data files the deleted snapshots no longer reference.
 Secrets used: `SITES_API_TOKEN` (must exist in the production environment
 for the workflow to run; it skips with a notice otherwise),
 `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. To run it by hand:
-Actions → iceberg-erasure → Run workflow.
+Actions → iceberg-erasure → Run workflow. Set the repo variable
+`R2_SQL_BUCKET` to the deployed stage's warehouse bucket name.
 
 ## Cutover from the wrangler-based deployment
 
