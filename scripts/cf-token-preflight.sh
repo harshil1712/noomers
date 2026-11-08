@@ -24,6 +24,11 @@ check "Account · Workers Scripts · Write" "/accounts/$A/workers/subdomain"
 check "Account · D1 · Write" "/accounts/$A/d1/database"
 check "Account · Workers R2 Storage · Write" "/accounts/$A/r2/buckets"
 check "Account · Secrets Store · Write" "/accounts/$A/secrets_store/stores"
+# Read probes: a GET proves read access to the area, not write — but these
+# are the closest read-only checks for the permissions deploy needs.
+check "Account · Pipelines · Write" "/accounts/$A/pipelines/v1/streams"
+check "Account · Workers R2 Data Catalog · Write" "/accounts/$A/r2-catalog"
+check "Account · Account API Tokens · Edit" "/accounts/$A/tokens"
 
 if [ -n "${1:-}" ]; then
   zone=$(curl -s -m 20 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$API/zones?name=$1" | jq -r '.result[0].id // empty')

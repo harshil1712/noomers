@@ -20,21 +20,20 @@ jobs:
       - name: Check secrets
         id: secrets
         run: |
-          if [ -z "${{ secrets.SITES_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+          if [ -z "${{ secrets.SITES_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ vars.R2_SQL_BUCKET }}" ]; then
             echo "missing=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Skip when secrets are missing
         if: steps.secrets.outputs.missing == 'true'
-        run: echo "::notice::SITES_API_TOKEN or CLOUDFLARE_API_TOKEN missing — erasure skipped"
+        run: echo "::notice::SITES_API_TOKEN, CLOUDFLARE_API_TOKEN, or R2_SQL_BUCKET missing — erasure skipped"
       - name: Read project config
         if: steps.secrets.outputs.missing != 'true'
         id: cfg
         run: |
           DOMAIN=$(grep -o 'domain: "[^"]*"' project.config.ts | head -1 | cut -d'"' -f2)
           APP_SUB=$(grep -o 'appSubdomain: "[^"]*"' project.config.ts | head -1 | cut -d'"' -f2)
-          NAME=$(grep -o 'name: "[^"]*"' project.config.ts | head -1 | cut -d'"' -f2)
           echo "app_url=https://${APP_SUB}.${DOMAIN}" >> "$GITHUB_OUTPUT"
-          echo "bucket=${NAME}-events" >> "$GITHUB_OUTPUT"
+          echo "bucket=${{ vars.R2_SQL_BUCKET }}" >> "$GITHUB_OUTPUT"
       - name: Erase deleted-site rows from Iceberg
         if: steps.secrets.outputs.missing != 'true'
         env:
