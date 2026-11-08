@@ -23,7 +23,7 @@ noomers currently has:
 - Plausible-compatible `POST /api/event`, native `GET /collect`, and `GET /api/health` endpoints.
 - A partial `POST /api/v2/query` Stats API.
 - Partial Sites API provisioning, goals, and custom-property registration.
-- A Better Auth–gated, single-owner dashboard (session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the first admin) with summary, time-series, page, referrer, event, goal, property, browser, country, device, and UTM reports, plus a realtime tab served by the SiteEvents Durable Object over WebSocket.
+- A Better Auth–gated, single-owner dashboard (session user with `role === "admin"`; `OWNER_ADMIN_EMAIL`, else the first verified account, bootstraps the admin) with summary, time-series, page, referrer, event, goal, property, browser, country, device, and UTM reports, plus a realtime tab served by the SiteEvents Durable Object over WebSocket.
 - Canonical event storage through Basin Pipelines (formerly Cloudflare Pipelines), Basin Catalog (formerly R2 Data Catalog), and Basin SQL, all provisioned by `alchemy.run.ts`.
 - A D1 site registry, permanent deletion tombstones, per-site SiteEvents Durable Objects (purged on delete), and deletion-job records tracking Iceberg maintenance state.
 - Deployment-wide bearer tokens for the Plausible APIs (`SITES_API_TOKEN`, `STATS_API_TOKEN`) and an optional first-party server tracker token (`SERVER_EVENTS_TOKEN`).
@@ -275,7 +275,7 @@ The dashboard reads everything through Basin SQL sessionization; the realtime ta
 
 ## Collaboration and access control
 
-noomers is a single-owner deployment: Better Auth provides sign-up/sign-in (with email verification, optional Google OAuth, Turnstile, and `SIGNUP_DISABLED`), and every dashboard surface requires a session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the first admin. Non-admin signed-in users get 403. Teams, per-user roles, invitations, SSO, and billing-related access controls are non-goals rather than pending parity work.
+noomers is a single-owner deployment: Better Auth provides sign-up/sign-in (with email verification, optional Google OAuth, Turnstile, and `SIGNUP_DISABLED` — `true` closed, `false` open, empty closes once an admin exists), and every dashboard surface requires a session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the admin, or the first verified account becomes admin when it's unset. Non-admin signed-in users get 403. Teams, per-user roles, invitations, SSO, and billing-related access controls are deferred to the planned hosted (SaaS) offering rather than pending parity work.
 
 | Feature                         | Status    | Remaining work                                                                                 |
 | ------------------------------- | --------- | ---------------------------------------------------------------------------------------------- |
@@ -387,7 +387,7 @@ These are noomers reliability improvements, not documented Plausible public API 
 
 ## Explicit non-goals
 
-The following Plausible features depend on a multi-user SaaS or commercial control plane and are outside noomers's product scope:
+The following Plausible features depend on a multi-user SaaS or commercial control plane; noomers stays self-hosted first, so they're deferred to the planned hosted offering:
 
 - Billing, trials, subscriptions, plan limits, and usage lockouts.
 - Separately billed teams and cross-team site transfers.
@@ -395,7 +395,7 @@ The following Plausible features depend on a multi-user SaaS or commercial contr
 - SAML SSO, organization policy, and JIT user provisioning.
 - Contract-defined raw-event exports and data-retention agreements.
 
-These items are not part of the implementation roadmap.
+These items move to the roadmap only with the hosted offering (see `implementation-roadmap.md`).
 
 ## Compatibility claims
 
@@ -408,7 +408,7 @@ Until the relevant rows above are complete, documentation should avoid claiming:
 - Entry/exit page or channel reporting.
 - Plausible or Google Analytics imports beyond the self-hosted `events_v2` path.
 - Complete data erasure immediately after deleting a site.
-- Real teams, guests, or shared links.
+- Real teams, guests, or shared links (deferred to the hosted offering).
 - Any behavior validated against live Cloudflare resources — nothing has been deployed yet.
 
 ## Official Plausible references

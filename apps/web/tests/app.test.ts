@@ -51,6 +51,7 @@ describe("auth", () => {
     await signUp(email);
     await verifyLatest(email);
 
+    const saved = env.SIGNUP_DISABLED;
     env.SIGNUP_DISABLED = "true";
     try {
       const closedEmail = `closed-${crypto.randomUUID()}@t.dev`;
@@ -72,11 +73,11 @@ describe("auth", () => {
       });
       expect(login.status).toBe(200);
     } finally {
-      env.SIGNUP_DISABLED = "";
+      env.SIGNUP_DISABLED = saved;
     }
   });
 
-  it("public-config defaults to sign-ups open", async () => {
+  it("public-config reports sign-ups open (SIGNUP_DISABLED=false in test bindings)", async () => {
     const config = await SELF.fetch("https://x/api/public-config");
     expect((await config.json<{ signupEnabled: boolean }>()).signupEnabled).toBe(true);
   });

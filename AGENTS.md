@@ -73,8 +73,8 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 
 ### Dashboard and auth
 
-- Better Auth owns all auth: email+password with mandatory verification, Google OAuth (optional), Turnstile on sign-up/sign-in/reset, `SIGNUP_DISABLED` support.
-- The dashboard is single-owner self-hosted: every dashboard surface (`/api/dashboard/*` and `/realtime/:siteId`) requires a session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the first admin. Non-admin signed-in users get 403.
+- Better Auth owns all auth: email+password with mandatory verification, Google OAuth (optional), Turnstile on sign-up/sign-in/reset, `SIGNUP_DISABLED` support (`true` closed, `false` open, empty closes once an admin exists).
+- The dashboard is single-owner self-hosted: every dashboard surface (`/api/dashboard/*` and `/realtime/:siteId`) requires a session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the admin — if unset, the first verified account to get a session becomes admin. Non-admin signed-in users get 403.
 - Plausible APIs keep deployment-wide Bearer tokens (`SITES_API_TOKEN`, `STATS_API_TOKEN`); `SERVER_EVENTS_TOKEN` gates the server-tracker trust path.
 
 ## Non-negotiable invariants
@@ -176,7 +176,7 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 - **Alchemy v2** (Effect style) owns all infra — no wrangler config files for deploy, no Terraform.
 - **Kumo UI** (`@cloudflare/kumo`) + Phosphor icons + Tailwind 4. No other component library; `cn()` comes from `@cloudflare/kumo`.
 - **Charts:** Kumo `TimeseriesChart` + consumer-installed `echarts` (no recharts).
-- **Better Auth** for all auth; admin plugin + `OWNER_ADMIN_EMAIL` gate the dashboard.
+- **Better Auth** for all auth; admin plugin + `OWNER_ADMIN_EMAIL`/first-user fallback gates the dashboard.
 - **No `vi.mock`** — the anti-slop plugin forbids module mocking; tests use real seams.
 - **No generic agent API/MCP.** `/api/v1/*` belongs to the Plausible Sites API. An agent surface may come later as a deliberate project, not the template's flow.
 

@@ -12,8 +12,8 @@ export function NotOwnerNotice() {
       description="Only the owner account can use the dashboard."
       contents={
         <Text variant="secondary" size="sm">
-          Set <code>OWNER_ADMIN_EMAIL</code> to {data?.user?.email ?? "your email"} in the
-          deployment&apos;s environment, then sign out and sign in again.
+          Ask the owner for access. If this is your deployment, set <code>OWNER_ADMIN_EMAIL</code>{" "}
+          to {data?.user?.email ?? "your email"}, then sign out and sign in again.
         </Text>
       }
     />

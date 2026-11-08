@@ -10,7 +10,7 @@ _noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.d
 - **Privacy by construction** — no cookies, no raw IPs or full user-agents persisted; visitor IDs are site-scoped, hostname-scoped, salted, and rotate daily in UTC.
 - **Realtime** — a per-site `SiteEvents` Durable Object buffers canonical events and serves live realtime aggregates over WebSocket.
 - **Full history** — the DO ships durable events to [Cloudflare Basin](https://developers.cloudflare.com/basin/) (Pipelines → R2 → Iceberg → Basin SQL), so there is no fixed retention limit.
-- **Dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; the first verified `OWNER_ADMIN_EMAIL` becomes admin) with stats, timeseries, realtime, goals, and breakdown cards.
+- **Dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; `OWNER_ADMIN_EMAIL`, or the first verified account if unset) with stats, timeseries, realtime, goals, and breakdown cards.
 - **Plausible-compatible APIs** — a subset of Plausible's Events, Sites, and Stats APIs. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline — **not** full parity.
 
 ## Architecture
@@ -51,13 +51,13 @@ site visitor ──GET /collect or POST /api/event──▶ apps/web worker (Hon
 | Secret                                           | Purpose                                                           |
 | ------------------------------------------------ | ----------------------------------------------------------------- |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Deploy (needs Account API Tokens: Edit)                           |
-| `OWNER_ADMIN_EMAIL`                              | First admin bootstrap (verified email match)                      |
+| `OWNER_ADMIN_EMAIL`                              | Optional — first admin; if unset, first verified account is admin |
 | `SITES_API_TOKEN`                                | Bearer for `/api/v1/*` (site management)                          |
 | `STATS_API_TOKEN`                                | Bearer for `/api/v2/query` (and /api/v1 fallback)                 |
 | `R2_SQL_TABLE`                                   | Query table (`noomers.events`)                                    |
 | `R2_SQL_IMPORT_TABLE`                            | Optional imported-history table (see `scripts/plausible-import/`) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`      | Optional Google OAuth                                             |
-| `SIGNUP_DISABLED`                                | Optional — closes new sign-ups                                    |
+| `SIGNUP_DISABLED`                                | `true` closed, `false` open, empty = open until an admin exists   |
 | `CF_TRACKER_SCRIPT_NAME`                         | Optional custom tracker script path                               |
 | `SERVER_EVENTS_TOKEN`                            | Optional first-party server tracker token                         |
 

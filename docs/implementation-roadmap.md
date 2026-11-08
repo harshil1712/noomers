@@ -109,14 +109,12 @@ Last reviewed: 2026-11-05.
 | Trusted timestamps and batch ingestion   | Planned | Restricted administrative paths for backdated events, if import throughput requires it.                 |
 | Storage-level write idempotency          | Planned | Query-time dedup exists; idempotent durable writes would remove reliance on `event_id` collapsing.      |
 
-## Deferred: multi-user and organization features
+## Later: hosted (SaaS) offering
 
-noomers is a single-owner deployment: Better Auth provides identities, and the admin role gates every dashboard surface. These items are recorded as non-goals, not future phases:
+noomers stays self-hosted first. A hosted offering is planned later, where admin = the platform operator and customers own their own sites. It needs:
 
-- Teams, memberships, roles beyond the single admin, and invitations.
-- Guests and shared links (the Sites API stubs return `501`).
-- Scoped API keys, audit logs, team-wide 2FA, SAML SSO/JIT.
-- Consolidated multi-site views.
-- Billing, subscriptions, and plan enforcement.
+- Site ownership on every site; scoping of every dashboard query, the Stats/Sites APIs, and the realtime socket to the owner.
+- Per-user API keys replacing deployment-wide tokens.
+- Limits, billing, and abuse handling; processor privacy terms (DPA).
 
-Move deferred items into the backlog only after an explicit product-scope decision.
+Later than that: teams, memberships, roles beyond a single admin, invitations, guests and shared links (the Sites API stubs return `501`), scoped API keys beyond per-user, audit logs, team-wide 2FA, SAML SSO/JIT, and consolidated multi-site views.
