@@ -18,7 +18,7 @@ jobs:
       - name: Check secrets
         id: secrets
         run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ] || [ -z "${{ secrets.WORKERS_DEV_SUBDOMAIN }}" ]; then
             echo "missing=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Deploy previews pr-${{ github.event.pull_request.number }}
@@ -27,6 +27,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PR_NAME: pr-${{ github.event.pull_request.number }}
+          PUBLIC_APP_URL: https://pr-${{ github.event.pull_request.number }}-noomers-web.${{ secrets.WORKERS_DEV_SUBDOMAIN }}.workers.dev
         run: npx alchemy deploy --stage pr-${{ github.event.pull_request.number }} --yes
       - name: Notice when secrets are missing
         if: steps.secrets.outputs.missing == 'true'
@@ -49,4 +50,5 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PR_NAME: pr-${{ github.event.pull_request.number }}
+          PUBLIC_APP_URL: https://pr-${{ github.event.pull_request.number }}-noomers-web.${{ secrets.WORKERS_DEV_SUBDOMAIN }}.workers.dev
         run: npx alchemy destroy --stage pr-${{ github.event.pull_request.number }} --yes
