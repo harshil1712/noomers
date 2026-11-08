@@ -33,6 +33,9 @@
     "GOOGLE_CLIENT_ID": "",
     "GOOGLE_CLIENT_SECRET": "",
     "OWNER_ADMIN_EMAIL": "owner@example.com",
+    // Kept open so tests that already created an admin can still sign up;
+    // signup tests override per-test.
+    "SIGNUP_DISABLED": "false",
     // Cloudflare's always-pass Turnstile test pair — siteverify succeeds for
     // any token, so sign-up tests need no real widget.
     "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",

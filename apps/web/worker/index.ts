@@ -1,11 +1,10 @@
 import { Hono } from "hono";
+import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { SPA_CSP } from "./security-headers";
-import { requestIdMiddleware } from "./middleware/request-id";
 import { authRateLimit } from "./middleware/rate-limit";
 import { createAuth } from "./auth";
 import { publicConfigRoutes } from "./routes/public-config";
-import { meRoutes } from "./routes/me";
 import {
   handleCollect,
   handlePlausibleEvent,
@@ -17,6 +16,7 @@ import { handleRealtimeRoute } from "./routes/realtime";
 import { handleTrackerScript, handlePlausibleScript } from "./routes/scripts";
 import { handleFavicon } from "./routes/favicon";
 import { sitesApi } from "./routes/v1-sites";
+import { maintenanceApi } from "./routes/maintenance";
 import { handleStatsQuery, v2MethodNotAllowed } from "./routes/v2-query";
 import { sessionAnalyticsFactory } from "./lib/context";
 import * as dashboard from "./routes/dashboard";
@@ -27,13 +27,19 @@ export { SiteEvents };
 const app = new Hono<{ Bindings: Env }>();
 
 // Request id first — the error handler and every route can read it.
-app.use("*", requestIdMiddleware);
-
+// limitLength: 0 forces generation — a client-supplied id is never trusted.
+// The header is re-applied after next() because handlers returning a raw
+// Response replace the context headers the middleware sets up front.
+app.use("*", async (c, next) => {
+  await requestId({ limitLength: 0 })(c, next);
+  const id = c.get("requestId");
+  if (id) c.header("X-Request-Id", id);
+});
 // Security headers + SPA CSP apply only to the auth/app surface. Analytics
 // endpoints (/collect, /api/event, /api/v1, /api/v2, tracker scripts, cache,
 // favicon, realtime) own their headers — tracker scripts must stay loadable
 // cross-origin and collect/event carry their own CORS contract.
-const SECURED_PREFIXES = ["/api/auth/", "/api/me", "/api/public-config"];
+const SECURED_PREFIXES = ["/api/auth/", "/api/public-config"];
 app.use("*", async (c, next) => {
   if (!SECURED_PREFIXES.some((p) => c.req.path.startsWith(p))) return next();
   return secureHeaders({
@@ -77,6 +83,7 @@ app.all("/api/event", handlePlausibleEventMethodNotAllowed);
 
 // --- Plausible Sites API (v1) ----------------------------------------------
 app.route("/", sitesApi);
+app.route("/", maintenanceApi);
 
 // --- Stats API (v2) ----------------------------------------------------------
 app.post("/api/v2/query", (c) =>
@@ -100,7 +107,6 @@ app.get("/cache", handleCache);
 
 // --- Dashboard app surface ----------------------------------------------------
 app.route("/", publicConfigRoutes);
-app.route("/", meRoutes);
 
 // Better Auth handler — catches all /api/auth/* requests (sign-in, sign-up,
 // email verification, reset, admin plugin endpoints, OAuth callbacks).

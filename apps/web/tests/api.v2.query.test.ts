@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
 import { handleStatsQuery, v2MethodNotAllowed } from "../worker/routes/v2-query";
 
-// Harness shim: the old tests exercised the React Router action/loader via a
-// { request, context } arg; the Hono port takes (request, env,
-// sessionAnalytics) directly. Behaviour is identical — only the call shape
-// changed.
+// Harness shim: keeps the { request, context } call shape while the Hono
+// handler takes (request, env, sessionAnalytics) directly.
 async function action(args: {
   request: Request;
   context: {
@@ -46,6 +44,7 @@ function context(
         tracker_script_configuration: "{}",
       },
     ),
+    all: vi.fn().mockResolvedValue({ results: (overrides.goalRows as unknown[]) ?? [] }),
   };
   const sessions =
     "sessionAnalytics" in overrides
@@ -70,14 +69,6 @@ function context(
         STATS_API_TOKEN: "stats-secret",
         DB: { prepare: vi.fn(() => siteStatement) },
       },
-    },
-    analyticsEngine: {
-      query: vi.fn().mockResolvedValue(
-        Response.json({
-          data: [{ visitors: 12, pageviews: 20, events: 24 }],
-        }),
-      ),
-      fromClause: 'FROM "metricsDataset"',
     },
     ...overrides,
   };
@@ -230,7 +221,6 @@ describe("Plausible Stats API v2", () => {
     expect(response.status).toBe(200);
     const body = (await response.json()) as { results: { metrics: unknown[] }[] };
     expect(body.results[0].metrics).toEqual([8, 10, 18, 1.8, 40, 42, 21]);
-    expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
     expect(getSessionMetrics).toHaveBeenCalledOnce();
   });
 
@@ -263,7 +253,6 @@ describe("Plausible Stats API v2", () => {
     await expect(response.json()).resolves.toMatchObject({
       results: [{ dimensions: ["/pricing"], metrics: [4, 5, 8, 40] }],
     });
-    expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
     expect(getSessionBreakdown).toHaveBeenCalledWith(
       "example.com",
       new Date("2026-08-01T00:00:00.000Z"),
@@ -564,7 +553,6 @@ describe("Plausible Stats API v2", () => {
       results: [{ dimensions: [], metrics: [7, 11, 13] }],
     });
     expect(getBasicMetrics).toHaveBeenCalledOnce();
-    expect(appContext.analyticsEngine.query).not.toHaveBeenCalled();
   });
 
   test("applies client-side offset to scalar R2 aggregates without a dimension", async () => {
@@ -721,5 +709,469 @@ describe("Plausible Stats API v2", () => {
     await expect(response.json()).resolves.toEqual({
       error: "include options must be booleans",
     });
+  });
+});
+
+describe("visit:entry_page / visit:exit_page", () => {
+  const visitQuery = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors", "bounce_rate"],
+    dimensions: ["visit:entry_page"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+
+  test("entry page with session metrics goes through session SQL", async () => {
+    const sessions = {
+      getSessionMetrics: vi.fn(),
+      getSessionBreakdown: vi.fn().mockResolvedValue({
+        rows: [{ dimension: "/a", visitors: 3, bounces: 1, visits: 3 }],
+      }),
+      getBasicMetrics: vi.fn(),
+    };
+    const res = await action({
+      request: request(visitQuery()),
+      context: context({ sessionAnalytics: sessions }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(sessions.getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "visit:entry_page",
+      undefined,
+      expect.any(Object),
+    );
+  });
+
+  test("visitors-only still uses the session path", async () => {
+    const sessions = {
+      getSessionMetrics: vi.fn(),
+      getSessionBreakdown: vi.fn().mockResolvedValue({ rows: [] }),
+      getBasicMetrics: vi.fn(),
+    };
+    const res = await action({
+      request: request(visitQuery({ metrics: ["visitors"] })),
+      context: context({ sessionAnalytics: sessions }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(sessions.getSessionBreakdown).toHaveBeenCalled();
+    expect(sessions.getBasicMetrics).not.toHaveBeenCalled();
+  });
+
+  test("events metric with a visit dimension → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ metrics: ["visitors", "events"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("events is not supported with visit:entry_page"),
+    });
+  });
+
+  test("unsupported visit:referrer → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ dimensions: ["visit:referrer"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+  });
+
+  test("event:name with session metrics → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ dimensions: ["event:name"], metrics: ["visitors", "visits"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "event:name does not support session metrics",
+    });
+  });
+
+  test("order_by + pagination on visit:exit_page", async () => {
+    const sessions = {
+      getSessionMetrics: vi.fn(),
+      getSessionBreakdown: vi.fn().mockResolvedValue({ rows: [] }),
+      getBasicMetrics: vi.fn(),
+    };
+    const res = await action({
+      request: request(
+        visitQuery({
+          dimensions: ["visit:exit_page"],
+          metrics: ["visitors"],
+          order_by: [["visitors", "desc"]],
+          pagination: { limit: 10, offset: 5 },
+        }),
+      ),
+      context: context({ sessionAnalytics: sessions }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(sessions.getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "visit:exit_page",
+      undefined,
+      expect.objectContaining({
+        orderBy: [{ field: "visitors", direction: "desc" }],
+        pagination: { limit: 10, offset: 5 },
+      }),
+    );
+  });
+});
+
+describe("event:goal", () => {
+  const goalRows = [
+    {
+      id: "1",
+      site_id: "example.com",
+      name: "signup",
+      type: "event",
+      value: "signup",
+      custom_props: "{}",
+      created_at: "2026-01-01",
+    },
+    {
+      id: "2",
+      site_id: "example.com",
+      name: "thanks",
+      type: "pageview",
+      value: "/thanks",
+      custom_props: "{}",
+      created_at: "2026-01-02",
+    },
+    {
+      id: "3",
+      site_id: "example.com",
+      name: "zero",
+      type: "event",
+      value: "zero",
+      custom_props: "{}",
+      created_at: "2026-01-03",
+    },
+  ];
+  const breakdown = (
+    over: Partial<{
+      visitors: number;
+      goals: { uniques: number; total: number }[];
+      anyUniques: number;
+    }> = {},
+  ) => ({
+    getSessionMetrics: vi.fn(),
+    getSessionBreakdown: vi.fn(),
+    getBasicMetrics: vi.fn(),
+    getGoalBreakdown: vi.fn().mockResolvedValue({
+      visitors: 100,
+      goals: [
+        { uniques: 10, total: 15 },
+        { uniques: 5, total: 5 },
+        { uniques: 0, total: 0 },
+      ],
+      anyUniques: 12,
+      ...over,
+    }),
+  });
+  const goalQuery = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors", "events", "conversion_rate"],
+    dimensions: ["event:goal"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+
+  test("dimension returns uniques/total/rate, omits zero goals, rounds", async () => {
+    const res = await action({
+      request: request(goalQuery({ include: { total_rows: true } })),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { dimensions: string[]; metrics: number[] }[];
+      meta: { total_rows: number };
+    }>();
+    expect(body.results).toEqual([
+      { dimensions: ["signup"], metrics: [10, 15, 10] },
+      { dimensions: ["thanks"], metrics: [5, 5, 5] },
+    ]);
+    expect(body.meta.total_rows).toBe(2);
+  });
+
+  test("order_by + pagination on event:goal", async () => {
+    const res = await action({
+      request: request(
+        goalQuery({
+          metrics: ["visitors"],
+          order_by: [["event:goal", "desc"]],
+          pagination: { limit: 1, offset: 0 },
+        }),
+      ),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { dimensions: string[] }[] }>();
+    expect(body.results).toHaveLength(1);
+    expect(body.results[0].dimensions).toEqual(["thanks"]);
+  });
+
+  test("disallowed metric → 400", async () => {
+    const res = await action({
+      request: request(goalQuery({ metrics: ["visitors", "pageviews"] })),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "event:goal supports only visitors, events and conversion_rate",
+    });
+  });
+
+  test("conversion_rate without goal dimension or filter → 400", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "conversion_rate requires an event:goal filter or dimension",
+    });
+  });
+
+  test("goal filter + conversion_rate → aggregate", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+        filters: [["is", "event:goal", ["signup", "thanks"]]],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { metrics: number[] }[] }>();
+    expect(body.results).toEqual([{ dimensions: [], metrics: [12] }]);
+  });
+
+  test("unknown goal name → 400", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+        filters: [["is", "event:goal", ["nope"]]],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({ error: "Unknown goal: nope" });
+  });
+
+  test("contains on event:goal → 400", async () => {
+    const res = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["conversion_rate"],
+        date_range: ["2026-08-01", "2026-08-02"],
+        filters: [["contains", "event:goal", ["signup"]]],
+      }),
+      context: context({ sessionAnalytics: breakdown(), goalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("revenue metrics", () => {
+  const revGoalRows = [
+    {
+      id: "1",
+      site_id: "example.com",
+      name: "buy",
+      type: "event",
+      value: "buy",
+      custom_props: "{}",
+      currency: "USD",
+      created_at: "2026-01-01",
+    },
+    {
+      id: "2",
+      site_id: "example.com",
+      name: "free",
+      type: "event",
+      value: "free",
+      custom_props: "{}",
+      currency: null,
+      created_at: "2026-01-02",
+    },
+    {
+      id: "3",
+      site_id: "example.com",
+      name: "eur",
+      type: "event",
+      value: "eur",
+      custom_props: "{}",
+      currency: "EUR",
+      created_at: "2026-01-03",
+    },
+  ];
+  const revBreakdown = (over: Record<string, unknown> = {}) => ({
+    getSessionMetrics: vi.fn(),
+    getSessionBreakdown: vi.fn(),
+    getBasicMetrics: vi.fn().mockResolvedValue({ rows: [{ visitors: 10, views: 10, events: 10 }] }),
+    getGoalBreakdown: vi.fn().mockResolvedValue({
+      visitors: 10,
+      goals: [
+        { uniques: 4, total: 6, revenue: { total: 123.456, count: 3 } },
+        { uniques: 2, total: 2, revenue: null },
+        { uniques: 1, total: 1, revenue: { total: 50, count: 1 } },
+      ],
+      anyUniques: 5,
+      anyRevenue: { total: 173.456, count: 4 },
+      ...over,
+    }),
+  });
+  const base = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+
+  test("event:goal rows carry per-goal revenue objects, null for non-revenue", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["visitors", "total_revenue"], dimensions: ["event:goal"] }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { dimensions: string[]; metrics: unknown[] }[] }>();
+    const rows = Object.fromEntries(body.results.map((r) => [r.dimensions[0], r.metrics]));
+    expect(rows.buy[1]).toEqual({
+      value: 123.46,
+      currency: "USD",
+      short: expect.any(String),
+      long: "$123.46",
+    });
+    expect(rows.free[1]).toBeNull();
+    expect(rows.eur[1]).toEqual(expect.objectContaining({ currency: "EUR", value: 50 }));
+  });
+
+  test("single-currency goal filter → aggregate object", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["total_revenue"], filters: [["is", "event:goal", ["buy"]]] }),
+      ),
+      context: context({
+        sessionAnalytics: revBreakdown({
+          anyRevenue: { total: 123.456, count: 3 },
+          goals: [{ uniques: 4, total: 6, revenue: { total: 123.456, count: 3 } }],
+        }),
+        goalRows: revGoalRows,
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { metrics: unknown[] }[] }>();
+    expect(body.results[0].metrics[0]).toEqual(
+      expect.objectContaining({ value: 123.46, currency: "USD" }),
+    );
+  });
+
+  test("multiple currencies → null + no_single_revenue_currency", async () => {
+    const res = await action({
+      request: request(
+        base({
+          metrics: ["total_revenue", "average_revenue"],
+          filters: [["is", "event:goal", ["buy", "eur"]]],
+        }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([null, null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_single_revenue_currency");
+    expect(body.meta.metric_warnings.average_revenue.code).toBe("no_single_revenue_currency");
+  });
+
+  test("no revenue goals → no_revenue_goals_matching", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["total_revenue"], filters: [["is", "event:goal", ["free"]]] }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_revenue_goals_matching");
+  });
+
+  test("no dimension + visitors & total_revenue → null + warning, no goal query", async () => {
+    const sessions = revBreakdown();
+    const res = await action({
+      request: request(base({ metrics: ["visitors", "total_revenue"] })),
+      context: context({ sessionAnalytics: sessions, goalRows: [revGoalRows[0]] }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{
+      results: { metrics: unknown[] }[];
+      meta: { metric_warnings: Record<string, { code: string }> };
+    }>();
+    expect(body.results[0].metrics).toEqual([10, null]);
+    expect(body.meta.metric_warnings.total_revenue.code).toBe("no_revenue_goals_matching");
+    expect(sessions.getGoalBreakdown).not.toHaveBeenCalled();
+  });
+
+  test("revenue with event:page dimension → 400", async () => {
+    const res = await action({
+      request: request(base({ metrics: ["total_revenue"], dimensions: ["event:page"] })),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: "total_revenue require no dimension or the event:goal dimension",
+    });
+  });
+
+  test("order_by total_revenue sorts by value", async () => {
+    const res = await action({
+      request: request(
+        base({
+          metrics: ["visitors", "total_revenue"],
+          dimensions: ["event:goal"],
+          order_by: [["total_revenue", "desc"]],
+        }),
+      ),
+      context: context({ sessionAnalytics: revBreakdown(), goalRows: revGoalRows }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { dimensions: string[] }[] }>();
+    expect(body.results.map((r) => r.dimensions[0])).toEqual(["buy", "eur", "free"]);
+  });
+
+  test("average_revenue with zero count → value 0", async () => {
+    const res = await action({
+      request: request(
+        base({ metrics: ["average_revenue"], filters: [["is", "event:goal", ["buy"]]] }),
+      ),
+      context: context({
+        sessionAnalytics: revBreakdown({ anyRevenue: { total: 0, count: 0 } }),
+        goalRows: [revGoalRows[0]],
+      }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json<{ results: { metrics: { value: number }[] }[] }>();
+    expect(body.results[0].metrics[0].value).toBe(0);
   });
 });

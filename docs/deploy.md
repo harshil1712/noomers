@@ -21,6 +21,7 @@ separate policy on your zone; account permissions inside a zone policy grant not
 | Account · D1 · Write                           | ✓          | ✓       |
 | Account · Workers R2 Storage · Write           | ✓          | ✓       |
 | Account · Secrets Store · Write                | ✓          | ✓       |
+| Account · Account API Tokens · Edit            | ✓          | ✓       |
 | Account · Cloudflare Turnstile · Write         | ✓          | —       |
 | Account · Email Sending · Write                | ✓          | —       |
 | Zone `<domain>` · Workers Routes · Write       | ✓          | —       |
@@ -33,16 +34,15 @@ Cloudflare's API spec, custom domains, static-asset upload sessions and Worker P
 accept only Workers Scripts Write. Secrets Store is for Alchemy's state store
 (`alchemy-state-store`). No DNS permission is needed (custom domains create their own records).
 
-| Secret                                      | Scope                                                                         | Notes                            |
-| ------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------- |
-| `CLOUDFLARE_API_TOKEN`                      | see the token table above                                                     | prod: environment; preview: repo |
-| `CLOUDFLARE_ACCOUNT_ID`                     | Account ID (dashboard → overview)                                             |                                  |
-| `CLOUDFLARE_ZONE_ID`                        | Zone ID for the apex domain                                                   | Prod only — Turnstile + Email    |
-| `WORKERS_DEV_SUBDOMAIN`                     | your `*.workers.dev` subdomain                                                | Used to build preview URLs       |
-| `BETTER_AUTH_SECRET`                        | `openssl rand -base64 32`                                                     | Auth session signing             |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client; redirect `https://app.<domain>/api/auth/callback/google` | Optional — empty disables Google |
-| `OWNER_ADMIN_EMAIL`                         | verified owner email for admin bootstrap                                      |                                  |
-| `SIGNUP_DISABLED`                           | `production` **variable** (not secret) — `true` closes new sign-ups           | Optional — unset = open          |
+| Secret                                      | Scope                                                                         | Notes                                         |
+| ------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`                      | see the token table above                                                     | prod: environment; preview: repo              |
+| `CLOUDFLARE_ACCOUNT_ID`                     | Account ID (dashboard → overview)                                             |                                               |
+| `CLOUDFLARE_ZONE_ID`                        | Zone ID for the apex domain                                                   | Prod only — Turnstile + Email                 |
+| `WORKERS_DEV_SUBDOMAIN`                     | your `*.workers.dev` subdomain                                                | Used to build preview URLs                    |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth client; redirect `https://app.<domain>/api/auth/callback/google` | Optional — empty disables Google              |
+| `OWNER_ADMIN_EMAIL`                         | verified owner email for admin bootstrap                                      | Set it — else the first sign-up becomes admin |
+| `SIGNUP_DISABLED`                           | `production` **variable** (not secret) — `true` closed, `false` always open   | Optional — unset closes once an admin exists  |
 
 **First deploy:** a new project's first PR can't get a Worker Preview —
 previews are versions of the production Workers, which don't exist until the
@@ -61,30 +61,44 @@ On top of the table above the deploy token also needs, because
 
 | Permission                                     | Why                                   |
 | ---------------------------------------------- | ------------------------------------- |
-| Account · Workers Pipelines · Write            | `EVENT_STREAM` stream, sink, pipeline |
-| Account · Workers R2 Storage · Write           | `noomers-events` bucket               |
-| Account · R2 Data Catalog · Write              | `noomers.events` Iceberg table (sink) |
+| Account · Pipelines · Write                    | `EVENT_STREAM` stream, sink, pipeline |
+| Account · Workers R2 Storage · Write           | the stage's warehouse bucket          |
+| Account · Workers R2 Data Catalog · Write      | `noomers.events` Iceberg table (sink) |
+| Account · Workers R2 SQL · Read                | minting the read-only Basin SQL token |
 | Account · Cloudflare Workers KV Storage · Read | DO state inspection (optional)        |
-
-(If `cf-token-preflight.sh` doesn't already name them, grant Pipelines and
-Data Catalog write — the account-scope groups they live under are
-"Workers Pipelines" and "R2" — verify exact permission names in the
-dashboard's token editor before cutover.)
 
 ### Additional secrets (noomers analytics)
 
-| Secret                           | Purpose                                                    |
-| -------------------------------- | ---------------------------------------------------------- |
-| `VISITOR_SALT`                   | Daily-rotating visitor-id salt — **required for /collect** |
-| `SITES_API_TOKEN`                | Bearer for `/api/v1/*` (Plausible Sites API)               |
-| `STATS_API_TOKEN`                | Bearer for `/api/v2/query` (and /api/v1 fallback)          |
-| `SERVER_EVENTS_TOKEN`            | Optional first-party server tracker token                  |
-| `R2_SQL_TOKEN`                   | Basin SQL query token                                      |
-| `R2_CATALOG_TOKEN`               | R2 Data Catalog write — used by the Iceberg sink           |
-| `CF_ACCOUNT_ID`                  | Account id (runtime, for Basin SQL endpoint)               |
-| `R2_SQL_BUCKET` / `R2_SQL_TABLE` | Warehouse bucket / query table (`noomers.events`)          |
-| `R2_SQL_IMPORT_TABLE`            | Optional extra table UNIONed into queries (cutover helper) |
-| `CF_TRACKER_SCRIPT_NAME`         | Optional custom tracker script path                        |
+`alchemy.run.ts` mints `BETTER_AUTH_SECRET`, `VISITOR_SALT`, the Basin SQL
+token (`R2_SQL_TOKEN`) and the Data Catalog sink token, and derives
+`CF_ACCOUNT_ID` and `R2_SQL_BUCKET` from the provisioned account and bucket —
+none of these are secrets you set.
+
+| Secret                   | Purpose                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------- |
+| `SITES_API_TOKEN`        | Bearer for `/api/v1/*` (Plausible Sites API)                                       |
+| `STATS_API_TOKEN`        | Bearer for `/api/v2/query` (and /api/v1 fallback)                                  |
+| `SERVER_EVENTS_TOKEN`    | Optional first-party server tracker token                                          |
+| `R2_SQL_TABLE`           | Basin SQL query table (`noomers.events`)                                           |
+| `R2_SQL_IMPORT_TABLE`    | Optional imported-history table UNIONed into queries (`scripts/plausible-import/`) |
+| `CF_TRACKER_SCRIPT_NAME` | Optional custom tracker script path                                                |
+
+### Iceberg erasure
+
+Deleting a site writes a `site_deletion_jobs` row. A scheduled workflow
+(`.github/workflows/iceberg-erasure.yml`, daily at 03:17 UTC plus manual
+`workflow_dispatch`) runs `scripts/iceberg-erasure/erase.py`, which fetches
+due jobs (older than one hour) from `/api/maintenance/deletion-jobs`,
+row-deletes the site's rows through Basin Catalog, verifies nothing is left,
+and reports `completed`/`failed` back to the Worker. Managed snapshot
+expiration on the Data Catalog (enabled in `alchemy.run.ts`) then removes
+the data files the deleted snapshots no longer reference.
+
+Secrets used: `SITES_API_TOKEN` (must exist in the production environment
+for the workflow to run; it skips with a notice otherwise),
+`CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. To run it by hand:
+Actions → iceberg-erasure → Run workflow. Set the repo variable
+`R2_SQL_BUCKET` to the deployed stage's warehouse bucket name.
 
 ## Cutover from the wrangler-based deployment
 
@@ -98,18 +112,21 @@ dashboard's token editor before cutover.)
   The old worker and its routes/custom domain are NOT removed
   automatically — verify `noomers-web` serves everything, then retire the
   old worker manually.
-- **Pipelines are not adopted.** The interactively-created stream/sink
-  (old docs named the stream `noomers_events`, table `default.events`)
-  will not match the new names (`noomers-events-stream`,
-  `noomers_events_sink`, table `noomers.events`). Either point
-  `R2_SQL_BUCKET`/`R2_SQL_TABLE` at the existing resources AND keep the
-  old table, or accept a new stream/table and keep the old table queryable
-  via `R2_SQL_IMPORT_TABLE`. Verify which names exist in the account
-  before cutover.
-- **Drain the SiteEvents DO first.** Unshipped buffered rows live in the
-  old worker's DOs. Check `/api/health/ready` reports zero backlog on the
-  old deployment before switching traffic, or those events are stranded.
-- **Re-supply Basin/R2 tokens** as the secrets above; wrangler-era
-  `CF_PASSWORD_HASH`, `CF_JWT_SECRET`, `CF_AUTH_ENABLED` are gone —
-  dashboard auth is Better Auth with `OWNER_ADMIN_EMAIL` bootstrapping the
-  first admin.
+- **Pipelines are not adopted.** Stream, sink, pipeline, bucket, and token
+  names are generated per stage, so the deploy provisions its own set.
+  `R2_SQL_BUCKET` is bound from the provisioned bucket, so an old table is
+  queryable only through `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives
+  in the same bucket's catalog; otherwise history starts fresh.
+- **Events send straight to Pipelines.** An event is accepted only after
+  `EVENT_STREAM.send` confirms ingest — if Pipelines is down collection
+  returns 500 and the tracker does not retry, so those events are lost.
+  The SiteEvents DO now holds realtime rows only; nothing needs draining.
+- **Basin/R2 tokens are minted by the deploy** (`Account API Tokens · Edit`
+  on the CI token grants this). The minted R2 SQL token is read-only —
+  confirm the first real preview answers `/api/health/ready` before
+  switching traffic. Wrangler-era `CF_PASSWORD_HASH`, `CF_JWT_SECRET`,
+  `CF_AUTH_ENABLED` are gone — dashboard auth is Better Auth with
+  `OWNER_ADMIN_EMAIL` — set it before the public URL is live, or the first stranger to sign up becomes admin.
+- **New `VISITOR_SALT`.** Alchemy mints a fresh salt, so visitor IDs on the
+  cutover day won't match pre-cutover ones. Visitor IDs rotate daily in UTC
+  anyway, so the only effect is a one-day discontinuity in visitor counts.

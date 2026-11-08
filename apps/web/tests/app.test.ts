@@ -29,11 +29,6 @@ describe("worker", () => {
     expect(await r.json<{ error: string }>()).toEqual({ error: "not found" });
   });
 
-  it("/api/me is 401 without a session", async () => {
-    const r = await SELF.fetch("https://x/api/me");
-    expect(r.status).toBe(401);
-  });
-
   it("/api/public-config returns the test site key", async () => {
     const r = await SELF.fetch("https://x/api/public-config");
     const j = await r.json<{ turnstileSiteKey: string; googleEnabled: boolean }>();
@@ -51,6 +46,7 @@ describe("auth", () => {
     await signUp(email);
     await verifyLatest(email);
 
+    const saved = env.SIGNUP_DISABLED;
     env.SIGNUP_DISABLED = "true";
     try {
       const closedEmail = `closed-${crypto.randomUUID()}@t.dev`;
@@ -72,11 +68,11 @@ describe("auth", () => {
       });
       expect(login.status).toBe(200);
     } finally {
-      env.SIGNUP_DISABLED = "";
+      env.SIGNUP_DISABLED = saved;
     }
   });
 
-  it("public-config defaults to sign-ups open", async () => {
+  it("public-config reports sign-ups open (SIGNUP_DISABLED=false in test bindings)", async () => {
     const config = await SELF.fetch("https://x/api/public-config");
     expect((await config.json<{ signupEnabled: boolean }>()).signupEnabled).toBe(true);
   });

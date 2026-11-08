@@ -42,7 +42,39 @@ export interface Goal {
   type: string;
   value: string;
   conversions: number;
+  totalConversions: number;
   conversionRate: number;
+  currency: string | null;
+  totalRevenue: number | null;
+  averageRevenue: number | null;
+}
+
+export class DashboardApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "DashboardApiError";
+  }
+}
+
+async function request<T>(path: string, method: string, body?: Record<string, string>): Promise<T> {
+  const init: RequestInit = { method };
+  if (body !== undefined) {
+    init.headers = { "content-type": "application/json" };
+    init.body = JSON.stringify(body);
+  }
+  const res = await fetch(path, init);
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new DashboardApiError(data.error || `${path} failed: ${res.status}`, res.status);
+  }
+  return res.json() as Promise<T>;
+}
+
+function post<T>(path: string, body: Record<string, string>) {
+  return request<T>(path, "POST", body);
 }
 
 async function get<T>(
@@ -54,7 +86,7 @@ async function get<T>(
     if (value !== undefined && value !== "") query.set(key, String(value));
   }
   const res = await fetch(`${path}?${query.toString()}`);
-  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+  if (!res.ok) throw new DashboardApiError(`${path} failed: ${res.status}`, res.status);
   return res.json() as Promise<T>;
 }
 
@@ -81,7 +113,21 @@ function params(q: DashboardQuery, extra?: Record<string, string>) {
 }
 
 export const dashboardApi = {
-  sites: () => get<{ sites: string[] }>(`${DASH}/sites`, {}),
+  sites: () =>
+    get<{ sites: string[]; details: { domain: string; timezone: string }[] }>(`${DASH}/sites`, {}),
+  createSite: (domain: string, timezone?: string) =>
+    post<{ domain: string; timezone: string; trackerId: string }>(
+      `${DASH}/sites`,
+      timezone ? { domain, timezone } : { domain },
+    ),
+  updateSite: (domain: string, timezone: string) =>
+    request<{ domain: string; timezone: string }>(
+      `${DASH}/sites/${encodeURIComponent(domain)}`,
+      "PATCH",
+      { timezone },
+    ),
+  deleteSite: (domain: string) =>
+    request<{ deleted: boolean }>(`${DASH}/sites/${encodeURIComponent(domain)}`, "DELETE"),
   stats: (q: DashboardQuery) => get<StatsResponse>(`${DASH}/stats`, params(q)),
   timeseries: (q: DashboardQuery) => get<TimeseriesResponse>(`${DASH}/timeseries`, params(q)),
   goals: (q: DashboardQuery) => get<{ goals: Goal[] }>(`${DASH}/goals`, params(q)),
@@ -93,6 +139,8 @@ export const dashboardApi = {
 
 export type BreakdownCard =
   | "paths"
+  | "entry-pages"
+  | "exit-pages"
   | "referrer"
   | "events"
   | "browser"

@@ -37,6 +37,8 @@ export type SessionDimension =
   | "visit:browser_version"
   | "visit:device_type"
   | "visit:device_model"
+  | "visit:entry_page"
+  | "visit:exit_page"
   | "time:hour"
   | "time:day"
   | "time:week"
@@ -66,6 +68,8 @@ const VISIT_DIMENSIONS: Partial<Record<SessionDimension, string>> = {
   "visit:browser_version": "browser_version",
   "visit:device_type": "device_type",
   "visit:device_model": "device_model",
+  "visit:entry_page": "pathname",
+  "visit:exit_page": "pathname",
 };
 
 export interface R2StatsFilter {
@@ -685,32 +689,111 @@ export class R2SQLAPI {
     };
   }
 
-  async getGoalConversions(
+  async getGoalBreakdown(
     siteId: string,
     startDate: Date,
     endDate: Date,
     filters: SearchFilters | R2StatsFilter[],
-    goal: { type: string; value: string },
-  ): Promise<number> {
+    goals: Array<{
+      type: "event" | "pageview";
+      value: string;
+      customProps: Record<string, string>;
+      currency?: string | null;
+    }>,
+  ): Promise<{
+    visitors: number;
+    goals: Array<{
+      uniques: number;
+      total: number;
+      revenue: { total: number; count: number } | null;
+    }>;
+    anyUniques: number;
+    anyRevenue: { total: number; count: number } | null;
+  }> {
+    if (goals.length > 20) {
+      throw new Error(`At most 20 goals per breakdown (got ${goals.length})`);
+    }
     const start = sqlString(startDate.toISOString());
     const end = sqlString(endDate.toISOString());
-    const goalPredicate =
-      goal.type === "pageview"
-        ? `event_type = 'pageview' AND pathname = ${sqlString(goal.value)}`
-        : `event_type <> 'engagement' AND event_name = ${sqlString(goal.value)}`;
-    const rows = await this.query<{ conversions?: string | number | null }>(
-      `WITH ${deduplicatedEventsCte(this.table, siteId, start, end, ["pathname", "event_name", ...FILTER_COLUMN_LIST])}
-            SELECT COUNT(DISTINCT visitor_id) AS conversions
+    const usesProps = goals.some((goal) => Object.keys(goal.customProps).length > 0);
+    const usesRevenue = goals.some((goal) => goal.currency);
+    const predicates = goals.map((goal) => {
+      const parts = [
+        goal.type === "pageview"
+          ? `event_type = 'pageview' AND pathname = ${sqlString(goal.value)}`
+          : `event_type <> 'engagement' AND event_name = ${sqlString(goal.value)}`,
+      ];
+      for (const [key, value] of Object.entries(goal.customProps)) {
+        if (!/^[A-Za-z0-9_.-]{1,64}$/.test(key)) {
+          throw new Error(`Invalid goal property key: ${key}`);
+        }
+        parts.push(`json_get_str(event_properties, ${sqlString(key)}) = ${sqlString(value)}`);
+      }
+      return `(${parts.join(" AND ")})`;
+    });
+    const goalColumns = goals
+      .map((goal, i) => {
+        const base = `,COUNT(DISTINCT CASE WHEN ${predicates[i]} THEN visitor_id END) AS u_${i}
+                    ,SUM(CASE WHEN ${predicates[i]} THEN 1 ELSE 0 END) AS t_${i}`;
+        if (!goal.currency) return base;
+        const revCond = `${predicates[i]} AND revenue_currency = ${sqlString(goal.currency)} AND TRY_CAST(revenue_amount AS DOUBLE) IS NOT NULL`;
+        return `${base}
+                    ,SUM(CASE WHEN ${revCond} THEN TRY_CAST(revenue_amount AS DOUBLE) ELSE 0 END) AS r_${i}
+                    ,SUM(CASE WHEN ${revCond} THEN 1 ELSE 0 END) AS rc_${i}`;
+      })
+      .join("\n");
+    const anyColumn =
+      goals.length > 0
+        ? `,COUNT(DISTINCT CASE WHEN ${predicates.join(" OR ")} THEN visitor_id END) AS any_uniques`
+        : "";
+    const revenuePreds = goals
+      .map((goal, i) =>
+        goal.currency
+          ? `(${predicates[i]} AND revenue_currency = ${sqlString(goal.currency)} AND TRY_CAST(revenue_amount AS DOUBLE) IS NOT NULL)`
+          : null,
+      )
+      .filter((p): p is string => p !== null);
+    const anyRevColumn = revenuePreds.length
+      ? `,SUM(CASE WHEN ${revenuePreds.join(" OR ")} THEN TRY_CAST(revenue_amount AS DOUBLE) ELSE 0 END) AS any_rev_total
+            ,SUM(CASE WHEN ${revenuePreds.join(" OR ")} THEN 1 ELSE 0 END) AS any_rev_count`
+      : "";
+    const rows = await this.query<Record<string, string | number | null>>(
+      `WITH ${deduplicatedEventsCte(this.table, siteId, start, end, [
+        "pathname",
+        "event_name",
+        ...(usesProps ? ["event_properties"] : []),
+        ...(usesRevenue ? ["revenue_amount", "revenue_currency"] : []),
+        ...FILTER_COLUMN_LIST,
+      ])}
+            SELECT COUNT(DISTINCT visitor_id) AS visitors${goalColumns}${anyColumn}${anyRevColumn}
             FROM deduplicated_events
             WHERE ${KEEP_DEDUPLICATED_ROW}
                 AND visitor_id <> ''
                 AND ${filtersToPredicate(filters)}
-                AND ${goalPredicate}
                 AND TRY_CAST(received_at AS TIMESTAMP) >= TRY_CAST(${start} AS TIMESTAMP)
                 AND TRY_CAST(received_at AS TIMESTAMP) < TRY_CAST(${end} AS TIMESTAMP)`,
       endDate.getTime(),
     );
-    return Number(rows[0]?.conversions || 0);
+    const row = rows[0] || {};
+    const anyRev =
+      revenuePreds.length > 0
+        ? {
+            total: Number(row.any_rev_total || 0),
+            count: Number(row.any_rev_count || 0),
+          }
+        : null;
+    return {
+      visitors: Number(row.visitors || 0),
+      goals: goals.map((goal, i) => ({
+        uniques: Number(row[`u_${i}`] || 0),
+        total: Number(row[`t_${i}`] || 0),
+        revenue: goal.currency
+          ? { total: Number(row[`r_${i}`] || 0), count: Number(row[`rc_${i}`] || 0) }
+          : null,
+      })),
+      anyUniques: Number(row.any_uniques || 0),
+      anyRevenue: anyRev,
+    };
   }
 
   async getSessionBreakdown(
@@ -736,6 +819,9 @@ export class R2SQLAPI {
     const start = sqlString(startDate.toISOString());
     const end = sqlString(endDate.toISOString());
     const filterPredicate = filtersToPredicate(filters);
+    if (dimension === "event:name") {
+      throw new Error("event:name does not support session metrics");
+    }
     let eventDimension = VISIT_DIMENSIONS[dimension];
     let eventDimensionSql = eventDimension;
     let dimensionColumns: string[] = eventDimension ? [eventDimension] : [];
@@ -757,6 +843,9 @@ export class R2SQLAPI {
     }
     const visitDimension = dimension.startsWith("visit:");
     const timeUnit = dimension.startsWith("time:") ? dimension.slice("time:".length) : undefined;
+    if (!eventDimension && !dimension.startsWith("event:props:") && !timeUnit) {
+      throw new Error(`${dimension} does not support session metrics`);
+    }
     const bucketExpression = (column: string) =>
       timeBuckets
         ? `CASE ${timeBuckets
@@ -836,7 +925,12 @@ export class R2SQLAPI {
                     visitor_id,
                     session_number,
                     MIN(CASE WHEN event_type = 'pageview' THEN event_ts END) AS visit_start,
-                    FIRST_VALUE(${eventDimension ? "dimension_value" : "pathname"} ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page,
+                    FIRST_VALUE(${eventDimension ? "dimension_value" : "pathname"} ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page,
+                    ${
+                      dimension === "visit:exit_page"
+                        ? `FIRST_VALUE(dimension_value ORDER BY event_ts DESC, event_id DESC) FILTER (WHERE event_type = 'pageview') AS exit_page,`
+                        : ""
+                    }
                     SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS pageviews,
                     SUM(CASE WHEN event_type <> 'engagement' AND interactive THEN 1 ELSE 0 END) AS interactive_events,
                     SUM(matches_filter) AS matching_events,
@@ -848,7 +942,7 @@ export class R2SQLAPI {
             session_dimensions AS (
                 ${
                   eventDimension
-                    ? `SELECT visitor_id, session_number, entry_page AS dimension
+                    ? `SELECT visitor_id, session_number, ${dimension === "visit:exit_page" ? "exit_page" : "entry_page"} AS dimension
                        FROM sessions WHERE matching_events > 0`
                     : `SELECT visitor_id, session_number, ${sessionDimensionExpression} AS dimension
                        FROM sessions WHERE matching_events > 0`

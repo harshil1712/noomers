@@ -700,7 +700,7 @@ describe("collectRequestHandler", () => {
     consoleError.mockRestore();
   });
 
-  test("drops bot traffic without writing to Analytics Engine or the durable stream", async () => {
+  test("drops bot traffic without recording it", async () => {
     const send = siteEventsStub.record;
     const env = {
       SITE_EVENTS: siteEventsNamespace,

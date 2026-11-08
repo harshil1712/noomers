@@ -10,6 +10,7 @@ import type {
   SessionTimeBucket,
 } from "./r2-sql";
 import type { SearchFilters } from "../lib/types";
+import type { Goal } from "../goals/repository";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
@@ -25,6 +26,9 @@ const METRICS = [
   "bounce_rate",
   "visit_duration",
   "events",
+  "conversion_rate",
+  "total_revenue",
+  "average_revenue",
 ] as const;
 type Metric = (typeof METRICS)[number];
 
@@ -36,7 +40,9 @@ const SCALAR_DIMENSIONS = {
 const TIME_DIMENSIONS = ["time", "time:hour", "time:day", "time:week", "time:month"] as const;
 type ScalarDimension = keyof typeof SCALAR_DIMENSIONS;
 type TimeDimension = (typeof TIME_DIMENSIONS)[number];
-type Dimension = ScalarDimension | TimeDimension;
+const VISIT_DIMENSIONS = ["visit:entry_page", "visit:exit_page"] as const;
+type VisitDimension = (typeof VISIT_DIMENSIONS)[number];
+type Dimension = ScalarDimension | TimeDimension | VisitDimension | "event:goal";
 type FilterOperator = "is" | "is_not" | "contains" | "contains_not";
 type StatsFilter = [FilterOperator, ScalarDimension, string[]];
 
@@ -204,6 +210,8 @@ function parseQuery(
         typeof dimension !== "string" ||
         (!Object.hasOwn(SCALAR_DIMENSIONS, dimension) &&
           !TIME_DIMENSIONS.includes(dimension as TimeDimension) &&
+          !VISIT_DIMENSIONS.includes(dimension as VisitDimension) &&
+          dimension !== "event:goal" &&
           !/^event:props:[A-Za-z0-9_.-]{1,64}$/.test(dimension)),
     )
   ) {
@@ -224,7 +232,8 @@ function parseQuery(
         filter.length !== 3 ||
         !["is", "is_not", "contains", "contains_not"].includes(filter[0]) ||
         typeof filter[1] !== "string" ||
-        !Object.hasOwn(SCALAR_DIMENSIONS, filter[1]) ||
+        (filter[1] !== "event:goal" && !Object.hasOwn(SCALAR_DIMENSIONS, filter[1])) ||
+        (filter[1] === "event:goal" && filter[0] !== "is") ||
         !Array.isArray(filter[2]) ||
         filter[2].length === 0 ||
         filter[2].length > 100 ||
@@ -435,18 +444,225 @@ function metricValue(
   return sessions.averageVisitDuration === null ? 0 : Math.round(sessions.averageVisitDuration);
 }
 
+function formatRevenue(value: number, currency: string) {
+  const rounded = Math.round(value * 100) / 100;
+  return {
+    value: rounded,
+    currency,
+    short: new Intl.NumberFormat("en", {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(rounded),
+    long: new Intl.NumberFormat("en", { style: "currency", currency }).format(rounded),
+  };
+}
+
+const NO_REVENUE_GOALS = {
+  code: "no_revenue_goals_matching",
+  warning: "Revenue metrics are null as there are no matching revenue goals.",
+};
+const NO_SINGLE_CURRENCY = {
+  code: "no_single_revenue_currency",
+  warning:
+    "Revenue metrics are null as there are multiple currencies for the selected event:goals.",
+};
+const REVENUE_METRICS = ["total_revenue", "average_revenue"] as const;
+type RevenueMetric = (typeof REVENUE_METRICS)[number];
+type RevenueValue = ReturnType<typeof formatRevenue>;
+type MetricValue = number | RevenueValue | null;
+
+function isRevenueMetric(metric: string): metric is RevenueMetric {
+  return REVENUE_METRICS.includes(metric as RevenueMetric);
+}
+
+function revenueWarnings(requested: RevenueMetric[], warning: { code: string; warning: string }) {
+  return Object.fromEntries(requested.map((m) => [m, warning]));
+}
+
+/** The revenue goals in scope, the single currency when there is one, and
+ *  the warnings to attach when there are none or several. */
+function resolveRevenue(goals: Goal[], requested: RevenueMetric[]) {
+  const revenueGoals = goals.filter((goal) => goal.currency);
+  const currencies = new Set(revenueGoals.map((goal) => goal.currency as string));
+  let currency: string | null = null;
+  let warnings: Record<string, { code: string; warning: string }> = {};
+  if (revenueGoals.length === 0) {
+    warnings = revenueWarnings(requested, NO_REVENUE_GOALS);
+  } else if (currencies.size !== 1) {
+    warnings = revenueWarnings(requested, NO_SINGLE_CURRENCY);
+  } else {
+    currency = [...currencies][0];
+  }
+  return { revenueGoals, currency, warnings };
+}
+
+function revenueMetricValue(
+  metric: Metric,
+  rev: { total: number; count: number } | null,
+  currency: string | null,
+): MetricValue {
+  if (!rev || !currency) return null;
+  const value = metric === "total_revenue" ? rev.total : rev.count > 0 ? rev.total / rev.count : 0;
+  return formatRevenue(value, currency);
+}
+
 export async function executeStatsQuery(
   sessions: R2SQLAPI | undefined,
   input: unknown,
   reportingTimezone = "Etc/UTC",
+  goals: Goal[] = [],
 ) {
   const query = parseQuery(input, reportingTimezone);
   if (!sessions) throw new StatsAPIError("Basin SQL is not configured");
-  const needsSessions = query.metrics.some(
-    (metric) => !["visitors", "pageviews", "events"].includes(metric),
-  );
+
+  const goalDimension = query.dimensions[0] === "event:goal";
+  const goalFilter = query.filters?.find((f) => f[1] === "event:goal");
+  const rowFilters = (query.filters ?? []).filter((f) => f[1] !== "event:goal") as StatsFilter[];
+  if (goalDimension || goalFilter) {
+    const names = new Set(goals.map((goal) => goal.name));
+    const wanted = goalFilter ? (goalFilter[2] as string[]) : null;
+    if (wanted) {
+      for (const name of wanted) {
+        if (!names.has(name)) throw new StatsAPIError(`Unknown goal: ${name}`);
+      }
+    }
+    const selected = wanted ? goals.filter((g) => wanted.includes(g.name)) : goals;
+    const revenueRequested = query.metrics.filter(isRevenueMetric);
+    const allowed = goalDimension
+      ? ["visitors", "events", "conversion_rate", ...REVENUE_METRICS]
+      : ["conversion_rate", "visitors", "events", ...REVENUE_METRICS];
+    if (query.metrics.some((m) => !allowed.includes(m))) {
+      throw new StatsAPIError(
+        goalDimension
+          ? "event:goal supports only visitors, events and conversion_rate"
+          : "goal-filtered queries support only conversion_rate, visitors and events",
+      );
+    }
+    const result = await sessions.getGoalBreakdown(
+      query.site_id,
+      query.start,
+      query.end,
+      toR2Filters(rowFilters),
+      selected,
+    );
+    const {
+      revenueGoals,
+      currency: aggregateCurrency,
+      warnings: aggregateWarnings,
+    } = resolveRevenue(selected, revenueRequested);
+    const metricWarnings = goalDimension
+      ? revenueGoals.length === 0
+        ? revenueWarnings(revenueRequested, NO_REVENUE_GOALS)
+        : {}
+      : aggregateWarnings;
+    let results;
+    if (goalDimension) {
+      results = selected
+        .map((goal, i) => ({
+          name: goal.name,
+          currency: goal.currency,
+          uniques: result.goals[i]?.uniques ?? 0,
+          total: result.goals[i]?.total ?? 0,
+          revenue: result.goals[i]?.revenue ?? null,
+        }))
+        .filter((g) => g.uniques > 0)
+        .map((g) => ({
+          dimensions: [g.name],
+          metrics: query.metrics.map((m) =>
+            m === "visitors"
+              ? g.uniques
+              : m === "events"
+                ? g.total
+                : m === "conversion_rate"
+                  ? Math.round((g.uniques / (result.visitors || 1)) * 100 * 100) / 100
+                  : revenueMetricValue(m, g.revenue, g.currency),
+          ),
+        }));
+    } else {
+      const total = result.goals.reduce((acc, g) => acc + g.total, 0);
+      results = [
+        {
+          dimensions: [] as string[],
+          metrics: query.metrics.map((m) =>
+            m === "conversion_rate"
+              ? Math.round((result.anyUniques / (result.visitors || 1)) * 100 * 100) / 100
+              : m === "visitors"
+                ? result.anyUniques
+                : m === "events"
+                  ? total
+                  : revenueMetricValue(m, result.anyRevenue, aggregateCurrency),
+          ),
+        },
+      ];
+    }
+    const orderBy = query.order_by[0] ?? ["visitors", "desc"];
+    const fieldIndex = query.metrics.indexOf(orderBy[0] as Metric);
+    const orderByRevenue = isRevenueMetric(orderBy[0] as string);
+    const sortKey = (value: MetricValue | string | undefined): number | string | null =>
+      orderByRevenue ? ((value as RevenueValue | null)?.value ?? null) : (value as number | null);
+    results.sort((a, b) => {
+      const left = sortKey(fieldIndex >= 0 ? a.metrics[fieldIndex] : a.dimensions[0]);
+      const right = sortKey(fieldIndex >= 0 ? b.metrics[fieldIndex] : b.dimensions[0]);
+      if (left === null && right !== null) return 1;
+      if (left !== null && right === null) return -1;
+      const comparison = left === right ? 0 : (left ?? 0) < (right ?? 0) ? -1 : 1;
+      if (comparison !== 0) return orderBy[1] === "asc" ? comparison : -comparison;
+      const ld = String(a.dimensions[0] || "");
+      const rd = String(b.dimensions[0] || "");
+      return ld === rd ? 0 : ld < rd ? -1 : 1;
+    });
+    const totalRows = results.length;
+    results = results.slice(
+      query.pagination.offset,
+      query.pagination.offset + query.pagination.limit,
+    );
+    const meta: {
+      total_rows?: number;
+      imports_included?: boolean;
+      metric_warnings?: Record<string, { code: string; warning: string }>;
+    } = {};
+    if (query.include.imports) meta.imports_included = false;
+    if (query.include.total_rows) meta.total_rows = totalRows;
+    if (Object.keys(metricWarnings).length) meta.metric_warnings = metricWarnings;
+    return {
+      results,
+      meta,
+      query: {
+        site_id: query.site_id,
+        metrics: query.metrics,
+        date_range: query.normalizedRange,
+        filters: query.filters,
+        dimensions: query.dimensions,
+        order_by: query.order_by.length ? query.order_by : [orderBy],
+        include: query.include,
+        pagination: query.pagination,
+      },
+    };
+  }
+  const revenueOnly = query.metrics.filter(isRevenueMetric);
+  if (revenueOnly.length && query.dimensions[0] !== undefined) {
+    throw new StatsAPIError(
+      `${revenueOnly.join("/")} require no dimension or the event:goal dimension`,
+    );
+  }
+  if (query.metrics.includes("conversion_rate")) {
+    throw new StatsAPIError("conversion_rate requires an event:goal filter or dimension");
+  }
+  const visitDimension =
+    query.dimensions[0] === "visit:entry_page" || query.dimensions[0] === "visit:exit_page";
+  const needsSessions =
+    visitDimension ||
+    query.metrics.some((metric) => !["visitors", "pageviews", "events"].includes(metric));
   if (needsSessions && !sessions) throw new StatsAPIError("R2 SQL is required for session metrics");
   const dimension = query.dimensions[0];
+  if (visitDimension && query.metrics.includes("events")) {
+    throw new StatsAPIError(`events is not supported with ${dimension}`);
+  }
+  if (needsSessions && dimension === "event:name") {
+    throw new StatsAPIError("event:name does not support session metrics");
+  }
   if (needsSessions && dimension === "event:hostname") {
     throw new StatsAPIError("event:hostname requires event:page when querying session metrics");
   }
@@ -561,13 +777,22 @@ export async function executeStatsQuery(
   } else {
     throw new StatsAPIError("Basin SQL is not configured");
   }
+  // Per Plausible's docs, revenue metrics without an event:goal filter or
+  // dimension are null with a warning — no goal query runs at all.
+  const revenueNoContext = revenueOnly.length > 0 && query.dimensions.length === 0;
+  const noContextWarnings = revenueNoContext ? revenueWarnings(revenueOnly, NO_REVENUE_GOALS) : {};
   const basicRows = basicResult.rows;
   let results = basicRows.map((row) => {
     const rowSessionMetrics =
       "sessionMetrics" in row ? (row.sessionMetrics as SessionMetrics) : sessionMetrics;
     return {
       dimensions: query.dimensions.length ? [row.dimension || ""] : [],
-      metrics: query.metrics.map((metric) => metricValue(metric, row, rowSessionMetrics)),
+      metrics: query.metrics.map((metric) => {
+        if (REVENUE_METRICS.includes(metric as (typeof REVENUE_METRICS)[number])) {
+          return null;
+        }
+        return metricValue(metric, row, rowSessionMetrics);
+      }),
     };
   });
   const timeDimension = query.dimensions.find((dimension) =>
@@ -593,9 +818,17 @@ export async function executeStatsQuery(
       query.pagination.offset + query.pagination.limit,
     );
   }
-  const meta: { total_rows?: number; time_labels?: string[]; imports_included?: boolean } = {};
+  const meta: {
+    total_rows?: number;
+    time_labels?: string[];
+    imports_included?: boolean;
+    metric_warnings?: Record<string, { code: string; warning: string }>;
+  } = {};
   if (query.include.imports) meta.imports_included = false;
   if (query.include.total_rows) meta.total_rows = basicResult.totalRows;
+  if (Object.keys(noContextWarnings).length) {
+    meta.metric_warnings = noContextWarnings;
+  }
   if (query.include.time_labels && timeDimension) {
     meta.time_labels = getTimeLabels(
       timeDimension,

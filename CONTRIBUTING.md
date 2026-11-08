@@ -6,13 +6,13 @@ noomers development is 100% volunteer-driven. If you use and like this software 
 
 ### Dependencies
 
-Install dependencies:
+Install dependencies from the repository root:
 
 ```bash
-pnpm install
+vp install
 ```
 
-Install Playwright browsers:
+Install Playwright browsers (only needed for the tracker integration tests):
 
 ```bash
 cd packages/tracker && pnpm playwright install
@@ -20,27 +20,16 @@ cd packages/tracker && pnpm playwright install
 
 ### Config
 
-To get started, in the `packages/server` folder, copy `.dev.vars.example` to `.dev.vars`.
+Local development (`vp run dev`, i.e. `alchemy dev`) needs `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` for your own Cloudflare account in the environment, plus `BETTER_AUTH_URL` pointing at the printed local URL. Verification and reset emails land in `.alchemy/local/email/`. Never put production credentials in `.dev.vars` — see `AGENTS.md` and `docs/deploy.md` for the full setup.
 
-Open `.dev.vars` and enter the same values for `CF_BEARER_TOKEN` and `CF_ACCOUNT_ID` you used earlier.
+### Running the App
 
-### Running the Server
+noomers is a pnpm monorepo on Vite+/TanStack Router (SPA) and a Hono API worker.
 
-noomers is built on Vite/React Router (v7+) and Cloudflare Workers.
+- `cd apps/web && vp dev` → Vite dev server for the SPA; worker routes need the worker dev server.
+- `vp run dev` → `alchemy dev`: worker + D1 + Durable Object locally against your Cloudflare account.
 
-In development, you have two options:
-
-1. `pnpm turbo dev` → This runs the Vite development server in Node.js. This server will automatically rebuild files when you change them, but it does not best reflect Cloudflare's serverless platform.
-
-2. `pnpm turbo preview` → This runs Cloudflare's Miniflare server with a build of the Remix files. This closer matches the deployment environment, but does not (yet) automatically rebuild your app.
-
-## Publishing
-
-When publishing a new version, use this little utility script:
-
-```
-./bump.sh <new_version>
-```
+Verification before every change: `vp check`, `vp run -r test`, `vp run -r build`.
 
 ## Development Philosophy
 
@@ -48,10 +37,11 @@ The primary goal of noomers is to be super easy to self-host and maintain. It sh
 
 To achieve that:
 
-- There should be no application state outside of CF Analytics Engine
-  - e.g. no additional relational database like MySQL, PostgreSQL, etc.
-  - That means no `users` table, no `sites` table, etc.
-  - This also means retention will be limited by what CF Analytics Engine provides. While it could be possible to stand up a "hit counter" for long-lived data (e.g. years), that would mean another database, which we will not pursue.
+- Application state lives in three places, all provisioned by `alchemy.run.ts`:
+  - **D1** — the authoritative site registry, goals, custom properties, tombstones/deletion jobs, and Better Auth tables (users, sessions). Collection fails closed against the D1 registry.
+  - **The SiteEvents Durable Object** — per-site realtime buffer that ships canonical events to the Basin Pipeline and serves the live dashboard.
+  - **Basin/Iceberg** — the durable event archive (`noomers.events`) that Basin SQL queries for all historical analytics; there is no fixed retention cap.
 - We prioritize backwards compatibility
-  - New `metricsDataset` columns can be added, but old columns cannot be removed or renamed (they can however, be "forgotten").
-  - That also means it's okay if a feature only works during a period where the data is active.
+  - D1 migrations are append-only; never edit an applied migration.
+  - Canonical event fields change only through coordinated updates to the collector, the Pipeline schema, the SQL layer, tests, and docs.
+- Privacy invariants are non-negotiable: no raw IPs or full user agents, salted visitor IDs that rotate daily in UTC, and no cross-day/cross-site/cross-device identity linking.

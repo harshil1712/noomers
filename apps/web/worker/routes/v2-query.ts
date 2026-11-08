@@ -3,6 +3,7 @@ import { secretsEqual } from "../lib/secrets";
 import { executeStatsQuery, StatsAPIError } from "../analytics/stats-api";
 import type { R2SQLAPI } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
+import { GoalsRepository } from "../goals/repository";
 
 export function v2MethodNotAllowed() {
   return Response.json(
@@ -49,6 +50,7 @@ export async function handleStatsQuery(
         sessionAnalytics(),
         { ...input, site_id: site.domain },
         site.timezone,
+        await new GoalsRepository(env.DB).list(site.domain),
       ),
     );
   } catch (error) {

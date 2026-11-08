@@ -15,7 +15,7 @@ noomers is a pnpm monorepo for self-hosted, privacy-first web analytics on Cloud
 | `alchemy.run.ts`    | All infrastructure (Alchemy IaC). No resource is created any other way.                                                                                                                                                                                                                  |
 | `project.config.ts` | Single source for names/domains.                                                                                                                                                                                                                                                         |
 
-Key references: `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, `docs/deploy.md` for CI/cutover.
+Key references: `README.md` for user-facing behavior, `docs/plausible-feature-parity.md` before changing compatibility claims, `docs/deploy.md` for CI deploy.
 
 ## Toolchain
 
@@ -46,7 +46,7 @@ cd packages/tracker && vp test
 
 Tracker integration tests (Playwright) stay a separate `test:integration` script — browsers required, not part of `vp test`.
 
-Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` in env (your own account); point `BETTER_AUTH_URL` at the printed URL. Verification/reset mail lands in `.alchemy/local/email/`. Never put production credentials in `.dev.vars`.
+Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API token in env; point `BETTER_AUTH_URL` at the printed URL. Local dev has no Pipeline/Basin, so the dashboard shows realtime only and no history — end-to-end Basin testing needs a deployed dev stage (`vp run deploy:dev`). Verification/reset mail lands in `.alchemy/local/email/`. Never put production credentials in `.dev.vars`.
 
 ## Architecture
 
@@ -57,8 +57,8 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - `worker/sites/`, `goals/`, `custom-properties/` — D1 repositories (**raw SQL**, documented exception to the Drizzle rule, same as Basin SQL).
 - `worker/routes/` — Hono handlers: health/readiness, collect, Plausible events, `/api/v1/sites*`, `/api/v2/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
 - `worker/realtime.ts` — `/realtime/:siteId` WebSocket; requires a Better Auth session with `role === "admin"`.
-- `worker/site-events.ts` — per-site DO: buffers canonical events, ships them to `EVENT_STREAM`, serves realtime aggregates.
-- `apps/web/migrations/` — ordered D1 migrations; 0001–0007 are live prod filenames.
+- `worker/site-events.ts` — per-site DO: keeps canonical events for the realtime window, serves realtime aggregates.
+- `apps/web/migrations/` — ordered D1 migrations; `0001_init`/`0002_auth` are the baseline.
 
 ### Event data flow
 
@@ -66,15 +66,14 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 2. D1 verifies that the site is active. Unknown, deleted, or unavailable registry states fail closed.
 3. The collector normalizes URL, geography, user agent, campaign, event, and property fields.
 4. A salted visitor identifier is generated and rotated daily in UTC.
-5. The canonical event is recorded in the site's `SiteEvents` Durable Object (fail closed; a DO error returns 500).
-6. The DO ships unsent rows to `EVENT_STREAM` (Basin pipeline → R2/Iceberg) with backoff and prunes shipped rows.
-7. Dashboard and Stats API queries read Basin SQL over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
-8. Deleting a site tombstones it and purges its DO immediately.
+5. The canonical event is sent to `EVENT_STREAM` (Pipelines confirms ingest) and recorded in the site's `SiteEvents` Durable Object for realtime — both awaited; either failing returns 500.
+6. Dashboard and Stats API queries read Basin SQL over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
+7. Deleting a site tombstones it and purges its DO immediately.
 
 ### Dashboard and auth
 
-- Better Auth owns all auth: email+password with mandatory verification, Google OAuth (optional), Turnstile on sign-up/sign-in/reset, `SIGNUP_DISABLED` support.
-- The dashboard is single-owner self-hosted: every dashboard surface (`/api/dashboard/*` and `/realtime/:siteId`) requires a session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the first admin. Non-admin signed-in users get 403.
+- Better Auth owns all auth: email+password with mandatory verification, Google OAuth (optional), Turnstile on sign-up/sign-in/reset, `SIGNUP_DISABLED` support (`true` closed, `false` open, empty closes once an admin exists).
+- The dashboard is single-owner self-hosted: every dashboard surface (`/api/dashboard/*` and `/realtime/:siteId`) requires a session user with `role === "admin"`; `OWNER_ADMIN_EMAIL` bootstraps the admin — if unset, the first verified account to get a session becomes admin. Non-admin signed-in users get 403.
 - Plausible APIs keep deployment-wide Bearer tokens (`SITES_API_TOKEN`, `STATS_API_TOKEN`); `SERVER_EVENTS_TOKEN` gates the server-tracker trust path.
 
 ## Non-negotiable invariants
@@ -92,7 +91,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Collection must remain fail closed against the authoritative D1 site registry.
 - A deleted site's tombstone is permanent unless a deliberate product migration says otherwise.
 - Site deletion must continue blocking collection, Stats API access, and re-registration immediately.
-- Do not claim complete erasure while Iceberg deletion is pending. The internal deletion job records state, but no automatic processor runs; Iceberg cleanup is manual.
+- Do not claim complete erasure while Iceberg deletion is pending. A daily GitHub Actions job (`scripts/iceberg-erasure`) row-deletes due sites via Basin Catalog and reports back through `/api/maintenance/deletion-jobs`; managed snapshot expiration removes the data files (snapshots >7 days, keeping the last 5).
 - Never delete Iceberg objects directly with an R2 lifecycle rule. Row deletion must use a writable Iceberg-compatible engine followed by snapshot expiration and orphan cleanup.
 
 ### Analytics semantics
@@ -101,7 +100,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Apply the site's IANA reporting timezone to date presets and time buckets.
 - Visitor IDs rotate at UTC midnight, so sessions cannot safely cross that boundary.
 - Do not implement Plausible `visit:*` dimensions by grouping event rows. Visit dimensions must use the first pageview of a reconstructed session; entry and exit dimensions require first/last pageview attribution.
-- The SiteEvents DO is realtime-only; Basin SQL serves all history and can lag collection by a few minutes because the DO batches shipments.
+- The SiteEvents DO is realtime-only; Basin SQL serves all history. An event is accepted only after Pipelines confirms ingest — if `EVENT_STREAM` is unavailable collection returns 500 and the tracker does not retry, so those events are lost.
 - Do not silently approximate session metrics where the API promises exact R2 SQL results. Return a clear compatibility error instead.
 
 ### API compatibility
@@ -109,12 +108,12 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Keep request validation closed and bounded: reject unknown keys, unsafe identifiers, oversized bodies, unsupported combinations, and unbounded result requests.
 - Escape SQL values for Basin SQL. Never interpolate unvalidated identifiers.
 - Preserve Plausible response shapes, status codes, normalized query echoes, and timezone behavior when extending compatibility routes.
-- Add tests for both generated SQL dialects when changing dimensions, filters, metrics, or ordering.
+- Add generated-SQL tests (Basin SQL) and Stats API route tests when changing dimensions, filters, metrics, or ordering.
 - Do not advertise full Plausible parity. Update `docs/plausible-feature-parity.md` whenever a supported, partial, missing, deferred, or blocked capability changes.
 
 ## Database and schema changes
 
-- D1 migrations are append-only. Add the next numbered migration; **never edit or rename 0001–0007 or any applied migration** — the production DB's wrangler-era `d1_migrations` history is converted one-way into `__alchemy_migrations` keyed on those names.
+- D1 migrations are append-only. Add the next numbered migration; **never edit or rename `0001_init.sql`, `0002_auth.sql`, or any migration once a deployment has applied it** — Alchemy tracks applied migrations in `__alchemy_migrations` keyed on filename.
 - Make migrations safe for fresh installs and upgrades from every supported prior schema.
 - Update repository tests and migration expectations with every schema change.
 - Changes to canonical event fields require coordinated updates to the collector, Pipeline schema (`apps/web/pipelines/events.schema.json`), handwritten durable/normalized event interfaces, R2 SQL, tests, and documentation.
@@ -151,7 +150,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - Do not deploy, create resources, apply remote migrations, rotate secrets, or modify a live Cloudflare account unless the user explicitly asks.
 - The `cd` workflow is manual-only and never deploys; real deploys happen via the PR preview/production workflows documented in `docs/deploy.md`.
 - Never commit `.dev.vars`, API tokens, passwords, salts, R2 SQL credentials, or files under `~/.noomers/`.
-- Pipeline/Data Catalog provisioning is Alchemy-owned in `alchemy.run.ts`; see the cutover section of `docs/deploy.md` for adopting existing wrangler-era resources.
+- Pipeline/Data Catalog provisioning is Alchemy-owned in `alchemy.run.ts`.
 - Use `EVENT_STREAM` consistently as the runtime Basin Pipeline binding; `SITE_EVENTS` is the per-site Durable Object; `DB` is the sole D1 binding; `COLLECT_RATE_LIMIT` (ns 1001) throttles collection, `RATE_LIMITER` (ns 1002) throttles auth.
 - Treat `/api/health` as a compatibility liveness response, not proof that D1, the DO, the Pipeline, or Basin SQL is healthy — `/api/health/ready` is the readiness signal.
 
@@ -176,7 +175,7 @@ Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFL
 - **Alchemy v2** (Effect style) owns all infra — no wrangler config files for deploy, no Terraform.
 - **Kumo UI** (`@cloudflare/kumo`) + Phosphor icons + Tailwind 4. No other component library; `cn()` comes from `@cloudflare/kumo`.
 - **Charts:** Kumo `TimeseriesChart` + consumer-installed `echarts` (no recharts).
-- **Better Auth** for all auth; admin plugin + `OWNER_ADMIN_EMAIL` gate the dashboard.
+- **Better Auth** for all auth; admin plugin + `OWNER_ADMIN_EMAIL`/first-user fallback gates the dashboard.
 - **No `vi.mock`** — the anti-slop plugin forbids module mocking; tests use real seams.
 - **No generic agent API/MCP.** `/api/v1/*` belongs to the Plausible Sites API. An agent surface may come later as a deliberate project, not the template's flow.
 
