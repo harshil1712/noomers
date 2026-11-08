@@ -21,7 +21,15 @@ export interface SiteEventsNamespace {
 }
 
 export type CollectEnv = Partial<
-  Pick<Env, "VISITOR_SALT" | "DB" | "SITE_EVENTS" | "SERVER_EVENTS_TOKEN" | "COLLECT_RATE_LIMIT">
+  Pick<
+    Env,
+    | "VISITOR_SALT"
+    | "DB"
+    | "SITE_EVENTS"
+    | "EVENT_STREAM"
+    | "SERVER_EVENTS_TOKEN"
+    | "COLLECT_RATE_LIMIT"
+  >
 >;
 
 export async function getSiteCollectionStatus(
@@ -425,7 +433,16 @@ export async function recordNormalizedEvent(
     throw new Error("SITE_EVENTS binding is not configured");
   }
   const namespace = env.SITE_EVENTS as unknown as SiteEventsNamespace;
-  await namespace.get(namespace.idFromName(event.siteId)).record(durableEvent);
+  // Pipelines confirms ingest on send() resolution; the DO keeps the same
+  // event for realtime. Both are awaited — either failing is fail-closed 500.
+  await Promise.all([
+    env.EVENT_STREAM
+      ? env.EVENT_STREAM.send([
+          durableEvent as unknown as import("cloudflare:pipelines").PipelineRecord,
+        ])
+      : undefined,
+    namespace.get(namespace.idFromName(event.siteId)).record(durableEvent),
+  ]);
 }
 
 const TRACKING_PIXEL_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";

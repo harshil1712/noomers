@@ -9,7 +9,7 @@ _noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.d
 - **Lightweight tracker** — a single `tracker.js` (ESM or UMD) script tag, plus Plausible-compatible `pa-*.js` script routes, collects pageviews, custom events, scroll/engagement signals, and campaign parameters.
 - **Privacy by construction** — no cookies, no raw IPs or full user-agents persisted; visitor IDs are site-scoped, hostname-scoped, salted, and rotate daily in UTC.
 - **Realtime** — a per-site `SiteEvents` Durable Object buffers canonical events and serves live realtime aggregates over WebSocket.
-- **Full history** — the DO ships durable events to [Cloudflare Basin](https://developers.cloudflare.com/basin/) (Pipelines → R2 → Iceberg → Basin SQL), so there is no fixed retention limit.
+- **Full history** — events go straight to [Cloudflare Basin](https://developers.cloudflare.com/basin/) (Pipelines → R2 → Iceberg → Basin SQL), so there is no fixed retention limit.
 - **Dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; `OWNER_ADMIN_EMAIL`, or the first verified account if unset) with stats, timeseries, realtime, goals, and breakdown cards.
 - **Plausible-compatible APIs** — a subset of Plausible's Events, Sites, and Stats APIs. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline — **not** full parity.
 
@@ -20,11 +20,8 @@ site visitor ──GET /collect or POST /api/event──▶ apps/web worker (Hon
                                                │  - D1 site registry check (fail closed)
                                                │  - normalize + salt visitor id
                                                ▼
-                                     SiteEvents Durable Object (per site)
-                                               │  - buffers events (realtime)
-                                               │  - ships unsent rows →
-                                               ▼
-                           EVENT_STREAM Pipeline → R2 → Iceberg (Data Catalog)
+                                     ├── EVENT_STREAM Pipeline → R2 → Iceberg (Data Catalog)
+                                     └── SiteEvents Durable Object (per site, realtime only)
                                                │
                                                ▼
                           Basin SQL  ←── /api/v2/query + /api/dashboard/*

@@ -57,7 +57,7 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 - `worker/sites/`, `goals/`, `custom-properties/` — D1 repositories (**raw SQL**, documented exception to the Drizzle rule, same as Basin SQL).
 - `worker/routes/` — Hono handlers: health/readiness, collect, Plausible events, `/api/v1/sites*`, `/api/v2/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
 - `worker/realtime.ts` — `/realtime/:siteId` WebSocket; requires a Better Auth session with `role === "admin"`.
-- `worker/site-events.ts` — per-site DO: buffers canonical events, ships them to `EVENT_STREAM`, serves realtime aggregates.
+- `worker/site-events.ts` — per-site DO: keeps canonical events for the realtime window, serves realtime aggregates.
 - `apps/web/migrations/` — ordered D1 migrations; `0001_init`/`0002_auth` are the baseline.
 
 ### Event data flow
@@ -66,10 +66,9 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 2. D1 verifies that the site is active. Unknown, deleted, or unavailable registry states fail closed.
 3. The collector normalizes URL, geography, user agent, campaign, event, and property fields.
 4. A salted visitor identifier is generated and rotated daily in UTC.
-5. The canonical event is recorded in the site's `SiteEvents` Durable Object (fail closed; a DO error returns 500).
-6. The DO ships unsent rows to `EVENT_STREAM` (Basin pipeline → R2/Iceberg) with backoff and prunes shipped rows.
-7. Dashboard and Stats API queries read Basin SQL over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
-8. Deleting a site tombstones it and purges its DO immediately.
+5. The canonical event is sent to `EVENT_STREAM` (Pipelines confirms ingest) and recorded in the site's `SiteEvents` Durable Object for realtime — both awaited; either failing returns 500.
+6. Dashboard and Stats API queries read Basin SQL over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
+7. Deleting a site tombstones it and purges its DO immediately.
 
 ### Dashboard and auth
 
@@ -101,7 +100,7 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 - Apply the site's IANA reporting timezone to date presets and time buckets.
 - Visitor IDs rotate at UTC midnight, so sessions cannot safely cross that boundary.
 - Do not implement Plausible `visit:*` dimensions by grouping event rows. Visit dimensions must use the first pageview of a reconstructed session; entry and exit dimensions require first/last pageview attribution.
-- The SiteEvents DO is realtime-only; Basin SQL serves all history and can lag collection by a few minutes because the DO batches shipments.
+- The SiteEvents DO is realtime-only; Basin SQL serves all history. An event is accepted only after Pipelines confirms ingest — if `EVENT_STREAM` is unavailable collection returns 500 and the tracker does not retry, so those events are lost.
 - Do not silently approximate session metrics where the API promises exact R2 SQL results. Return a clear compatibility error instead.
 
 ### API compatibility

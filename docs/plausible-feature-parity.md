@@ -28,7 +28,7 @@ noomers currently has:
 - A D1 site registry, permanent deletion tombstones, per-site SiteEvents Durable Objects (purged on delete), and deletion-job records tracking Iceberg maintenance state.
 - Deployment-wide bearer tokens for the Plausible APIs (`SITES_API_TOKEN`, `STATS_API_TOKEN`) and an optional first-party server tracker token (`SERVER_EVENTS_TOKEN`).
 - A historical-import path: `scripts/plausible-import/` loads a self-hosted Plausible `events_v2` export into a second Iceberg table that `R2_SQL_IMPORT_TABLE` merges into every query.
-- A token-gated `/api/health/ready` readiness endpoint that checks D1, per-site Durable Object backlog, and Basin SQL reachability/freshness.
+- A token-gated `/api/health/ready` readiness endpoint that checks D1 and Basin SQL reachability.
 
 This is not yet a drop-in replacement for the full Plausible product.
 
@@ -269,7 +269,7 @@ Visit dimensions must not be implemented by grouping raw event rows. Plausible a
 | Site settings UI               | Partial   | Admins can add a site (domain + reporting timezone), change its timezone, and delete it from the dashboard. Tracker configuration, goal management UI, and deletion status remain API-only.       |
 | Long-term dashboard history    | Supported | Basin SQL serves all stored history with no fixed retention cap; queries lag collection by a few minutes.                                                                                         |
 
-Every accepted event is buffered in the site's SiteEvents Durable Object (a DO error returns 500) and shipped to the Basin Pipeline with backoff retries, so a successful response means the event is durably buffered — not that it is queryable yet. Exact session history comes from Basin SQL over the `noomers.events` Iceberg table (plus an optional import table via `R2_SQL_IMPORT_TABLE`), which lags realtime collection by a few minutes.
+Every accepted event is sent to `EVENT_STREAM` (Pipelines confirms ingest) and recorded in the site's SiteEvents Durable Object for realtime — either failing returns 500 — so a successful response means the event reached the Pipeline; it is not queryable yet. Exact session history comes from Basin SQL over the `noomers.events` Iceberg table (plus an optional import table via `R2_SQL_IMPORT_TABLE`), which lags realtime collection by a few minutes.
 
 The dashboard reads everything through Basin SQL sessionization; the realtime tab reads the SiteEvents Durable Object over an authenticated WebSocket.
 
@@ -357,33 +357,33 @@ All infrastructure is provisioned by `alchemy.run.ts` (Alchemy v2): the D1 datab
 
 ### Remaining parity and operations
 
-| Feature                             | Status    | Remaining work                                                                                                                                                                                   |
-| ----------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Initial site creation               | Supported | Admins add sites from the dashboard's add-site dialog, which then shows the tracker snippet; `POST /api/v1/sites` remains available for automation. Unvalidated live.                            |
-| Basin Pipeline/Catalog provisioning | Supported | Stream, sink, pipeline, catalog, bucket, and both API tokens are created by `alchemy.run.ts`; unvalidated until a real deploy runs.                                                              |
-| Basin SQL credential provisioning   | Supported | A least-privilege read token is minted as an account API token by `alchemy.run.ts`; unvalidated until a real deploy runs.                                                                        |
-| Stats/Sites API token configuration | Partial   | `SITES_API_TOKEN` and `STATS_API_TOKEN` are operator-provided secrets read from env; there is no assisted setup or rotation flow.                                                                |
-| Pipeline binding metadata           | Supported | The runtime `EVENT_STREAM` binding is provisioned and bound by `alchemy.run.ts`.                                                                                                                 |
-| Dependency-aware health checks      | Supported | `/api/health/ready` (token-gated) checks D1, per-site DO backlog/failures, Basin SQL reachability, and durable freshness; `/api/health` stays a static compatibility response. Unvalidated live. |
-| Pipeline retry/dead-letter handling | Partial   | The DO retries failed `EVENT_STREAM` sends with exponential backoff and keeps unshipped rows; there is no dead-letter destination or operator alert on sustained failure.                        |
-| Collection/auth rate limiting       | Partial   | `COLLECT_RATE_LIMIT` throttles `/collect` and `/api/event` per IP+site; `RATE_LIMITER` throttles auth POSTs per IP. Stats and Sites APIs have no limits.                                         |
-| Monitoring and SLOs                 | Partial   | Workers observability (logs and traces) is enabled; there are no defined SLOs, dashboards, or alerts for ingestion/query latency, durable lag, or deletion.                                      |
-| Pipeline lag visibility             | Partial   | Readiness reports DO backlog and Basin freshness per site, and realtime stats expose unshipped counts; no freshness surface in Stats API or dashboard responses.                                 |
-| Backup and restore                  | Missing   | Document and automate D1 backup plus durable-event recovery.                                                                                                                                     |
-| Disaster recovery                   | Missing   | Define resource recreation and data restoration procedures.                                                                                                                                      |
-| Migration rollback                  | Missing   | Define safe behavior for failed schema or deployment upgrades.                                                                                                                                   |
+| Feature                             | Status    | Remaining work                                                                                                                                                                      |
+| ----------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial site creation               | Supported | Admins add sites from the dashboard's add-site dialog, which then shows the tracker snippet; `POST /api/v1/sites` remains available for automation. Unvalidated live.               |
+| Basin Pipeline/Catalog provisioning | Supported | Stream, sink, pipeline, catalog, bucket, and both API tokens are created by `alchemy.run.ts`; unvalidated until a real deploy runs.                                                 |
+| Basin SQL credential provisioning   | Supported | A least-privilege read token is minted as an account API token by `alchemy.run.ts`; unvalidated until a real deploy runs.                                                           |
+| Stats/Sites API token configuration | Partial   | `SITES_API_TOKEN` and `STATS_API_TOKEN` are operator-provided secrets read from env; there is no assisted setup or rotation flow.                                                   |
+| Pipeline binding metadata           | Supported | The runtime `EVENT_STREAM` binding is provisioned and bound by `alchemy.run.ts`.                                                                                                    |
+| Dependency-aware health checks      | Supported | `/api/health/ready` (token-gated) checks D1 and Basin SQL reachability; `/api/health` stays a static compatibility response. Unvalidated live.                                      |
+| Pipeline retry/dead-letter handling | Missing   | `EVENT_STREAM.send` failures fail the request (500) and the tracker does not retry — the event is lost; there is no dead-letter destination or operator alert on sustained failure. |
+| Collection/auth rate limiting       | Partial   | `COLLECT_RATE_LIMIT` throttles `/collect` and `/api/event` per IP+site; `RATE_LIMITER` throttles auth POSTs per IP. Stats and Sites APIs have no limits.                            |
+| Monitoring and SLOs                 | Partial   | Workers observability (logs and traces) is enabled; there are no defined SLOs, dashboards, or alerts for ingestion/query latency, durable lag, or deletion.                         |
+| Pipeline lag visibility             | Missing   | No backlog exists to report (send is synchronous); there is no freshness surface in Stats API or dashboard responses.                                                               |
+| Backup and restore                  | Missing   | Document and automate D1 backup plus durable-event recovery.                                                                                                                        |
+| Disaster recovery                   | Missing   | Define resource recreation and data restoration procedures.                                                                                                                         |
+| Migration rollback                  | Missing   | Define safe behavior for failed schema or deployment upgrades.                                                                                                                      |
 
 ## Additional production hardening
 
 These are noomers reliability improvements, not documented Plausible public API parity requirements.
 
-| Feature                       | Status  | Remaining work                                                                                                                                                                                                                                       |
-| ----------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Trusted event timestamps      | Missing | Add a restricted path for backdated migration events without weakening public ingestion.                                                                                                                                                             |
-| Event deduplication           | Partial | Basin SQL read paths collapse duplicate durable copies that share a non-empty canonical `event_id` before aggregation/sessionization. Empty or missing IDs and client retries remain distinct; storage-level idempotent writes remain unimplemented. |
-| Batch ingestion               | Missing | Add a bounded administrative batch path if migration throughput requires it.                                                                                                                                                                         |
-| Ingestion rate limits         | Partial | Per-IP+site collection limits exist; add deployment-wide and per-site limits without allowing one site to starve others.                                                                                                                             |
-| Durable-write acknowledgement | Partial | A successful collection response confirms the event is durably buffered in the site's SiteEvents DO (a DO error returns 500); it is not proof of Pipeline delivery or a Basin SQL-visible Iceberg record, which lag by minutes.                      |
+| Feature                       | Status    | Remaining work                                                                                                                                                                                                                                       |
+| ----------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trusted event timestamps      | Missing   | Add a restricted path for backdated migration events without weakening public ingestion.                                                                                                                                                             |
+| Event deduplication           | Partial   | Basin SQL read paths collapse duplicate durable copies that share a non-empty canonical `event_id` before aggregation/sessionization. Empty or missing IDs and client retries remain distinct; storage-level idempotent writes remain unimplemented. |
+| Batch ingestion               | Missing   | Add a bounded administrative batch path if migration throughput requires it.                                                                                                                                                                         |
+| Ingestion rate limits         | Partial   | Per-IP+site collection limits exist; add deployment-wide and per-site limits without allowing one site to starve others.                                                                                                                             |
+| Durable-write acknowledgement | Supported | A successful collection response means `EVENT_STREAM.send` confirmed Pipeline ingest and the event is recorded in the SiteEvents DO for realtime (either failing returns 500); a Basin SQL-visible Iceberg record still lags by minutes.             |
 
 ## Explicit non-goals
 

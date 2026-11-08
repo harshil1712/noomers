@@ -38,9 +38,9 @@ describe("Plausible compatibility routes", () => {
     });
 
     expect(response.status).toBe(202);
-    // the durable buffer actually recorded the event
+    // the durable buffer actually recorded the event for realtime
     const ns = env.SITE_EVENTS!;
-    const backlog = await ns.get(ns.idFromName("example.com")).backlog();
-    expect(backlog.unshipped).toBeGreaterThan(0);
+    const rt = await ns.get(ns.idFromName("example.com")).realtime();
+    expect(rt.pageviews30m).toBeGreaterThan(0);
   });
 });

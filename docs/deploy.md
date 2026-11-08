@@ -117,9 +117,10 @@ Actions → iceberg-erasure → Run workflow. Set the repo variable
   `R2_SQL_BUCKET` is bound from the provisioned bucket, so an old table is
   queryable only through `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives
   in the same bucket's catalog; otherwise history starts fresh.
-- **Drain the SiteEvents DO first.** Unshipped buffered rows live in the
-  old worker's DOs. Check `/api/health/ready` reports zero backlog on the
-  old deployment before switching traffic, or those events are stranded.
+- **Events send straight to Pipelines.** An event is accepted only after
+  `EVENT_STREAM.send` confirms ingest — if Pipelines is down collection
+  returns 500 and the tracker does not retry, so those events are lost.
+  The SiteEvents DO now holds realtime rows only; nothing needs draining.
 - **Basin/R2 tokens are minted by the deploy** (`Account API Tokens · Edit`
   on the CI token grants this). The minted R2 SQL token is read-only —
   confirm the first real preview answers `/api/health/ready` before
