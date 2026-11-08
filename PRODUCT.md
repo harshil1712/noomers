@@ -2,7 +2,7 @@
 
 ## Product
 
-- **Name:** noomers (`noomers.dev`, app on `app.noomers.dev`)
+- **Name:** noomers (`noomers.com`, app on `app.noomers.com`)
 - **What it is:** a privacy-first, self-hosted web analytics platform for Cloudflare. Users deploy it to their own Cloudflare account, drop a script tag on their site, and get realtime + full-history analytics without handing visitor data to a third party.
 - **What it also is:** a Plausible-compatible API surface — a subset of the Events, Sites, and Stats APIs (see `docs/plausible-feature-parity.md`; never claim full parity).
 

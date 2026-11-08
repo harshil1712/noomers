@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://noomers.dev/sitemap-index.xml
+Sitemap: https://noomers.com/sitemap-index.xml

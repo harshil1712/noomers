@@ -1,6 +1,6 @@
 # @noomers/tracker
 
-Client-side page view tracking library for [noomers](https://noomers.dev).
+Client-side page view tracking library for [noomers](https://noomers.com).
 
 _For instructions on downloading and deploying the [noomers server](https://github.com/harshil1712/noomers), consult the [project README](https://github.com/harshil1712/noomers/blob/master/README.md)._
 

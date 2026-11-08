@@ -6,13 +6,13 @@ export const PROJECT = {
   /** Product name used in UI copy and email subjects. */
   productName: "noomers",
   /** Cloudflare zone apex. */
-  domain: "noomers.dev",
+  domain: "noomers.com",
   /** Subdomain the app runs on (site lives on the apex). */
   appSubdomain: "app",
   /** From: address for auth emails (verify, reset). */
-  emailFrom: "noreply@noomers.dev",
+  emailFrom: "noreply@noomers.com",
   /** Human-monitored inbox for support + privacy/data requests (site privacy page). */
-  supportEmail: "support@noomers.dev",
+  supportEmail: "support@noomers.com",
 } as const;
 
 export const APP_DOMAIN = `${PROJECT.appSubdomain}.${PROJECT.domain}`;

@@ -2,7 +2,7 @@
  * bundle can't import from the repo root). */
 export const PRODUCT = {
   name: "noomers",
-  domain: "noomers.dev",
-  appDomain: "app.noomers.dev",
-  emailFrom: "noreply@noomers.dev",
+  domain: "noomers.com",
+  appDomain: "app.noomers.com",
+  emailFrom: "noreply@noomers.com",
 } as const;

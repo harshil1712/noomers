@@ -2,7 +2,7 @@
     "name": "@noomers/tracker",
     "version": "3.4.1",
     "descriptrion": "noomers tracking library for recording pageviews",
-    "homepage": "https://noomers.dev",
+    "homepage": "https://noomers.com",
     "license": "MIT",
     "sideEffects": false,
     "type": "module",
