@@ -93,6 +93,7 @@ function SidebarNav() {
   const { isMobile, setOpenMobile } = useSidebar();
   const navigate = useNavigate();
   const sites = useSites();
+  const { forbidden } = useSharedSites();
   const activeSite = new URLSearchParams(location.search).get("site");
 
   return (
@@ -139,13 +140,15 @@ function SidebarNav() {
                 {domain}
               </Sidebar.MenuButton>
             ))}
-            <AddSiteDialog
-              trigger={
-                <Sidebar.MenuButton icon={Plus} tooltip="Add site" className={FOCUS_RING}>
-                  Add site
-                </Sidebar.MenuButton>
-              }
-            />
+            {!forbidden && (
+              <AddSiteDialog
+                trigger={
+                  <Sidebar.MenuButton icon={Plus} tooltip="Add site" className={FOCUS_RING}>
+                    Add site
+                  </Sidebar.MenuButton>
+                }
+              />
+            )}
           </Sidebar.Menu>
         </Sidebar.Group>
         <Sidebar.Group className="mt-auto">

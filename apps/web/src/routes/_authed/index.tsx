@@ -6,15 +6,16 @@ import { GridComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { z } from "zod";
 import { Banner, Button, Empty, Grid, Select, Surface, Text, Chart } from "@cloudflare/kumo";
-import { ArrowSquareOut, Globe } from "@phosphor-icons/react";
+import { ArrowSquareOut, Globe, WarningCircle } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
 import { useIsDark as dark } from "../../lib/use-is-dark";
 import { dashboardApi, type DashboardQuery } from "../../lib/dashboard-api";
 import { DeltaBadge } from "../../components/dashboard/delta-badge";
 import { PageHeader } from "../../components/page-header";
-import { useSites as useSharedSites } from "../../lib/use-sites";
+import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
+import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
@@ -216,7 +217,7 @@ function SitesOverview() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
-  const { sites: siteList, error: sitesError } = useSharedSites();
+  const { sites: siteList, error: sitesError, forbidden } = useSharedSites();
   const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [failures, setFailures] = useState<Set<string>>(new Set());
   const interval = search.interval || "1d";
@@ -238,25 +239,29 @@ function SitesOverview() {
         crumbs={[{ label: "Sites" }]}
         title="Sites"
         description={
-          sites ? `${sites.length} site${sites.length === 1 ? "" : "s"} registered` : undefined
+          sites && sites.length > 0
+            ? `${sites.length} site${sites.length === 1 ? "" : "s"} registered`
+            : undefined
         }
         actions={
-          <>
-            <Select
-              value={interval}
-              onValueChange={(v) => {
-                if (v) void navigate({ search: { interval: v as string } });
-              }}
-              renderValue={(v) => OVERVIEW_INTERVALS.find((i) => i.value === v)?.label ?? v}
-            >
-              {OVERVIEW_INTERVALS.map((o) => (
-                <Select.Option key={o.value} value={o.value}>
-                  {o.label}
-                </Select.Option>
-              ))}
-            </Select>
-            <AddSiteDialog />
-          </>
+          forbidden || sites?.length === 0 ? null : (
+            <>
+              <Select
+                value={interval}
+                onValueChange={(v) => {
+                  if (v) void navigate({ search: { interval: v as string } });
+                }}
+                renderValue={(v) => OVERVIEW_INTERVALS.find((i) => i.value === v)?.label ?? v}
+              >
+                {OVERVIEW_INTERVALS.map((o) => (
+                  <Select.Option key={o.value} value={o.value}>
+                    {o.label}
+                  </Select.Option>
+                ))}
+              </Select>
+              <AddSiteDialog />
+            </>
+          )
         }
       />
 
@@ -274,25 +279,25 @@ function SitesOverview() {
         />
       )}
 
-      {sitesError ? (
-        <Surface className="rounded-xl p-8 text-center">
-          <Text variant="heading3" as="h2">
-            Couldn&apos;t load your sites
-          </Text>
-          <Button className="mt-4" onClick={() => location.reload()}>
-            Retry
-          </Button>
-        </Surface>
+      {forbidden ? (
+        <NotOwnerNotice />
+      ) : sitesError ? (
+        <Empty
+          icon={<WarningCircle size={24} />}
+          title="Couldn't load your sites"
+          contents={<Button onClick={() => void refreshSites()}>Retry</Button>}
+        />
       ) : sites === null ? (
-        <div className="grid grid-cols-3 gap-4">
+        <Grid variant="3up" gap="base">
           {[1, 2, 3].map((i) => (
             <div key={i} className="skeleton h-36 rounded-xl" />
           ))}
-        </div>
+        </Grid>
       ) : sites.length === 0 ? (
         <Empty
-          title="No sites yet"
-          description="Add a site to start tracking it."
+          icon={<Globe size={24} />}
+          title="Add your first site"
+          description="Register a domain, then add the tracking snippet to your site's <head>. Visitors appear here within seconds of their first pageview."
           contents={<AddSiteDialog />}
         />
       ) : (

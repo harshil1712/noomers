@@ -71,7 +71,7 @@ function Settings() {
 
   return (
     <div className="flex flex-col gap-5 p-6">
-      <div className="flex w-full max-w-[720px] flex-col gap-6">
+      <div className="flex w-full flex-col gap-6">
         <PageHeader
           crumbs={[{ label: "Sites", to: "/" }, { label: "Settings" }]}
           title="Settings"
@@ -119,7 +119,11 @@ function ProfileSection({ name: savedName, email }: { name: string; email: strin
         </Button>
       }
     >
-      <form id={formId} onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+      <form
+        id={formId}
+        onSubmit={(e) => void submit(e)}
+        className="flex w-full max-w-md flex-col gap-4"
+      >
         <Input
           label="Name"
           value={name}
@@ -191,7 +195,11 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
         </Button>
       }
     >
-      <form id={formId} onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+      <form
+        id={formId}
+        onSubmit={(e) => void submit(e)}
+        className="flex w-full max-w-md flex-col gap-4"
+      >
         <div ref={currentRef}>
           <SensitiveInput
             label="Current password"
@@ -310,7 +318,7 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
 
 function SitesSettings() {
   const navigate = useNavigate();
-  const { sites, error: loadError } = useSharedSites();
+  const { sites, error: loadError, forbidden } = useSharedSites();
   const [error, setError] = useState<string | null>(null);
   const [timezones, setTimezones] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -355,8 +363,12 @@ function SitesSettings() {
       title="Sites"
       description="Manage your tracked sites. Deleting a site is permanent."
     >
-      {error && <FormError message={error} attempt={0} />}
-      {sites === null ? (
+      {error && !forbidden && <FormError message={error} attempt={0} />}
+      {forbidden ? (
+        <Text variant="secondary" size="sm">
+          Only the owner account can manage sites.
+        </Text>
+      ) : loadError ? null : sites === null ? (
         <Loader size="sm" aria-label="Loading sites" />
       ) : sites.length === 0 ? (
         <Text variant="secondary" size="sm">
@@ -372,6 +384,7 @@ function SitesSettings() {
               <Text>{site.domain}</Text>
               <div className="w-56">
                 <TimezonePicker
+                  ariaLabel={`Timezone for ${site.domain}`}
                   value={timezones[site.domain] ?? site.timezone}
                   onChange={(tz) => setTimezones((t) => ({ ...t, [site.domain]: tz }))}
                 />

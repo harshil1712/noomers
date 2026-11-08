@@ -30,6 +30,7 @@ import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
+import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 import {
   dashboardApi,
   type BreakdownCard,
@@ -202,7 +203,7 @@ function Dashboard() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
-  const { sites: siteList, error: sitesError } = useSharedSites();
+  const { sites: siteList, error: sitesError, forbidden } = useSharedSites();
   const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [nonce, setNonce] = useState(0);
   const [failures, setFailures] = useState<Set<string>>(new Set());
@@ -394,7 +395,9 @@ function Dashboard() {
         />
       )}
 
-      {sitesError ? (
+      {forbidden ? (
+        <NotOwnerNotice />
+      ) : sitesError ? (
         <Surface className="rounded-xl p-8 text-center">
           <Text variant="heading3" as="h2">
             Couldn&apos;t load your sites

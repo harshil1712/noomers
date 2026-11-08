@@ -1,8 +1,8 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Button, Code, Combobox, Dialog, Field, Input, Text } from "@cloudflare/kumo";
+import { Button, Code, Combobox, Dialog, Input, Text } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
-import { dashboardApi } from "../../lib/dashboard-api";
+import { dashboardApi, DashboardApiError } from "../../lib/dashboard-api";
 import { refreshSites } from "../../lib/use-sites";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
@@ -10,19 +10,27 @@ const TIMEZONES = Intl.supportedValuesOf("timeZone");
 export function TimezonePicker({
   value,
   onChange,
+  label,
+  description,
+  ariaLabel,
 }: {
   value: string;
   onChange: (tz: string) => void;
+  label?: string;
+  description?: string;
+  ariaLabel?: string;
 }) {
   return (
     <Combobox
       value={value}
       onValueChange={(v) => onChange((v as string) || value)}
       items={TIMEZONES}
+      label={label}
+      description={description}
     >
-      <Combobox.TriggerValue className="w-full" />
+      <Combobox.TriggerValue className="w-full" aria-label={ariaLabel} />
       <Combobox.Content>
-        <Combobox.Input placeholder="Search timezones" />
+        <Combobox.Input placeholder="Search timezones" aria-label="Search timezones" />
         <Combobox.Empty>No matching timezone.</Combobox.Empty>
         <Combobox.List>
           {(tz: string) => (
@@ -70,7 +78,11 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
       });
       void refreshSites();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't add the site.");
+      if (err instanceof DashboardApiError && err.status === 403) {
+        setError("Only the owner account can add sites.");
+      } else {
+        setError(err instanceof Error ? err.message : "Couldn't add the site.");
+      }
     } finally {
       setPending(false);
     }
@@ -118,25 +130,21 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
         ) : (
           <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
             <Dialog.Description>Register a site and start tracking it.</Dialog.Description>
-            <Field
+            <Input
               label="Domain"
-              error={error ? { message: error, match: "customError" } : undefined}
+              error={error || undefined}
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="example.com"
               required
-            >
-              <Input
-                value={domain}
-                onChange={(e) => setDomain(e.target.value)}
-                placeholder="example.com"
-                required
-                autoFocus
-              />
-            </Field>
-            <Field
+              autoFocus
+            />
+            <TimezonePicker
+              value={timezone}
+              onChange={setTimezone}
               label="Reporting timezone"
               description="Dates and charts are grouped in this timezone."
-            >
-              <TimezonePicker value={timezone} onChange={setTimezone} />
-            </Field>
+            />
             <div className="flex items-center justify-between gap-2">
               <Text variant="secondary" size="xs">
                 Sites can also be managed via the Plausible-compatible Sites API.

@@ -49,6 +49,16 @@ export interface Goal {
   averageRevenue: number | null;
 }
 
+export class DashboardApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "DashboardApiError";
+  }
+}
+
 async function request<T>(path: string, method: string, body?: Record<string, string>): Promise<T> {
   const init: RequestInit = { method };
   if (body !== undefined) {
@@ -58,7 +68,7 @@ async function request<T>(path: string, method: string, body?: Record<string, st
   const res = await fetch(path, init);
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error || `${path} failed: ${res.status}`);
+    throw new DashboardApiError(data.error || `${path} failed: ${res.status}`, res.status);
   }
   return res.json() as Promise<T>;
 }
@@ -76,7 +86,7 @@ async function get<T>(
     if (value !== undefined && value !== "") query.set(key, String(value));
   }
   const res = await fetch(`${path}?${query.toString()}`);
-  if (!res.ok) throw new Error(`${path} failed: ${res.status}`);
+  if (!res.ok) throw new DashboardApiError(`${path} failed: ${res.status}`, res.status);
   return res.json() as Promise<T>;
 }
 
