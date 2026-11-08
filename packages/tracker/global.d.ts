@@ -2,8 +2,6 @@
 declare global {
     interface Window {
         noomers: {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            q?: any[]; // Command queue for legacy API
             init: (opts: any) => void;
             trackPageview: (opts?: any) => Promise<void>;
             cleanup: () => void;

@@ -1,0 +1,561 @@
+---
+import PageLayout from "../components/PageLayout.astro";
+import PostList from "../components/PostList.astro";
+import { PROJECT } from "#project";
+import { getPublishedPosts } from "../lib/posts";
+
+const latest = (await getPublishedPosts()).slice(0, 3);
+const description =
+  "Privacy-first, self-hosted web analytics on Cloudflare — a lightweight tracker, a realtime dashboard, and Plausible-compatible APIs, all inside your own account.";
+const REPO = "https://github.com/harshil1712/noomers";
+---
+<PageLayout title={`${PROJECT.productName}: privacy-first self-hosted analytics`} description={description} width="wide">
+  <section class="hero">
+    <div class="hero-text">
+      <span class="mono-label eyebrow">Self-hosted analytics for Cloudflare</span>
+      <h1>Analytics that know <span class="kw">less</span>, not more.</h1>
+      <p class="sub">Privacy-first web analytics that run in your own Cloudflare account.</p>
+      <div class="btns">
+        <a class="btn cta" href={`${REPO}#deployment`}>Deploy to your Cloudflare account</a>
+        <a class="btn secondary" href={REPO}>View on GitHub</a>
+      </div>
+    </div>
+    <div class="req-wrap">
+      <div class="req-card" id="req-card" data-step="0">
+        <div class="req-head"><span class="req-dot" aria-hidden="true"></span><span class="method">POST</span><span class="mono-label">/collect</span></div>
+        <dl>
+          <div class="row" data-row="ip">
+            <dt>ip</dt>
+            <dd class="old">203.0.113.42</dd>
+            <dd class="new">country DE · city Berlin</dd>
+          </div>
+          <div class="row" data-row="ua">
+            <dt>user-agent</dt>
+            <dd class="old">Mozilla/5.0 (Macintosh;<wbr> Intel Mac OS X 14_5)<wbr> Firefox/131.0</dd>
+            <dd class="new">Firefox · macOS · desktop</dd>
+          </div>
+          <div class="row" data-row="url">
+            <dt>url</dt>
+            <dd class="old">/pricing<wbr>?utm_source=newsletter<span class="drop"><wbr>&amp;email=ana@example.com</span></dd>
+          </div>
+          <div class="row add" data-row="path">
+            <dt>pathname</dt>
+            <dd class="new">/pricing</dd>
+          </div>
+          <div class="row add" data-row="utm">
+            <dt>utm_source</dt>
+            <dd class="new">newsletter</dd>
+          </div>
+          <div class="row" data-row="ref">
+            <dt>referrer</dt>
+            <dd class="old">https://www.google.com/<wbr>search<wbr>?q=privacy+analytics</dd>
+            <dd class="new">google.com</dd>
+          </div>
+          <div class="row add" data-row="vid">
+            <dt>visitor_id</dt>
+            <dd class="new">a3f9c1… <span class="cap">salted hash · resets 00:00 UTC</span></dd>
+          </div>
+        </dl>
+        <div class="req-foot">
+          <span class="stored">Stored</span>
+          <span class="counter"><span class="mono-label">Visitors today</span> <b id="vis-count">1,284</b></span>
+        </div>
+      </div>
+      <div class="req-rm">
+        <span class="chip"><i aria-hidden="true">✕</i>IP address</span>
+        <span class="chip"><i aria-hidden="true">✕</i>User-agent string</span>
+        <span class="chip"><i aria-hidden="true">✕</i>Email in URL</span>
+        <span class="chip"><i aria-hidden="true">✕</i>Cookies — none set</span>
+      </div>
+      <p class="sr-only">An incoming collect request carries an IP, full user agent, a URL with an email parameter and a Google referrer. noomers keeps only the country and city, the browser family, the path and campaign source, the referring hostname, and a salted visitor ID that resets daily. It stores nothing else.</p>
+    </div>
+  </section>
+
+  <section class="annotated">
+    <h2>One screen answers three questions</h2>
+    <figure class="shot">
+      <div class="img-wrap">
+        <img data-light="/dashboard-light.png" data-dark="/dashboard-dark.png" src="/dashboard-light.png" alt="noomers dashboard: KPI strip, chart and breakdown panels" loading="eager" />
+        <span class="lead l-live" style="--y:19.1%"><b>Live right now</b></span>
+        <span class="lead l-filter" style="--y:85.6%"><b>Click any row to filter</b></span>
+        <span class="lead lead-top l-change" style="--x:59.6%"><b>Change vs. previous period</b></span>
+        <i class="leader" style="left:-0.5rem;top:19.1%;width:calc(19.6% + 0.5rem)" aria-hidden="true"></i>
+        <i class="leader" style="left:-0.5rem;top:85.6%;width:calc(20.8% + 0.5rem)" aria-hidden="true"></i>
+        <i class="leader leader-v" style="left:59.6%;top:-0.9rem;height:calc(23.2% + 0.9rem)" aria-hidden="true"></i>
+        <i class="ring r-live" style="left:19.6%;top:14.6%;width:13%;height:13.1%" aria-hidden="true"></i>
+        <i class="ring r-change" style="left:33.6%;top:23.2%;width:52%;height:3.4%" aria-hidden="true"></i>
+        <i class="ring r-filter" style="left:20.8%;top:83.2%;width:35.9%;height:4.9%" aria-hidden="true"></i>
+      </div>
+      <figcaption>Dashboard shown with demo data.</figcaption>
+    </figure>
+    <ul class="callout-list">
+      <li>Change vs. previous period — KPI strip badges</li>
+      <li>Live right now — realtime visitors tile</li>
+      <li>Click any row to filter — Sources table</li>
+    </ul>
+  </section>
+
+  <script>
+    const syncModeImgs = () => {
+      const mode = document.documentElement.dataset.mode;
+      const dark = mode === "dark" || (!mode && matchMedia("(prefers-color-scheme: dark)").matches);
+      for (const img of document.querySelectorAll<HTMLImageElement>("img[data-light][data-dark]")) {
+        img.src = dark ? img.dataset.dark! : img.dataset.light!;
+      }
+    };
+    syncModeImgs();
+    new MutationObserver(syncModeImgs).observe(document.documentElement, { attributes: true, attributeFilter: ["data-mode"] });
+  </script>
+
+  <section class="midnight" id="midnight">
+    <span class="mono-label eyebrow">What noomers forgets</span>
+    <h2>Every midnight, every visitor becomes a stranger.</h2>
+    <div class="mid-time" aria-hidden="true">00:00 UTC</div>
+    <div class="timeline" role="img" aria-label="A visitor's salted ID scrambles at each UTC midnight: a3f9c1 on Monday, 7c21e4 on Tuesday, e08b5d on Wednesday.">
+      <div class="day"><span>Mon</span></div>
+      <div class="day"><i class="tick-l">00:00</i><span>Tue</span></div>
+      <div class="day"><i class="tick-l">00:00</i><span>Wed</span></div>
+      <div class="track" id="track">
+        <div class="baseline"><span class="fill" id="fill"></span></div>
+        <svg class="ticks" viewBox="0 0 72 9" preserveAspectRatio="none" aria-hidden="true">{Array.from({ length: 72 }).map((_, i) => (i % 24 === 0 ? null : <line x1={i} y1="0" x2={i} y2={i % 3 === 0 ? 9 : 5} stroke={i % 3 === 0 ? "rgba(230,238,233,.4)" : "rgba(230,238,233,.18)"} stroke-width="0.2" vector-effect="non-scaling-stroke" shape-rendering="crispEdges" />))}</svg>
+        <div class="divider" style="left:33.33%"><i></i></div>
+        <div class="divider" style="left:66.66%"><i></i></div>
+        <div class="playhead" id="playhead"></div>
+        <div class="chip-v" id="vchip"><b id="vhash">a3f9c1</b></div>
+      </div>
+      <div class="static-chips" aria-hidden="true">
+        <span class="hash" style="left:16%">a3f9c1</span>
+        <span class="hash" style="left:49%">7c21e4</span>
+        <span class="hash" style="left:82%">e08b5d</span>
+      </div>
+    </div>
+    <p class="mid-line">Same person, three unrelated IDs. noomers can count visits, not people.</p>
+  </section>
+
+  <section class="arch">
+    <h2>Every byte stays in your account</h2>
+    <div class="account">
+      <div class="account-label">Your Cloudflare account</div>
+      <div class="flow-wrap">
+        <div class="rail" aria-hidden="true"><div class="dot" id="flow-dot"></div></div>
+        <ol class="flow">
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M93.46 71.51 39.52 128l53.94 56.49a12 12 0 1 1-16.92 17l-64-64a12 12 0 0 1 0-17l64-64a12 12 0 0 1 16.92 17Zm140 49-64-64a12 12 0 0 0-16.92 17l53.94 56.49-53.94 56.49a12 12 0 1 0 16.92 17l64-64a12 12 0 0 0 0-17Z"/></svg></i><b>Tracker</b><span>sends pageviews</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153.18 90.9l14.66-73.33a8 8 0 0 0-13.69-7l-112 120a8 8 0 0 0 3 13l57.63 21.61L88.16 238.43a8 8 0 0 0 13.69 7l112-120a8 8 0 0 0 1.94-7.26Z"/></svg></i><b>Worker</b><span>collects + APIs</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M128 24a104 104 0 1 0 104 104A104.11 104.11 0 0 0 128 24Zm0 192a88 88 0 1 1 88-88 88.1 88.1 0 0 1-88 88Zm48-88a8 8 0 0 1-8 8h-72a8 8 0 0 1 0-16h72a8 8 0 0 1 8 8Z"/></svg></i><b>Durable Object</b><span>realtime + buffer</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M213.66 181.66 160 128l53.66-53.66a8 8 0 0 0-11.32-11.32L148 117.37V48a8 8 0 0 0-16 0v69.37L78.63 63.03A8 8 0 0 0 67.31 74.34L121 128l-53.66 53.66a8 8 0 1 0 11.32 11.32L132 138.63V208a8 8 0 0 0 16 0v-69.37l53.37 54.34a8 8 0 0 0 11.32-11.32Z"/></svg></i><b>Pipeline</b><span>Basin ingest</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M128 24C74.17 24 32 48.6 32 80v96c0 31.4 42.17 56 96 56s96-24.6 96-56V80c0-31.4-42.17-56-96-56Zm80 104c0 9.62-7.88 19.43-21.61 26.92C170.93 163.35 150.19 168 128 168s-42.93-4.65-58.39-13.08C55.88 147.43 48 137.62 48 128V80c0 9.62 7.88 19.43 21.61 26.92C85.07 115.35 105.81 120 128 120s42.93-4.65 58.39-13.08C200.12 99.43 208 89.62 208 80Z"/></svg></i><b>R2 / Iceberg</b><span>your warehouse</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M229.66 218.34 179.6 168.28a88.11 88.11 0 1 0-11.32 11.32l50.06 50.07a8 8 0 0 0 11.32-11.33ZM40 112a72 72 0 1 1 72 72 72.08 72.08 0 0 1-72-72Z"/></svg></i><b>Basin SQL</b><span>historical queries</span></li>
+          <li><i aria-hidden="true"><svg viewBox="0 0 256 256"><path d="M224 200h-8V40a8 8 0 0 0-8-8h-56a8 8 0 0 0-8 8v40H88a8 8 0 0 0-8 8v40H48a8 8 0 0 0-8 8v64h-8a8 8 0 0 0 0 16h192a8 8 0 0 0 0-16ZM160 48h40v152h-40Zm-56 48h40v104h-40Zm-48 48h24v56H56Z"/></svg></i><b>Dashboard</b><span>reads SQL + DO</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="start">
+    <h2>Running in an afternoon</h2>
+    <div class="term">
+      <div class="term-tabs" role="tablist" aria-label="Get started">
+        <button role="tab" id="t-deploy" aria-controls="p-deploy" aria-selected="true" tabindex="0">Deploy</button>
+        <button role="tab" id="t-track" aria-controls="p-track" aria-selected="false" tabindex="-1">Track</button>
+        <button role="tab" id="t-query" aria-controls="p-query" aria-selected="false" tabindex="-1">Query</button>
+        <button class="copy" id="copy-btn" aria-label="Copy snippet">Copy</button>
+      </div>
+      <div role="tabpanel" id="p-deploy" aria-labelledby="t-deploy">
+        <p class="cap">Fork, add secrets, merge. GitHub Actions deploys with Alchemy.</p>
+        <pre><code id="code-deploy">git clone {REPO}
+cp .env.example .env  # fill in the values
+# merge a PR → GitHub Actions deploys with Alchemy</code></pre>
+      </div>
+      <div role="tabpanel" id="p-track" aria-labelledby="t-track" hidden>
+        <p class="cap">One tag, about 3 KB gzipped, no cookies.</p>
+        <pre><code id="code-track">&lt;script defer
+  src="https://analytics.example.com/tracker.js"
+  data-site-id="example.com"&gt;&lt;/script&gt;</code></pre>
+      </div>
+      <div role="tabpanel" id="p-query" aria-labelledby="t-query" hidden>
+        <p class="cap">A subset of Plausible's Stats API. <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>Parity doc</a>.</p>
+        <pre><code id="code-query">curl https://analytics.example.com/api/v2/query \
+  -H "Authorization: Bearer $STATS_API_TOKEN" \
+  -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="close">
+    <p class="close-line">Your analytics. Your account. Forgotten by morning.</p>
+    <div class="btns">
+      <a class="btn cta" href={`${REPO}#deployment`}>Deploy to your Cloudflare account</a>
+      <a class="btn secondary" href={REPO}>View on GitHub</a>
+    </div>
+  </section>
+
+  {latest.length > 0 && (
+    <section class="latest">
+      <h2>From the blog</h2>
+      <PostList posts={latest} size="compact" headingLevel={3} showTags={false} />
+    </section>
+  )}
+
+  <script>
+    // --- hero request-card sequence: data-step toggles, ~7s loop ---
+    const card = document.getElementById("req-card");
+    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (card && !reduced) {
+      const steps = [0, 1, 2, 3, 4, 5, 6];
+      let i = 0, timer = 0, running = false;
+      const hold = [1000, 1500, 1600, 1500, 1500, 1600, 1400];
+      const tick = () => {
+        if (!running) return;
+        i = (i + 1) % steps.length;
+        card.dataset.step = String(steps[i]);
+        if (i === steps.length - 1) {
+          const c = document.getElementById("vis-count");
+          if (c) c.textContent = "1,285";
+        }
+        if (i === 0) {
+          const c = document.getElementById("vis-count");
+          if (c) c.textContent = "1,284";
+        }
+        timer = setTimeout(tick, hold[i]);
+      };
+      const io = new IntersectionObserver(([e]) => {
+        running = e.isIntersecting;
+        if (running) { timer = setTimeout(tick, hold[i]); } else { clearTimeout(timer); }
+      });
+      io.observe(card);
+    } else if (card) {
+      card.dataset.step = "6";
+      const c = document.getElementById("vis-count");
+      if (c) c.textContent = "1,285";
+    }
+
+    // --- midnight timeline: playhead + scramble ---
+    const track = document.getElementById("track");
+    if (track && !reduced) {
+      const head = document.getElementById("playhead");
+      const chip = document.getElementById("vchip");
+      const hashEl = document.getElementById("vhash");
+      const hashes = ["a3f9c1", "7c21e4", "e08b5d"];
+      const hex = "0123456789abcdef";
+      const DUR = 9000, R = 66.6; // run is 2/3 of track width? use full: W=66.6% loop each segment? use full sweep
+      let raf = 0, t0 = 0, running = false, seg = 0;
+      const scramble = (target: string) => {
+        let n = 0;
+        const iv = setInterval(() => {
+          n++;
+          hashEl!.textContent = target.split("").map((ch, j) => (j < n ? ch : hex[(Math.random() * 16) | 0])).join("");
+          if (n >= target.length) clearInterval(iv);
+        }, 50);
+      };
+      const frame = (t: number) => {
+        if (!running) return;
+        if (!t0) t0 = t;
+        const p = ((t - t0) % DUR) / DUR;
+        const x = p * 100;
+        head!.style.left = x + "%";
+        const hw = chip!.offsetWidth / 2;
+        chip!.style.left = "clamp(" + hw + "px, " + x + "%, calc(100% - " + hw + "px))";
+        document.getElementById("fill")!.style.width = x + "%";
+        const newSeg = x < 33.33 ? 0 : x < 66.66 ? 1 : 2;
+        if (newSeg !== seg) {
+          seg = newSeg;
+          scramble(hashes[seg]);
+          const dv = track.querySelectorAll<HTMLElement>(".divider i")[seg - 1];
+          if (dv) { dv.classList.remove("flash"); void dv.offsetWidth; dv.classList.add("flash"); }
+        }
+        if (x < 1) { seg = 0; }
+        raf = requestAnimationFrame(frame);
+      };
+      const io2 = new IntersectionObserver(([e]) => {
+        running = e.isIntersecting;
+        if (running) { t0 = 0; raf = requestAnimationFrame(frame); } else { cancelAnimationFrame(raf); }
+      });
+      io2.observe(track);
+    }
+
+    // --- architecture traveling dot ---
+    const dot = document.getElementById("flow-dot");
+    if (dot && !reduced) {
+      const items = document.querySelectorAll<HTMLElement>(".flow li i");
+      const rail = dot.parentElement!;
+      const D2 = 4000;
+      let raf2 = 0, t1 = 0, running2 = false;
+      const frame2 = (t: number) => {
+        if (!running2) return;
+        if (!t1) t1 = t;
+        const p = ((t - t1) % D2) / D2;
+        const vertical = matchMedia("(max-width: 860px)").matches;
+        if (vertical) { dot.style.top = p * 100 + "%"; dot.style.left = ""; }
+        else { dot.style.left = p * 100 + "%"; dot.style.top = ""; }
+        items.forEach((el, j) => {
+          const on = Math.abs(p * (items.length - 1) - j) < 0.45;
+          el.classList.toggle("pulse", on);
+        });
+        raf2 = requestAnimationFrame(frame2);
+      };
+      const io3 = new IntersectionObserver(([e]) => {
+        running2 = e.isIntersecting;
+        if (running2) { t1 = 0; raf2 = requestAnimationFrame(frame2); } else { cancelAnimationFrame(raf2); }
+      });
+      io3.observe(rail);
+    }
+
+    // --- get-started tabs + copy ---
+    const tabs = [...document.querySelectorAll<HTMLElement>("[role=tab]")];
+    const panels = [...document.querySelectorAll<HTMLElement>("[role=tabpanel]")];
+    const activate = (t: HTMLElement) => {
+      tabs.forEach((x) => { x.setAttribute("aria-selected", String(x === t)); x.tabIndex = x === t ? 0 : -1; });
+      panels.forEach((p) => { p.hidden = p.id !== t.getAttribute("aria-controls"); });
+    };
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => activate(t));
+      t.addEventListener("keydown", (e) => {
+        const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (d) { e.preventDefault(); const n = tabs[(i + d + tabs.length) % tabs.length]; activate(n); n.focus(); }
+      });
+    });
+    document.getElementById("copy-btn")?.addEventListener("click", async (e) => {
+      const btn = e.currentTarget as HTMLElement;
+      const vis = panels.find((p) => !p.hidden);
+      const code = vis?.querySelector("code")?.innerText ?? "";
+      try { await navigator.clipboard.writeText(code); btn.textContent = "Copied"; setTimeout(() => (btn.textContent = "Copy"), 1500); }
+      catch { /* clipboard unavailable */ }
+    });
+  </script>
+</PageLayout>
+<style>
+  /* ---------- hero ---------- */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 3rem; align-items: center; padding: 5rem 0 4rem; }
+  .hero h1 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-size: clamp(2.8rem, 5.2vw, 5.5rem); line-height: 1.0; letter-spacing: -0.035em; font-weight: 400; margin: 0 0 1.25rem; }
+  .eyebrow { display: block; margin-bottom: 1.25rem; }
+  .kw { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); border-radius: 8px; padding: 0 .14em; }
+  .sub { font-size: 1.15rem; color: var(--color-kumo-subtle); max-width: 62ch; text-wrap: pretty; }
+  .btns { display: flex; gap: .75rem; margin-top: 1.75rem; flex-wrap: wrap; }
+  .btn { display: inline-flex; align-items: center; height: 42px; padding: 0 1.2rem; font-weight: 600; text-decoration: none; }
+  .btn.cta { background: var(--color-kumo-brand); color: var(--brand-ink); padding: 0 1.5rem; }
+  .btn.secondary { background: transparent; border: 1px solid var(--color-kumo-control-line); color: var(--color-kumo-default); padding: 0 1.5rem; }
+
+  /* ---------- request card ---------- */
+  .req-card {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 15px; line-height: 1.7;
+    background: var(--color-kumo-elevated);
+    border: 1px solid var(--color-kumo-line);
+    border-radius: 14px; padding: 1.15rem 1.4rem;
+    overflow: hidden;
+  }
+  :global(html[data-mode="light"]) .req-card {
+    box-shadow: 0 24px 60px -28px color-mix(in srgb, var(--color-kumo-brand) 35%, transparent), 0 1px 2px rgba(28,25,23,.05);
+  }
+  .req-head { display: flex; gap: 0.6rem; align-items: baseline; padding-bottom: 0.7rem; border-bottom: 1px solid var(--color-kumo-hairline); margin-bottom: 0.7rem; }
+  .req-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--color-kumo-control-line); align-self: center; transition: background .3s; }
+  .req-card[data-step="6"] .req-dot { background: var(--color-kumo-brand); }
+  .method { color: var(--color-kumo-brand); font-weight: 500; }
+  .req-card dl { margin: 0; min-width: 0; }
+  .req-card .row { display: grid; grid-template-columns: 7em minmax(0, 1fr); column-gap: 0.9rem; margin: 0.45rem 0; min-width: 0; max-height: 5em; overflow: hidden; transition: opacity .3s ease, max-height .35s ease, margin .3s ease; }
+  .req-card .row > .old, .req-card .row > .new { grid-column: 2; grid-row: 1; min-width: 0; }
+  .req-card dt { grid-column: 1; grid-row: 1; color: var(--color-kumo-subtle); }
+  .req-card dd { margin: 0; white-space: nowrap; }
+  .req-card .row[data-row="ua"] .old, .req-card .row[data-row="url"] .old, .req-card .row[data-row="ref"] .old { white-space: normal; }
+  .req-card .old { color: var(--color-kumo-default); max-height: 5em; overflow: hidden; transition: opacity .3s ease, max-height .35s ease; }
+  .req-card .new { color: var(--color-kumo-brand); opacity: 0; transition: opacity .3s ease; }
+  .req-card .cap { color: var(--color-kumo-subtle); font-size: 12px; margin-left: 0.75rem; }
+  .req-card .add { display: none; }
+  .req-card .drop { display: inline-block; max-width: 30em; overflow: hidden; vertical-align: bottom; transition: opacity .3s ease 1.1s, max-width .3s ease 1.1s; }
+  .stored { display: inline-block; font-size: 12px; padding: 2px 12px; border-radius: 999px; background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); opacity: 0; transition: opacity .3s; }
+  .req-card[data-step="6"] .stored { opacity: 1; }
+  .req-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-top: 0.9rem; padding-top: 0.7rem; border-top: 1px solid var(--color-kumo-hairline); }
+  .counter { font-variant-numeric: tabular-nums; color: var(--color-kumo-default); white-space: nowrap; }
+  .counter b { font-weight: 500; }
+  .req-rm { display: none; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  .req-rm .chip { display: inline-flex; align-items: center; gap: 0.4rem; font-family: "IBM Plex Mono", monospace; font-size: 11px; padding: 3px 10px; border-radius: 999px; border: 1px dashed var(--color-kumo-control-line); color: var(--color-kumo-subtle); text-decoration: line-through; }
+  .req-rm .chip i { font-style: normal; text-decoration: none; }
+.req-card[data-step="1"] .row[data-row="ip"] .old,
+  .req-card[data-step="2"] .row[data-row="ip"] .old,
+  .req-card[data-step="3"] .row[data-row="ip"] .old,
+  .req-card[data-step="4"] .row[data-row="ip"] .old,
+  .req-card[data-step="5"] .row[data-row="ip"] .old,
+  .req-card[data-step="6"] .row[data-row="ip"] .old { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
+.req-card[data-step="1"] .row[data-row="ip"] .new,
+  .req-card[data-step="2"] .row[data-row="ip"] .new,
+  .req-card[data-step="3"] .row[data-row="ip"] .new,
+  .req-card[data-step="4"] .row[data-row="ip"] .new,
+  .req-card[data-step="5"] .row[data-row="ip"] .new,
+  .req-card[data-step="6"] .row[data-row="ip"] .new { opacity: 1; transition: opacity .3s ease 1.45s; }
+.req-card[data-step="2"] .row[data-row="ua"] .old,
+  .req-card[data-step="3"] .row[data-row="ua"] .old,
+  .req-card[data-step="4"] .row[data-row="ua"] .old,
+  .req-card[data-step="5"] .row[data-row="ua"] .old,
+  .req-card[data-step="6"] .row[data-row="ua"] .old { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
+.req-card[data-step="2"] .row[data-row="ua"] .new,
+  .req-card[data-step="3"] .row[data-row="ua"] .new,
+  .req-card[data-step="4"] .row[data-row="ua"] .new,
+  .req-card[data-step="5"] .row[data-row="ua"] .new,
+  .req-card[data-step="6"] .row[data-row="ua"] .new { opacity: 1; transition: opacity .3s ease 1.45s; }
+.req-card[data-step="4"] .row[data-row="ref"] .old,
+  .req-card[data-step="5"] .row[data-row="ref"] .old,
+  .req-card[data-step="6"] .row[data-row="ref"] .old { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); opacity: 0; max-height: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s; }
+.req-card[data-step="4"] .row[data-row="ref"] .new,
+  .req-card[data-step="5"] .row[data-row="ref"] .new,
+  .req-card[data-step="6"] .row[data-row="ref"] .new { opacity: 1; transition: opacity .3s ease 1.45s; }
+.req-card[data-step="3"] .row[data-row="url"] .drop,
+  .req-card[data-step="4"] .row[data-row="url"] .drop,
+  .req-card[data-step="5"] .row[data-row="url"] .drop,
+  .req-card[data-step="6"] .row[data-row="url"] .drop { text-decoration: line-through; text-decoration-color: var(--color-kumo-control-line); }
+  .req-card[data-step="3"] .row[data-row="url"],
+  .req-card[data-step="4"] .row[data-row="url"],
+  .req-card[data-step="5"] .row[data-row="url"],
+  .req-card[data-step="6"] .row[data-row="url"] { opacity: 0; max-height: 0; margin-top: 0; margin-bottom: 0; transition: opacity .3s ease 1.15s, max-height .35s ease 1.15s, margin .3s ease 1.15s; }
+.req-card[data-step="3"] .row[data-row="path"],
+  .req-card[data-step="3"] .row[data-row="utm"],
+  .req-card[data-step="4"] .row[data-row="path"],
+  .req-card[data-step="4"] .row[data-row="utm"],
+  .req-card[data-step="5"] .row[data-row="path"],
+  .req-card[data-step="5"] .row[data-row="utm"],
+  .req-card[data-step="6"] .row[data-row="path"],
+  .req-card[data-step="6"] .row[data-row="utm"],
+  .req-card[data-step="5"] .row[data-row="vid"],
+  .req-card[data-step="6"] .row[data-row="vid"] { display: grid; }
+.req-card[data-step="3"] .row[data-row="path"] .new,
+  .req-card[data-step="3"] .row[data-row="utm"] .new,
+  .req-card[data-step="4"] .row[data-row="path"] .new,
+  .req-card[data-step="4"] .row[data-row="utm"] .new,
+  .req-card[data-step="5"] .row[data-row="path"] .new,
+  .req-card[data-step="5"] .row[data-row="utm"] .new,
+  .req-card[data-step="6"] .row[data-row="path"] .new,
+  .req-card[data-step="6"] .row[data-row="utm"] .new { opacity: 1; transition: opacity .3s ease 1.5s; }
+.req-card[data-step="5"] .row[data-row="vid"] .new,
+  .req-card[data-step="6"] .row[data-row="vid"] .new { opacity: 1; transition: opacity .3s ease .3s; }
+  @keyframes fade-slide { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- annotated shot ---------- */
+  section h2, .close .close-line { line-height: 1.12; }
+  .annotated h2, .start h2, .close .close-line { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1.5rem; text-wrap: balance; }
+  section { padding: 4.5rem 0; }
+  .shot { position: relative; margin: 0; }
+  .img-wrap { position: relative; }
+  .shot img { display: block; width: 100%; border: 1px solid var(--color-kumo-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 2px rgba(28,25,23,.04), 0 12px 32px rgba(28,25,23,.08); }
+  :global(html[data-mode="dark"]) .shot img { box-shadow: none; }
+  .shot figcaption { margin-top: .6rem; font-size: .85rem; color: var(--color-kumo-subtle); }
+  .ring { position: absolute; border: 1.5px solid var(--color-kumo-brand); border-radius: 6px; background: transparent; box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-kumo-brand) 14%, transparent); transition: border-color .15s, box-shadow .15s; pointer-events: none; }
+  .leader { position: absolute; height: 1px; background: var(--color-kumo-brand); opacity: 0.55; pointer-events: none; }
+  .leader-v { width: 1px; height: auto; }
+  .l-live:hover ~ .r-live, .l-live:focus-visible ~ .r-live,
+  .l-change:hover ~ .r-change, .l-change:focus-visible ~ .r-change,
+  .l-filter:hover ~ .r-filter, .l-filter:focus-visible ~ .r-filter {
+    border-color: var(--color-kumo-brand-hover);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-kumo-brand) 28%, transparent);
+  }
+  .lead { display: none; }
+  .callout-list { display: none; margin: 1rem 0 0; padding-left: 1.1rem; color: var(--color-kumo-subtle); font-size: .9rem; }
+  .leader, .lead { display: none; }
+  @media (min-width: 1280px) {
+    .shot { padding-left: 15%; padding-top: 3rem; }
+    .leader { display: block; }
+    .lead { position: absolute; right: calc(100% + 0.5rem); top: var(--y); transform: translateY(-50%); display: block; }
+    .lead b { display: block; font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 400; letter-spacing: 0.02em; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background: var(--color-kumo-elevated); border: 1px solid var(--color-kumo-line); color: var(--color-kumo-default); }
+    .lead-top { left: var(--x); right: auto; top: auto; bottom: calc(100% + 0.9rem); transform: translateX(-50%); }
+  }
+  @media (max-width: 859px) { .callout-list { display: block; } }
+
+  /* ---------- midnight band ---------- */
+  .midnight {
+    background: #0e1713; color: #e6eee9;
+    margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+    padding-left: calc(50vw - 50%); padding-right: calc(50vw - 50%);
+    padding-top: 5rem; padding-bottom: 5rem;
+  }
+  .midnight .eyebrow { color: #93a39a; }
+  .midnight h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; line-height: 1.15; font-size: clamp(1.8rem, 3.4vw, 2.8rem); margin: 0 0 1.5rem; max-width: 20ch; text-wrap: balance; }
+  .mid-time { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; font-size: clamp(3rem, 8vw, 7rem); color: #4fc08d; line-height: 1; margin-bottom: 2.75rem; }
+  .timeline { display: grid; grid-template-columns: repeat(3, 1fr); font-family: "IBM Plex Mono", monospace; }
+  .day { position: relative; text-align: center; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #93a39a; padding: 0.2rem 0; }
+  .day .tick-l { position: absolute; left: 0; top: -1.5em; transform: translateX(-50%); font-size: 12px; font-style: normal; color: #93a39a; white-space: nowrap; }
+  .track { grid-column: 1 / -1; position: relative; height: 72px; margin-top: 1.4rem; }
+  .baseline { position: absolute; left: 0; right: 0; top: 50px; height: 1px; background: rgba(230,238,233,.22); }
+  .ticks { position: absolute; left: 0; right: 0; top: 50px; width: 100%; height: 9px; display: block; }
+  .baseline .fill { position: absolute; left: 0; top: 0; height: 1px; width: 0; background: #4fc08d; }
+  .track .divider { position: absolute; top: -8px; bottom: 0; left: 0; width: 1px; }
+  .track .divider i { position: absolute; inset: 0; border-left: 1px dashed rgba(230,238,233,.35); }
+  .track .divider i.flash { animation: dflash .5s ease-out; }
+  @keyframes dflash { 0% { border-color: #4fc08d; box-shadow: 0 0 14px #4fc08d; } 100% { box-shadow: none; } }
+  .playhead { position: absolute; top: -8px; bottom: 0; width: 1px; background: rgba(230,238,233,.45); }
+  .chip-v { position: absolute; top: 37px; transform: translateX(-50%); }
+  .chip-v b { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 15px; padding: 6px 16px; border-radius: 999px; background: rgba(79,192,141,.16); color: #4fc08d; border: 1px solid rgba(79,192,141,.35); }
+  .static-chips { display: none; }
+  .mid-line { margin-top: 1.75rem; color: #93a39a; font-size: 1rem; }
+
+  /* ---------- architecture ---------- */
+  .arch { background: var(--color-kumo-elevated); border-block: 1px solid var(--color-kumo-hairline); margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); padding-left: calc(50vw - 50%); padding-right: calc(50vw - 50%); }
+  .arch h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1.5rem; text-wrap: balance; }
+  .account { border: 1px dashed var(--color-kumo-control-line); border-radius: 14px; padding: 1.5rem; position: relative; }
+  .account-label { position: absolute; top: -0.7em; left: 1.25rem; background: var(--color-kumo-elevated); padding: 0 .5rem; font-size: .8rem; color: var(--color-kumo-subtle); }
+  .flow-wrap { position: relative; }
+  .rail { position: absolute; left: 0; right: 0; top: 16px; height: 1px; background: var(--color-kumo-line); }
+  .rail .dot { position: absolute; top: -4px; width: 9px; height: 9px; border-radius: 999px; background: var(--color-kumo-brand); }
+  .flow { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(7, 1fr); gap: .5rem; position: relative; }
+  .flow li i { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: var(--color-kumo-tint); color: var(--color-kumo-brand); margin-bottom: 0.5rem; transition: background .25s, color .25s; position: relative; }
+  .flow li i.pulse { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand); }
+  .flow li i svg { width: 18px; height: 18px; fill: currentColor; }
+  .flow b { display: block; font-size: .9rem; }
+  .flow span { font-size: .75rem; color: var(--color-kumo-subtle); }
+
+  /* ---------- get started ---------- */
+  .term { border: 1px solid var(--color-kumo-line); border-radius: 14px; background: var(--color-kumo-elevated); overflow: hidden; }
+  .term-tabs { display: flex; gap: .4rem; align-items: center; padding: .7rem .9rem; border-bottom: 1px solid var(--color-kumo-hairline); }
+  .term-tabs [role=tab] { border: 0; background: transparent; padding: 5px 14px; border-radius: 999px; font: inherit; font-size: .85rem; color: var(--color-kumo-subtle); cursor: pointer; }
+  .term-tabs [role=tab][aria-selected="true"] { background: var(--color-kumo-brand-tint); color: var(--color-kumo-brand-text); }
+  .term-tabs .copy { margin-left: auto; border: 1px solid var(--color-kumo-line); background: transparent; border-radius: 999px; padding: 4px 12px; font-size: .8rem; color: var(--color-kumo-subtle); cursor: pointer; }
+  .term-tabs .copy:hover { color: var(--color-kumo-default); }
+  .term [role=tabpanel] { padding: 1rem 1.25rem 1.25rem; min-width: 0; }
+  .term .cap { margin: 0 0 .6rem; font-size: .9rem; color: var(--color-kumo-subtle); }
+  .term .cap a { color: var(--color-kumo-brand); }
+  .term pre { margin: 0; max-width: 100%; white-space: pre; font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; font-size: .82rem; line-height: 1.7; overflow-x: auto; }
+
+  /* ---------- closing ---------- */
+  .close { border-top: 1px solid var(--color-kumo-hairline); text-align: center; padding: 5rem 0 4rem; }
+  .close-line { font-size: clamp(1.6rem, 3vw, 2.4rem); max-width: none; margin-bottom: 1.75rem; }
+  .close .btns { justify-content: center; }
+
+  .latest { padding-top: 3rem; }
+  .latest h2 { font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif; font-weight: 400; letter-spacing: -0.02em; font-size: 2rem; margin: 0 0 1rem; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1023px) {
+    .hero { grid-template-columns: minmax(0, 1fr); gap: 2.5rem; }
+  }
+  @media (max-width: 860px) {
+    section { padding: 3.5rem 0; }
+    .mid-time { margin-bottom: 2rem; }
+    .rail { top: 0; bottom: 0; left: 16px; right: auto; width: 1px; height: auto; background: var(--color-kumo-line); }
+    .rail .dot { top: 0; left: -4px; }
+    .flow { grid-template-columns: 1fr; gap: .75rem; padding-left: 2.25rem; }
+    .flow li { display: flex; gap: .8rem; align-items: center; }
+    .flow li i { margin-bottom: 0; }
+    .req-card { font-size: 12.5px; padding: 1rem; }
+    .req-card .row { grid-template-columns: 1fr; row-gap: 0.1rem; }
+    .req-card .row > .old, .req-card .row > .new { grid-column: 1; grid-row: 2; }
+    .req-card dt { grid-column: 1; grid-row: 1; }
+    .btns { flex-direction: column; }
+    .btns .btn { width: 100%; justify-content: center; }
+    .chip-v b { font-size: 12px; padding: 4px 10px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .req-card .row[data-row="ip"] .old, .req-card .row[data-row="ua"] .old, .req-card .row[data-row="ref"] .old { display: none !important; }
+    .req-card .row[data-row="url"] { display: none !important; }
+    .req-card .row[data-row="url"] .drop { text-decoration: line-through; opacity: 0.35; }
+    .req-card .new { display: inline !important; }
+    .req-card .add { display: grid !important; }
+    .req-card .cap { margin-left: .75rem; }
+    .req-card .stored { opacity: 1; }
+    .req-rm { display: flex; }
+    .playhead, .chip-v { display: none; }
+    .static-chips { display: flex; position: relative; height: 90px; }
+    .static-chips .hash { position: absolute; top: 30px; transform: translateX(-50%); font-family: "IBM Plex Mono", monospace; font-size: 15px; padding: 6px 16px; border-radius: 999px; background: rgba(79,192,141,.16); color: #4fc08d; border: 1px solid rgba(79,192,141,.35); }
+    .rail .dot { display: none; }
+    .flow li i.pulse { animation: none; }
+    .bento-card:hover { transform: none; }
+  }
+</style>

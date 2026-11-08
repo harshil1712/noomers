@@ -1,0 +1,57 @@
+---
+/**
+ * Every site page: skip link, Nav, <main id="main">, Footer.
+ * width: "prose" = reading column (blog, privacy, 404); "wide" = full site grid (home).
+ */
+import Base, { type Props as BaseProps } from "../layouts/Base.astro";
+import Nav from "./Nav.astro";
+import Footer from "./Footer.astro";
+
+type Props = BaseProps & { width?: "prose" | "wide" };
+const { width = "prose", ...base } = Astro.props;
+---
+<Base {...base}>
+  <a class="skip" href="#main">Skip to content</a>
+  <Nav />
+  <main id="main" tabindex="-1" class:list={["main", `w-${width}`]}>
+    <slot />
+  </main>
+  <Footer />
+</Base>
+<style>
+  .skip {
+    position: absolute;
+    left: 16px;
+    top: 12px;
+    z-index: 100;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: var(--color-kumo-elevated);
+    color: var(--color-kumo-default);
+    border: 1px solid var(--color-kumo-line);
+    font-size: 14px;
+    font-weight: 600;
+    transform: translateY(-200%);
+  }
+  .skip:focus-visible {
+    transform: none;
+  }
+  .main:focus {
+    outline: none;
+  }
+  .main.w-prose {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 56px 24px 72px;
+  }
+  .main.w-wide {
+    max-width: 1136px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  @media (max-width: 600px) {
+    .main.w-prose {
+      padding-top: 32px;
+    }
+  }
+</style>

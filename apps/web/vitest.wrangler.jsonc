@@ -1,0 +1,54 @@
+{
+  "name": "noomers-web-test",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./tests/fixtures",
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "test-db",
+      "database_id": "test-db",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "SITE_EVENTS", "class_name": "SiteEvents" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SiteEvents"] }],
+  "ratelimits": [
+    { "name": "RATE_LIMITER", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
+    {
+      "name": "COLLECT_RATE_LIMIT",
+      "namespace_id": "1002",
+      "simple": { "limit": 100, "period": 60 },
+    },
+  ],
+  "vars": {
+    "BETTER_AUTH_SECRET": "test-secret-at-least-32-characters-long!",
+    "BETTER_AUTH_URL": "http://localhost:8787",
+    "GOOGLE_CLIENT_ID": "",
+    "GOOGLE_CLIENT_SECRET": "",
+    "OWNER_ADMIN_EMAIL": "owner@example.com",
+    // Kept open so tests that already created an admin can still sign up;
+    // signup tests override per-test.
+    "SIGNUP_DISABLED": "false",
+    // Cloudflare's always-pass Turnstile test pair — siteverify succeeds for
+    // any token, so sign-up tests need no real widget.
+    "TURNSTILE_SECRET_KEY": "1x0000000000000000000000000000000AA",
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "VISITOR_SALT": "test-salt",
+    "SITES_API_TOKEN": "sites-secret",
+    "STATS_API_TOKEN": "stats-secret",
+    "SERVER_EVENTS_TOKEN": "",
+    "CF_ACCOUNT_ID": "test-account",
+    "CF_TRACKER_SCRIPT_NAME": "",
+    "R2_SQL_BUCKET": "",
+    "R2_SQL_TABLE": "noomers.events",
+    "R2_SQL_IMPORT_TABLE": "",
+    "R2_SQL_TOKEN": "",
+  },
+}

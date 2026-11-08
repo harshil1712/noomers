@@ -1,0 +1,39 @@
+{
+  "fields": [
+    { "name": "schema_version", "type": "int64", "required": true },
+    { "name": "event_id", "type": "string", "required": true },
+    { "name": "received_at", "type": "string", "required": true },
+    { "name": "site_id", "type": "string", "required": true },
+    { "name": "event_type", "type": "string", "required": true },
+    { "name": "event_name", "type": "string", "required": true },
+    { "name": "event_properties", "type": "string", "required": true },
+    { "name": "url", "type": "string", "required": true },
+    { "name": "hostname", "type": "string", "required": true },
+    { "name": "pathname", "type": "string", "required": true },
+    { "name": "referrer", "type": "string", "required": true },
+    { "name": "interactive", "type": "bool", "required": true },
+    { "name": "revenue_amount", "type": "string", "required": true },
+    { "name": "revenue_currency", "type": "string", "required": true },
+    { "name": "engagement_time", "type": "float64", "required": true },
+    { "name": "scroll_depth", "type": "float64", "required": true },
+    { "name": "country", "type": "string", "required": true },
+    { "name": "region", "type": "string", "required": true },
+    { "name": "city", "type": "string", "required": true },
+    { "name": "browser", "type": "string", "required": true },
+    { "name": "browser_version", "type": "string", "required": true },
+    { "name": "operating_system", "type": "string", "required": true },
+    {
+      "name": "operating_system_version",
+      "type": "string",
+      "required": true
+    },
+    { "name": "device_type", "type": "string", "required": true },
+    { "name": "device_model", "type": "string", "required": true },
+    { "name": "utm_source", "type": "string", "required": true },
+    { "name": "utm_medium", "type": "string", "required": true },
+    { "name": "utm_campaign", "type": "string", "required": true },
+    { "name": "utm_term", "type": "string", "required": true },
+    { "name": "utm_content", "type": "string", "required": true },
+    { "name": "visitor_id", "type": "string", "required": true }
+  ]
+}

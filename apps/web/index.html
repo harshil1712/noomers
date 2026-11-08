@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>noomers</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Theme boot: applies the saved/system mode before first paint (no flash).
+         Literal copy of THEME_BOOT_SCRIPT in packages/brand/theme.ts — keep in sync. -->
+    <script>
+      (function () {
+        var k = "noomers-theme",
+          d = document.documentElement,
+          m = window.matchMedia && matchMedia("(prefers-color-scheme: dark)");
+        function s() {
+          try {
+            return localStorage.getItem(k);
+          } catch (e) {
+            return null;
+          }
+        }
+        function a() {
+          var v = s();
+          d.setAttribute(
+            "data-mode",
+            v === "light" || v === "dark" ? v : m && m.matches ? "dark" : "light",
+          );
+        }
+        a();
+        m &&
+          m.addEventListener &&
+          m.addEventListener("change", function () {
+            var v = s();
+            if (v !== "light" && v !== "dark") a();
+          });
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

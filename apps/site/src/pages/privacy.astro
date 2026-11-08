@@ -1,0 +1,87 @@
+---
+import PageLayout from "../components/PageLayout.astro";
+import { formatDate, isoDate } from "../lib/format";
+import { PROJECT } from "#project";
+
+const LAST_UPDATED = new Date("2026-11-02");
+---
+<PageLayout title={`Privacy · ${PROJECT.productName}`} description={`How ${PROJECT.productName} handles your data.`}>
+  <span class="mono-label eyebrow">Legal</span>
+  <h1 class="font-display">Privacy</h1>
+  <p class="updated mono-label">Last updated <time datetime={isoDate(LAST_UPDATED)}>{formatDate(LAST_UPDATED)}</time></p>
+  <div class="sections">
+    <section>
+      <h2>Your data stays yours</h2>
+      <p>
+        noomers is self-hosted: every event, dashboard metric and account detail lives in
+        <em>your</em> Cloudflare account — D1, R2/Iceberg and Durable Objects. We have no
+        access to it, and nothing is proxied through a third party.
+      </p>
+    </section>
+    <section>
+      <h2>What the tracker collects</h2>
+      <p>
+        Pageviews, custom events, engagement and scroll signals, referrer and campaign
+        parameters — normalized before anything is stored. Tracking uses no cookies.
+        Raw IP addresses and full user-agent strings are never persisted; visitor
+        identifiers are site-scoped, hostname-scoped, salted, and rotate daily in UTC,
+        so there is no cross-day, cross-site, or cross-device identity.
+      </p>
+    </section>
+    <section>
+      <h2>Your dashboard account</h2>
+      <p>
+        The dashboard stores your account details (name, email, password hash) managed
+        by Better Auth — sessions use a signed cookie, and sign-up, sign-in and reset
+        flows are protected by Cloudflare Turnstile. Deleting your account removes it
+        and its data immediately.
+      </p>
+    </section>
+    <section>
+      <h2>Deleting analytics data</h2>
+      <p>
+        Deleting a site tombstones it and purges its Durable Object immediately;
+        D1 and DO data are erased, while R2/Iceberg cleanup is a documented manual
+        step in the repo docs. For privacy or data requests, email
+        <a href={`mailto:${PROJECT.supportEmail}`}>{PROJECT.supportEmail}</a>.
+      </p>
+    </section>
+  </div>
+</PageLayout>
+<style>
+  .eyebrow { display: block; }
+  h1 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 36px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-top: 4px;
+  }
+  .updated { margin-top: 10px; }
+  .sections {
+    margin-top: 32px;
+    max-width: 68ch;
+  }
+  .sections section {
+    padding: 28px 0;
+    border-top: 1px solid var(--color-kumo-hairline);
+  }
+  .sections section:first-child { border-top: 0; padding-top: 0; }
+  .sections h2 {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .sections p {
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--color-kumo-subtle);
+    text-wrap: pretty;
+  }
+  .sections a {
+    color: var(--color-kumo-brand);
+    text-underline-offset: 3px;
+  }
+</style>

@@ -1,0 +1,75 @@
+---
+/** Post list for the blog index, tag pages and the home page. */
+import type { Post } from "../lib/posts";
+import { formatDate, isoDate } from "../lib/format";
+import TagList from "./TagList.astro";
+
+interface Props {
+  posts: Post[];
+  showTags?: boolean;
+  size?: "default" | "compact";
+  /** Heading level of each post title, to fit under the page's own headings. */
+  headingLevel?: 2 | 3;
+}
+const { posts, showTags = true, size = "default", headingLevel = 2 } = Astro.props;
+---
+<ul class:list={["posts", size]}>
+  {posts.map((p) => (
+    <li>
+      <time datetime={isoDate(p.data.pubDate)}>{formatDate(p.data.pubDate)}</time>
+      {headingLevel === 3 ? (
+        <h3 class="title"><a href={`/blog/${p.id}/`}>{p.data.title}</a></h3>
+      ) : (
+        <h2 class="title"><a href={`/blog/${p.id}/`}>{p.data.title}</a></h2>
+      )}
+      <p class="desc">{p.data.description}</p>
+      {showTags && <TagList tags={p.data.tags} />}
+    </li>
+  ))}
+</ul>
+<style>
+  .posts {
+    list-style: none;
+    padding: 0;
+    margin-top: 32px;
+  }
+  .posts li {
+    padding: 24px 0;
+    border-top: 1px solid var(--color-kumo-hairline);
+  }
+  .posts li:first-child { border-top: 0; padding-top: 0; }
+  time {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-kumo-subtle);
+  }
+  .title {
+    font-family: "Inter Tight Variable", "Inter Variable", -apple-system, sans-serif;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    margin-top: 6px;
+    text-wrap: balance;
+  }
+  .title a {
+    text-decoration: none;
+    color: var(--color-kumo-default);
+  }
+  .title a:hover {
+    color: var(--color-kumo-brand);
+    text-decoration: none;
+  }
+  .desc {
+    margin-top: 6px;
+    font-size: 16px;
+    color: var(--color-kumo-subtle);
+    max-width: 65ch;
+  }
+  .compact li { padding: 16px 0; }
+  .compact .title {
+    font-size: 17px;
+  }
+</style>

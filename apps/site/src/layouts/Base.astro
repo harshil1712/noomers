@@ -1,0 +1,86 @@
+---
+export interface Props {
+  title: string;
+  description: string;
+  canonical?: string;
+  ogTitle?: string;
+  ogImage?: string;
+  type?: "website" | "article";
+  publishedTime?: Date;
+  modifiedTime?: Date;
+  tags?: string[];
+  /** Extra JSON-LD entities merged into the page's single @graph. */
+  jsonLdEntities?: object[];
+}
+import "../styles.css";
+import { PROJECT } from "#project";
+import { THEME_BOOT_SCRIPT } from "@noomers/brand/theme";
+const {
+  title,
+  description,
+  canonical = `https://${PROJECT.domain}${Astro.url.pathname}`,
+  ogTitle = title,
+  ogImage = `https://${PROJECT.domain}/og.png`,
+  type = "website",
+  publishedTime,
+  modifiedTime,
+  tags = [],
+  jsonLdEntities = [],
+} = Astro.props;
+
+const orgId = `https://${PROJECT.domain}/#org`;
+const siteId = `https://${PROJECT.domain}/#website`;
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": orgId,
+      name: PROJECT.productName,
+      url: `https://${PROJECT.domain}`,
+      logo: `https://${PROJECT.domain}/favicon.png`,
+    },
+    {
+      "@type": "WebSite",
+      "@id": siteId,
+      name: PROJECT.productName,
+      url: `https://${PROJECT.domain}`,
+      publisher: { "@id": orgId },
+    },
+    ...jsonLdEntities,
+  ],
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="alternate" type="application/rss+xml" title={PROJECT.productName} href="/rss.xml" />
+    <meta property="og:type" content={type} />
+    <meta property="og:title" content={ogTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:site_name" content={PROJECT.productName} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={ogTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    {publishedTime && <meta property="article:published_time" content={publishedTime.toISOString()} />}
+    {modifiedTime && <meta property="article:modified_time" content={modifiedTime.toISOString()} />}
+    {tags.map((t) => <meta property="article:tag" content={t} />)}
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+    {/* sets data-mode before first paint; shared with the app via @noomers/brand/theme */}
+    <script is:inline set:html={THEME_BOOT_SCRIPT} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

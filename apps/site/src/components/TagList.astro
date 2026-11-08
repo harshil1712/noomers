@@ -1,0 +1,43 @@
+---
+/** Tags as links to their tag pages. Renders nothing for an empty list. */
+interface Props {
+  tags: string[];
+}
+const { tags } = Astro.props;
+---
+{tags.length > 0 && (
+  <ul class="tags" aria-label="Tags">
+    {tags.map((t) => (
+      <li><a class="tag" href={`/blog/tags/${t}/`} aria-current={Astro.url.pathname === `/blog/tags/${t}/` ? "page" : undefined}>{t}</a></li>
+    ))}
+  </ul>
+)}
+<style>
+  .tags {
+    list-style: none;
+    padding: 0;
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    line-height: 20px;
+    padding: 1px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--color-kumo-hairline);
+    background: transparent;
+    color: var(--color-kumo-subtle);
+    text-decoration: none;
+    transition: color 0.15s ease, border-color 0.15s ease;
+  }
+  .tag:hover, .tag[aria-current="page"] {
+    color: var(--color-kumo-brand);
+    border-color: var(--color-kumo-brand);
+    background: var(--color-kumo-brand-tint);
+  }
+</style>

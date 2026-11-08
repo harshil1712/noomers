@@ -1,0 +1,44 @@
+---
+import { PROJECT, APP_DOMAIN } from "#project";
+const APP_URL = import.meta.env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`;
+---
+<footer>
+  <div class="wrap inner">
+    <div class="row">
+      <nav aria-label="Footer">
+        <a href="/blog/">Blog</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/rss.xml">RSS</a>
+        <a href={APP_URL}>App</a>
+      </nav>
+      <span>{PROJECT.productName}</span>
+    </div>
+  </div>
+</footer>
+<style>
+  .inner {
+    padding-block: 32px;
+  }
+  /* rule lives inside .wrap's horizontal padding, so it lines up with the
+     content column edges rather than the container's outer box */
+  .inner::before {
+    content: "";
+    display: block;
+    border-top: 1px solid var(--color-kumo-line);
+    margin-bottom: 32px;
+    width: 100%;
+  }
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: space-between;
+    font-size: 14px;
+    color: var(--color-kumo-subtle);
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+</style>

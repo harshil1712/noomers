@@ -1,3 +1,39 @@
 packages:
-    - "packages/*"
-linkWorkspacePackages: true
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  esbuild: true
+  workerd: true
+  protobufjs: false
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - "@better-auth/core@1.7.16"
+  - "@better-auth/drizzle-adapter@1.7.16"
+  - "@better-auth/kysely-adapter@1.7.16"
+  - "@better-auth/memory-adapter@1.7.16"
+  - "@better-auth/mongo-adapter@1.7.16"
+  - "@better-auth/prisma-adapter@1.7.16"
+  - "@better-auth/telemetry@1.7.16"
+  - "auth@1.7.16"
+  - "better-auth@1.7.16"
+  - "better-call@1.4.5"
+
+overrides:
+  typescript: "7.0.2"
+  "alchemy>drizzle-orm": "0.45.4"
+  "alchemy>drizzle-kit": "1.0.0-rc.4"
+  vite@*: "catalog:"
+  vitest@*: "catalog:"
+catalog:
+  vite: npm:@voidzero-dev/vite-plus-core@1.4.0
+  vitest: 5.0.5
+  vite-plus: 1.4.0
+peerDependencyRules:
+  allowAny:
+    - vite
+    - vitest
+  allowedVersions:
+    vite: "*"
+    vitest: "*"
