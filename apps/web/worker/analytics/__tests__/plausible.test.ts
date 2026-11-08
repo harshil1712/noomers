@@ -238,7 +238,7 @@ describe("Plausible Events API", () => {
     );
   });
 
-  test("hashes long Analytics Engine indexes without changing the domain", async () => {
+  test("accepts long site domains unchanged", async () => {
     const env = createEnv();
     const domain = "mobile-app-".repeat(10);
     const request = new Request("https://analytics.example/api/event", {
@@ -260,7 +260,7 @@ describe("Plausible Events API", () => {
     expect(siteEventsRecord).toHaveBeenCalledWith(expect.objectContaining({ site_id: domain }));
   });
 
-  test("stores engagement without exposing it as a custom Analytics Engine event", async () => {
+  test("records engagement events with their time and scroll depth", async () => {
     const env = createEnv();
     const request = new Request("https://analytics.example/api/event", {
       method: "POST",

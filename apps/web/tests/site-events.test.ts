@@ -61,84 +61,11 @@ async function run<T>(
   return out;
 }
 
-function setStream(instance: SiteEvents & DO, behavior: "ok" | "fail" | "capture") {
-  instance.env.EVENT_STREAM = {
-    send: async (rows) => {
-      if (behavior === "fail") throw new Error("send failed");
-      // store shipped rows count in DO storage for assertions
-      (
-        instance.ctx.storage.sql as {
-          exec: (q: string, ...a: unknown[]) => { rowsWritten: number };
-        }
-      ).exec(
-        "INSERT OR REPLACE INTO meta (key, value) VALUES ('captured', ?)",
-        String(rows.length),
-      );
-    },
-  };
-}
-
 describe("SiteEvents", () => {
-  it("record() then alarm ships one batch to EVENT_STREAM", async () => {
-    const s = stub();
-    await s.record(event());
-    await run(s, (instance) => setStream(instance, "capture"));
-    await runDurableObjectAlarm(s as unknown as DurableObjectStub);
-    const shipped = await run(s, async (instance) => {
-      const captured = instance.ctx.storage.sql
-        .exec("SELECT value FROM meta WHERE key='captured'")
-        .toArray() as { value: string }[];
-      const shippedSeq = instance.ctx.storage.sql
-        .exec("SELECT value FROM meta WHERE key='shipped_seq'")
-        .toArray() as { value: string }[];
-      return { captured, shippedSeq };
-    });
-    expect(Number(shipped.captured[0].value)).toBe(1);
-    expect(shipped.shippedSeq.length).toBe(1);
-  });
-
-  it("send failure keeps rows, increments backoff, later success resets", async () => {
-    const s = stub();
-    await s.record(event());
-    await run(s, (instance) => setStream(instance, "fail"));
-    await runDurableObjectAlarm(s as unknown as DurableObjectStub);
-    const state = await run(s, async (instance) => ({
-      rows: instance.ctx.storage.sql.exec("SELECT seq FROM events").toArray().length,
-      shipped: instance.ctx.storage.sql
-        .exec("SELECT value FROM meta WHERE key='shipped_seq'")
-        .toArray().length,
-      failures: (
-        instance.ctx.storage.sql
-          .exec("SELECT value FROM meta WHERE key='send_failures'")
-          .toArray() as { value: string }[]
-      )[0]?.value,
-      alarm: await instance.ctx.storage.getAlarm(),
-    }));
-    expect(state.rows).toBe(1);
-    expect(state.shipped).toBe(0);
-    expect(Number(state.failures)).toBe(1);
-    expect(state.alarm).not.toBeNull();
-
-    await run(s, (instance) => setStream(instance, "capture"));
-    await runDurableObjectAlarm(s as unknown as DurableObjectStub);
-    const state2 = await run(s, async (instance) => ({
-      shipped: instance.ctx.storage.sql
-        .exec("SELECT value FROM meta WHERE key='shipped_seq'")
-        .toArray().length,
-      failures: (
-        instance.ctx.storage.sql
-          .exec("SELECT value FROM meta WHERE key='send_failures'")
-          .toArray() as { value: string }[]
-      )[0]?.value,
-    }));
-    expect(state2.shipped).toBe(1);
-    expect(Number(state2.failures)).toBe(0);
-  });
-
-  it("prune never deletes unshipped rows", async () => {
+  it("alarm prunes rows past the realtime window", async () => {
     const s = stub();
     await s.record(event({ received_at: new Date(Date.now() - 2 * 3600e3).toISOString() }));
-    await run(s, (instance) => setStream(instance, "fail"));
+    await s.record(event());
     await runDurableObjectAlarm(s as unknown as DurableObjectStub);
     const rows = await run(
       s,
@@ -151,13 +78,12 @@ describe("SiteEvents", () => {
     const s = stub();
     await s.record(event({ received_at: new Date(Date.now() - 2 * 3600e3).toISOString() }));
     await s.record(event({ received_at: new Date(Date.now() - 2 * 3600e3).toISOString() }));
-    await run(s, (instance) => setStream(instance, "ok"));
     await runDurableObjectAlarm(s as unknown as DurableObjectStub);
     const after = await run(
       s,
       (instance) => instance.ctx.storage.sql.exec("SELECT seq FROM events").toArray().length,
     );
-    expect(after).toBe(0); // shipped + past retention -> pruned
+    expect(after).toBe(0);
     await s.record(event());
     const lastSeq = await run(s, (instance) => {
       const row = instance.ctx.storage.sql
@@ -192,7 +118,6 @@ describe("SiteEvents", () => {
 
   it("no alarm armed when nothing to do", async () => {
     const s = stub();
-    await run(s, (instance) => setStream(instance, "ok"));
     await runDurableObjectAlarm(s as unknown as DurableObjectStub);
     const alarm = await run(s, async (instance) => instance.ctx.storage.getAlarm());
     expect(alarm).toBeNull();

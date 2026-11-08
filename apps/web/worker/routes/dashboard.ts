@@ -11,10 +11,11 @@ import {
 import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
+import { createDashboardSite, updateDashboardSite, deleteDashboardSite } from "./dashboard-sites";
 
 const PAGE_SIZE = 10;
 
-/** [dimension, visitors, secondary metric] tuples (CountRow in legacy-ui). */
+/** [dimension, visitors, secondary metric] tuples. */
 export type CountRow =
   | [string | [string, string], number, number]
   | [string | [string, string], number];
@@ -38,7 +39,7 @@ function searchParams(request: Request): URLSearchParams {
   return new URL(request.url).searchParams;
 }
 
-/** Shared body for the breakdown cards (was resources.shared.ts). */
+/** Shared body for the breakdown cards. */
 async function breakdown(
   c: Ctx,
   request: Request,
@@ -123,10 +124,13 @@ function toCountryRows(rows: CountRow[]): CountRow[] {
   });
 }
 
-/** GET /api/dashboard/sites — registered site domains. */
+/** GET /api/dashboard/sites — registered site domains (+ timezone details). */
 export async function listSites(c: Ctx) {
   const { sites } = await new SitesRepository(c.env.DB).list({ limit: 100 });
-  return Response.json({ sites: sites.map(({ domain }) => domain) });
+  return Response.json({
+    sites: sites.map(({ domain }) => domain),
+    details: sites.map(({ domain, timezone }) => ({ domain, timezone })),
+  });
 }
 
 /** GET /api/dashboard/stats */
@@ -180,31 +184,26 @@ export async function timeseries(c: Ctx, request: Request) {
 /** GET /api/dashboard/goals */
 export async function goals(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
-  const timezone = searchParams(request).get("timezone") || "UTC";
+  const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
   const repository = new GoalsRepository(c.env.DB);
   const goalList = await repository.list(site);
-  const { startDate, endDate } = getDateTimeRange(interval, timezone);
+  const { startDate, endDate } = getDateTimeRange(interval, tz);
   const analytics = c.sessionAnalytics();
-  const counts = await analytics.getSessionMetrics(site, startDate, endDate, filters);
-  const conversions = await Promise.all(
-    goalList.map(async (goal) => {
-      const rows = await analytics.getBasicMetrics(
-        site,
-        startDate,
-        endDate,
-        { ...filters, name: goal.name },
-        "event:name",
-      );
-      return rows.rows.reduce((acc, row) => acc + row.events, 0);
-    }),
-  );
+  const result = await analytics.getGoalBreakdown(site, startDate, endDate, filters, goalList);
   return Response.json({
     goals: goalList.map((goal, index) => ({
       ...goal,
-      conversions: conversions[index],
+      conversions: result.goals[index]?.uniques ?? 0,
+      totalConversions: result.goals[index]?.total ?? 0,
+      currency: goal.currency,
+      totalRevenue: result.goals[index]?.revenue?.total ?? null,
+      averageRevenue: (() => {
+        const rev = result.goals[index]?.revenue;
+        return rev && rev.count > 0 ? rev.total / rev.count : null;
+      })(),
       conversionRate:
-        counts.visitors > 0 ? Math.min(100, (conversions[index] / counts.visitors) * 100) : 0,
+        result.visitors > 0 ? (result.goals[index].uniques / result.visitors) * 100 : 0,
     })),
   });
 }
@@ -217,6 +216,7 @@ const goalAction = z.object({
   name: z.string().optional(),
   type: z.string().optional(),
   value: z.string().optional(),
+  currency: z.string().optional(),
 });
 export async function mutateGoal(c: Ctx, request: Request) {
   const form = await request.formData();
@@ -232,6 +232,7 @@ export async function mutateGoal(c: Ctx, request: Request) {
       name: body.name || "",
       type: (body.type || "") as GoalType,
       value: body.value || "",
+      currency: body.currency,
     });
   } else {
     await repository.delete(body.site, body.id || "");
@@ -252,44 +253,39 @@ export async function props(c: Ctx, request: Request) {
   });
 }
 
-/** Card endpoints — one per legacy resources.* route. */
-export function paths(c: Ctx, r: Request) {
-  return breakdown(c, r, "event:page", "views");
+/** Card endpoints — URL segment → breakdown dimension/metric/transform. */
+interface BreakdownCard {
+  dimension: SessionDimension;
+  metric: "visitors" | "visits" | "views" | "events";
+  map?: (rows: CountRow[]) => CountRow[];
 }
-export function referrer(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:referrer", "visits");
-}
-export function events(c: Ctx, r: Request) {
-  return breakdown(c, r, "event:name", "events", (rows) =>
-    rows.filter((row) => row[0] !== "pageview" && row[0] !== "engagement"),
-  );
-}
-export function browser(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:browser", "visits");
-}
-export function browserVersion(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:browser_version", "visits");
-}
-export function country(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:country", "visits", toCountryRows);
-}
-export function device(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:device_type", "visits");
-}
-export function utmSource(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_source", "visits");
-}
-export function utmMedium(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_medium", "visits");
-}
-export function utmCampaign(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_campaign", "visits");
-}
-export function utmTerm(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_term", "visits");
-}
-export function utmContent(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_content", "visits");
+const BREAKDOWNS = {
+  paths: { dimension: "event:page", metric: "views" },
+  "entry-pages": { dimension: "visit:entry_page", metric: "visits" },
+  "exit-pages": { dimension: "visit:exit_page", metric: "visits" },
+  referrer: { dimension: "visit:referrer", metric: "visits" },
+  events: {
+    dimension: "event:name",
+    metric: "events",
+    map: (rows) => rows.filter((row) => row[0] !== "pageview" && row[0] !== "engagement"),
+  },
+  browser: { dimension: "visit:browser", metric: "visits" },
+  browserversion: { dimension: "visit:browser_version", metric: "visits" },
+  country: { dimension: "visit:country", metric: "visits", map: toCountryRows },
+  device: { dimension: "visit:device_type", metric: "visits" },
+  "utm-source": { dimension: "visit:utm_source", metric: "visits" },
+  "utm-medium": { dimension: "visit:utm_medium", metric: "visits" },
+  "utm-campaign": { dimension: "visit:utm_campaign", metric: "visits" },
+  "utm-term": { dimension: "visit:utm_term", metric: "visits" },
+  "utm-content": { dimension: "visit:utm_content", metric: "visits" },
+} satisfies Record<string, BreakdownCard>;
+
+export function cardBreakdown(c: Ctx, r: Request, card: string) {
+  if (!Object.hasOwn(BREAKDOWNS, card)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+  const b: BreakdownCard = BREAKDOWNS[card as keyof typeof BREAKDOWNS];
+  return breakdown(c, r, b.dimension, b.metric, b.map);
 }
 
 /**
@@ -308,20 +304,17 @@ export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>
     await next();
   })
   .get("/api/dashboard/sites", (c) => listSites(c.get("ctx")))
+  .post("/api/dashboard/sites", (c) => createDashboardSite(c.get("ctx"), c.req.raw))
+  .patch("/api/dashboard/sites/:domain", (c) =>
+    updateDashboardSite(c.get("ctx"), c.req.raw, c.req.param("domain")),
+  )
+  .delete("/api/dashboard/sites/:domain", (c) =>
+    deleteDashboardSite(c.get("ctx"), c.req.param("domain")),
+  )
   .get("/api/dashboard/stats", (c) => stats(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/timeseries", (c) => timeseries(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/goals", (c) => goals(c.get("ctx"), c.req.raw))
   .post("/api/dashboard/goals", (c) => mutateGoal(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/props", (c) => props(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/paths", (c) => paths(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/referrer", (c) => referrer(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/events", (c) => events(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/browser", (c) => browser(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/browserversion", (c) => browserVersion(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/country", (c) => country(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/device", (c) => device(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-source", (c) => utmSource(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-medium", (c) => utmMedium(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-campaign", (c) => utmCampaign(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-term", (c) => utmTerm(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-content", (c) => utmContent(c.get("ctx"), c.req.raw));
+  // Single dynamic card route — after the explicit routes above.
+  .get("/api/dashboard/:card", (c) => cardBreakdown(c.get("ctx"), c.req.raw, c.req.param("card")));

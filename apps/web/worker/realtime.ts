@@ -18,8 +18,7 @@ export async function handleRealtime(request: Request, env: Env, url: URL): Prom
       return new Response("Forbidden", { status: 403 });
     }
   }
-  // Dashboard session (Better Auth) — replaced the legacy __noomers_token
-  // JWT when auth moved to Better Auth in the fastflare migration.
+  // Dashboard session (Better Auth) — realtime is an admin-only surface.
   const { createAuth } = await import("./auth");
   const { SitesRepository } = await import("./sites/repository");
   const session = await createAuth(env).api.getSession({ headers: request.headers });

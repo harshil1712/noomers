@@ -125,7 +125,7 @@ describe("collect endpoint", () => {
     expect(siteEventsRecord).toHaveBeenCalledOnce();
   });
 
-  test("accepts native engagement events without Analytics Engine or cache mutation", async () => {
+  test("accepts native engagement events without a cache header", async () => {
     const env = { ...mockEnv };
     const request = new Request("https://example.com/collect", {
       method: "POST",
@@ -152,6 +152,56 @@ describe("collect endpoint", () => {
         engagement_time: 5000,
       }),
     );
+  });
+
+  test("sends the canonical event to EVENT_STREAM and records it in the DO", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = { ...mockEnv, EVENT_STREAM: { send } };
+    const request = new Request(
+      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      { headers: { "user-agent": browserUserAgent } },
+    );
+
+    const response = await collectRequestHandler(request, env);
+
+    expect(response.status).toBe(200);
+    expect(send).toHaveBeenCalledOnce();
+    const sent = send.mock.calls[0][0];
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toEqual(
+      expect.objectContaining({
+        site_id: "test-site",
+        event_type: "pageview",
+        pathname: "/test",
+        hostname: "example.com",
+      }),
+    );
+    expect(siteEventsRecord).toHaveBeenCalledOnce();
+  });
+
+  test("EVENT_STREAM.send rejecting fails the request (fail-closed 500)", async () => {
+    const send = vi.fn().mockRejectedValue(new Error("pipeline down"));
+    const env = { ...mockEnv, EVENT_STREAM: { send } };
+    const request = new Request(
+      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      { headers: { "user-agent": browserUserAgent } },
+    );
+
+    const response = await collectRequestHandler(request, env);
+
+    expect(response.status).toBe(500);
+  });
+
+  test("missing EVENT_STREAM (local dev) still records for realtime", async () => {
+    const request = new Request(
+      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      { headers: { "user-agent": browserUserAgent } },
+    );
+
+    const response = await collectRequestHandler(request, mockEnv);
+
+    expect(response.status).toBe(200);
+    expect(siteEventsRecord).toHaveBeenCalledOnce();
   });
 
   test("rejects native engagement with invalid time", async () => {

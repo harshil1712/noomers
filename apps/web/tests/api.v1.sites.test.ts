@@ -2,6 +2,7 @@
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, test } from "vite-plus/test";
 import { migrate, seedSite } from "./helpers";
+import { GoalsRepository } from "../worker/goals/repository";
 import { SINGLE_ORGANIZATION } from "../worker/sites/team";
 
 const AUTH = { Authorization: "Bearer sites-secret" };
@@ -87,5 +88,46 @@ describe("Plausible Sites API", () => {
 
     const deleteResponse = await request("/api/v1/sites/example.com", "DELETE");
     await expect(deleteResponse.json()).resolves.toEqual({ deleted: "true" });
+  });
+
+  test("goal currency: stored uppercase, dropped for page goals, invalid rejected", async () => {
+    const domain = `cur${crypto.randomUUID().slice(0, 8)}.dev`;
+    await request("/api/v1/sites", "POST", { domain });
+
+    const put = (body: Record<string, unknown>) =>
+      request("/api/v1/sites/goals", "PUT", { site_id: domain, ...body });
+
+    const res = await put({
+      goal_type: "event",
+      event_name: "buy",
+      display_name: "buy",
+      currency: "usd",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("currency");
+
+    const goals = await new GoalsRepository(env.DB).list(domain);
+    expect(goals[0].currency).toBe("USD");
+
+    // find-or-create returns the existing goal; a different currency is ignored
+    await put({ goal_type: "event", event_name: "buy", display_name: "buy", currency: "EUR" });
+    expect((await new GoalsRepository(env.DB).list(domain)).length).toBe(1);
+    expect((await new GoalsRepository(env.DB).list(domain))[0].currency).toBe("USD");
+
+    const page = await put({
+      goal_type: "page",
+      page_path: "/thanks",
+      display_name: "thanks",
+      currency: "USD",
+    });
+    expect(page.status).toBe(200);
+    const pageGoal = (await new GoalsRepository(env.DB).list(domain)).find(
+      (g) => g.name === "thanks",
+    );
+    expect(pageGoal?.currency).toBeNull();
+
+    const bad = await put({ goal_type: "event", event_name: "x", currency: "XXX" });
+    expect(bad.status).toBe(400);
   });
 });

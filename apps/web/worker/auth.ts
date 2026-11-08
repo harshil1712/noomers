@@ -6,6 +6,7 @@ import * as authSchema from "../src/auth-schema";
 import { PRODUCT } from "../src/config";
 import { sendAuthEmail, verifyEmailTemplate, resetPasswordTemplate } from "./email";
 import { assertTurnstileConfig } from "./turnstile-guard";
+import { signupOpen } from "./signup";
 
 /** Owner bootstrap: verified-email match only (a social provider sets
  * verified; unverified signups never promote). */
@@ -75,7 +76,11 @@ export function createAuth(env: Env) {
     databaseHooks: {
       user: {
         create: {
-          before: async (user) => ({ data: bootstrapAdmin(user, env.OWNER_ADMIN_EMAIL) }),
+          before: async (user) => {
+            // `false` aborts creation — better-auth answers FAILED_TO_CREATE_USER.
+            if (!(await signupOpen(env))) return false;
+            return { data: bootstrapAdmin(user, env.OWNER_ADMIN_EMAIL) };
+          },
         },
       },
       session: {
@@ -103,6 +108,17 @@ export function createAuth(env: Env) {
                   update: { role: "admin" },
                 });
               }
+            } else if (!env.OWNER_ADMIN_EMAIL) {
+              // No owner configured: the first verified account to get a
+              // session becomes admin — one atomic UPDATE so two concurrent
+              // verifies can't both win.
+              await env.DB.prepare(
+                `UPDATE user SET role = 'admin'
+                 WHERE id = ? AND email_verified = 1
+                   AND NOT EXISTS (SELECT 1 FROM user WHERE role = 'admin')`,
+              )
+                .bind(session.userId)
+                .run();
             }
             return { data: session };
           },

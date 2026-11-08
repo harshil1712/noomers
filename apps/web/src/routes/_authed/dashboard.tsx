@@ -28,6 +28,9 @@ import {
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
+import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
+import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
+import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 import {
   dashboardApi,
   type BreakdownCard,
@@ -86,7 +89,14 @@ const PANELS: {
       { card: "campaigns", label: "Campaigns" },
     ],
   },
-  { title: "Pages", tabs: [{ card: "paths", label: "Top pages", filter: "path" }] },
+  {
+    title: "Pages",
+    tabs: [
+      { card: "paths", label: "Top pages", filter: "path" },
+      { card: "entry-pages", label: "Entry pages" },
+      { card: "exit-pages", label: "Exit pages" },
+    ],
+  },
   { title: "Locations", tabs: [{ card: "country", label: "Countries", filter: "country" }] },
   {
     title: "Devices",
@@ -193,19 +203,10 @@ function Dashboard() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
-  const [sites, setSites] = useState<string[] | null>(null);
-  const [sitesError, setSitesError] = useState(false);
+  const { sites: siteList, error: sitesError, forbidden } = useSharedSites();
+  const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [nonce, setNonce] = useState(0);
   const [failures, setFailures] = useState<Set<string>>(new Set());
-
-  const loadSites = () => {
-    setSitesError(false);
-    dashboardApi
-      .sites()
-      .then((r) => setSites(r.sites))
-      .catch(() => setSitesError(true));
-  };
-  useEffect(loadSites, []);
 
   const site = search.site ?? "";
   useEffect(() => {
@@ -254,7 +255,6 @@ function Dashboard() {
 
   const trackingSnippet = `<script defer\n  src="${location.origin}/tracker.js"\n  data-site-id="${site || "example.com"}"></script>`;
   const plausibleSnippet = `<script defer\n  src="${location.origin}/js/pa-XXXX.js"\n  data-domain="${site || "example.com"}"></script>`;
-  const addSiteCmd = `curl -X POST ${location.origin}/api/v1/sites \\\n  -H "Authorization: Bearer $SITES_API_TOKEN" \\\n  -H "Content-Type: application/json" \\\n  -d '{"domain": "example.com"}'`;
 
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -395,7 +395,9 @@ function Dashboard() {
         />
       )}
 
-      {sitesError ? (
+      {forbidden ? (
+        <NotOwnerNotice />
+      ) : sitesError ? (
         <Surface className="rounded-xl p-8 text-center">
           <Text variant="heading3" as="h2">
             Couldn&apos;t load your sites
@@ -404,16 +406,16 @@ function Dashboard() {
             The dashboard API didn&apos;t respond. Check that you&apos;re signed in and try again.
           </p>
           <div className="mt-4 flex justify-center">
-            <Button onClick={loadSites}>Retry</Button>
+            <Button onClick={() => void refreshSites()}>Retry</Button>
           </div>
         </Surface>
       ) : sites === null && !site ? (
         <DashboardSkeleton />
       ) : sites !== null && sites.length === 0 ? (
         <Empty
-          title="No sites registered"
-          description="Sites are registered through the Sites API — there's no site-management UI yet."
-          commandLine={addSiteCmd}
+          title="No sites yet"
+          description="Add a site to start tracking it."
+          contents={<AddSiteDialog />}
         />
       ) : !site ? (
         <DashboardSkeleton />
@@ -866,6 +868,8 @@ function BreakdownTable({
   const [data, setData] = useState<BreakdownResponse | null>(null);
   const [error, setError] = useState(false);
   const isGoals = card === "goals";
+  const [goalRevenue, setGoalRevenue] = useState<Record<string, string>>({});
+  const hasRevenue = isGoals && Object.values(goalRevenue).some((v) => v !== "-");
   const isProps = card === "events-props";
 
   useEffect(() => setPage(1), [realCard, query.site, query.interval, query.filters]);
@@ -892,6 +896,19 @@ function BreakdownTable({
               ]),
               page: 1,
             });
+            setGoalRevenue(
+              Object.fromEntries(
+                r.goals.map((g) => [
+                  g.name,
+                  g.currency
+                    ? new Intl.NumberFormat("en", {
+                        style: "currency",
+                        currency: g.currency,
+                      }).format(g.totalRevenue ?? 0)
+                    : "-",
+                ]),
+              ),
+            );
             onError?.(errKey, false);
           }),
         )
@@ -1006,6 +1023,11 @@ function BreakdownTable({
                 {isGoals ? "Conversions" : card === "events" ? "Events" : "Visitors"}
               </span>
             </Table.Head>
+            {hasRevenue && (
+              <Table.Head className="w-24 text-right">
+                <span className="mono-label">Revenue</span>
+              </Table.Head>
+            )}
             <Table.Head className="w-14 text-right">
               <span className="mono-label">%</span>
             </Table.Head>
@@ -1013,7 +1035,7 @@ function BreakdownTable({
         </Table.Header>
         <Table.Body>
           {shown.map((row, index) => {
-            const pct = row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
+            const pct = isGoals && row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}
@@ -1041,6 +1063,11 @@ function BreakdownTable({
                     notation: row[1] >= 100000 ? "compact" : "standard",
                   }).format(row[1])}
                 </Table.Cell>
+                {hasRevenue && (
+                  <Table.Cell className="relative tabular-nums text-right">
+                    {goalRevenue[label(row[0])] ?? "-"}
+                  </Table.Cell>
+                )}
                 <Table.Cell className="relative tabular-nums text-right">{pct}%</Table.Cell>
               </Table.Row>
             );

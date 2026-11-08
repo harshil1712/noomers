@@ -200,7 +200,7 @@ describe("R2SQLAPI", () => {
     expect(query).toContain("hostname = 'example.com'");
     expect(query).toContain("pathname AS dimension");
     expect(query).toContain(
-      "FIRST_VALUE(dimension_value ORDER BY event_ts) FILTER (WHERE event_type = 'pageview') AS entry_page",
+      "FIRST_VALUE(dimension_value ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page",
     );
     expect(query).not.toContain("MIN_BY");
     expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
@@ -961,5 +961,216 @@ describe("query cache", () => {
     const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher);
     await expect(api.query("SELECT 1")).rejects.toThrow();
     expect(cache.put).not.toHaveBeenCalled();
+  });
+});
+
+describe("entry/exit page dimensions", () => {
+  const captured = async (dimension: Parameters<R2SQLAPI["getSessionBreakdown"]>[4]) => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, result: { rows: [] } }), { status: 200 }),
+      );
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    await api.getSessionBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      dimension,
+    );
+    return JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body)).query as string;
+  };
+
+  test("entry page uses the first pageview, deterministic on event_id", async () => {
+    const query = await captured("visit:entry_page");
+    expect(query).toContain(
+      "FIRST_VALUE(dimension_value ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page",
+    );
+    expect(query).not.toContain("AS exit_page");
+    expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
+  });
+
+  test("exit page adds the DESC aggregate and selects exit_page", async () => {
+    const query = await captured("visit:exit_page");
+    expect(query).toContain(
+      "FIRST_VALUE(dimension_value ORDER BY event_ts DESC, event_id DESC) FILTER (WHERE event_type = 'pageview') AS exit_page",
+    );
+    expect(query).toContain("SELECT visitor_id, session_number, exit_page AS dimension");
+  });
+
+  test("non-exit dimension contains no exit_page", async () => {
+    const query = await captured("visit:country");
+    expect(query).not.toContain("exit_page");
+  });
+
+  test("event:name throws for session metrics", async () => {
+    const fetcher = vi.fn();
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    await expect(
+      api.getSessionBreakdown(
+        "example.com",
+        new Date("2026-08-01T00:00:00.000Z"),
+        new Date("2026-08-02T00:00:00.000Z"),
+        {},
+        "event:name",
+      ),
+    ).rejects.toThrow("event:name does not support session metrics");
+  });
+});
+
+describe("getGoalBreakdown", () => {
+  const captured = async (
+    goals: Array<{
+      type: "event" | "pageview";
+      value: string;
+      customProps: Record<string, string>;
+    }>,
+  ) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: { rows: [{ visitors: 9, u_0: 3, t_0: 5, u_1: 2, t_1: 2, any_uniques: 4 }] },
+        }),
+        { status: 200 },
+      ),
+    );
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    const result = await api.getGoalBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      goals,
+    );
+    return {
+      result,
+      query: JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body)).query as string,
+    };
+  };
+
+  test("one query with per-goal u_i/t_i columns and any_uniques", async () => {
+    const { result, query } = await captured([
+      { type: "event", value: "signup", customProps: {} },
+      { type: "pageview", value: "/thanks", customProps: {} },
+    ]);
+    expect(query).toContain("COUNT(DISTINCT visitor_id) AS visitors");
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN (event_type <> 'engagement' AND event_name = 'signup') THEN visitor_id END) AS u_0",
+    );
+    expect(query).toContain(
+      "SUM(CASE WHEN (event_type <> 'engagement' AND event_name = 'signup') THEN 1 ELSE 0 END) AS t_0",
+    );
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN (event_type = 'pageview' AND pathname = '/thanks') THEN visitor_id END) AS u_1",
+    );
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN (event_type <> 'engagement' AND event_name = 'signup') OR (event_type = 'pageview' AND pathname = '/thanks') THEN visitor_id END) AS any_uniques",
+    );
+    expect(result).toEqual({
+      visitors: 9,
+      goals: [
+        { uniques: 3, total: 5, revenue: null },
+        { uniques: 2, total: 2, revenue: null },
+      ],
+      anyUniques: 4,
+      anyRevenue: null,
+    });
+  });
+
+  test("custom props predicate escapes values", async () => {
+    const { query } = await captured([
+      { type: "event", value: "plan", customProps: { tier: "pro's" } },
+    ]);
+    expect(query).toContain("json_get_str(event_properties, 'tier') = 'pro''s'");
+  });
+
+  test("bad prop key throws", async () => {
+    const api = new R2SQLAPI("a", "b", "t", "n.e", vi.fn() as never);
+    await expect(
+      api.getGoalBreakdown("s", new Date(), new Date(), {}, [
+        { type: "event", value: "x", customProps: { "bad key!": "1" } },
+      ]),
+    ).rejects.toThrow("Invalid goal property key");
+  });
+
+  test("empty goals selects no per-goal columns", async () => {
+    const { query, result } = await captured([]);
+    expect(query).not.toContain(" u_0");
+    expect(query).not.toContain("any_uniques");
+    expect(result.goals).toEqual([]);
+  });
+});
+
+describe("getGoalBreakdown revenue", () => {
+  const captured = async (
+    goals: Array<{
+      type: "event" | "pageview";
+      value: string;
+      customProps: Record<string, string>;
+      currency?: string | null;
+    }>,
+  ) => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            rows: [
+              {
+                visitors: 9,
+                u_0: 3,
+                t_0: 5,
+                r_0: 42.5,
+                rc_0: 2,
+                u_1: 1,
+                t_1: 1,
+                any_uniques: 4,
+                any_rev_total: 42.5,
+                any_rev_count: 2,
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    const api = new R2SQLAPI("acct", "bucket", "token", "noomers.events", fetcher as typeof fetch);
+    const result = await api.getGoalBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      goals,
+    );
+    return {
+      result,
+      query: JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body)).query as string,
+    };
+  };
+
+  test("revenue goals get r_i/rc_i columns with currency equality and TRY_CAST", async () => {
+    const { result, query } = await captured([
+      { type: "event", value: "buy", customProps: {}, currency: "USD" },
+      { type: "event", value: "free", customProps: {} },
+    ]);
+    expect(query).toContain(
+      "SUM(CASE WHEN (event_type <> 'engagement' AND event_name = 'buy') AND revenue_currency = 'USD' AND TRY_CAST(revenue_amount AS DOUBLE) IS NOT NULL THEN TRY_CAST(revenue_amount AS DOUBLE) ELSE 0 END) AS r_0",
+    );
+    expect(query).toContain("AS rc_0");
+    expect(query).not.toContain("r_1");
+    expect(query).toContain("revenue_amount, revenue_currency");
+    expect(query).toContain("AS any_rev_total");
+    expect(result.goals[0].revenue).toEqual({ total: 42.5, count: 2 });
+    expect(result.goals[1].revenue).toBeNull();
+    expect(result.anyRevenue).toEqual({ total: 42.5, count: 2 });
+  });
+
+  test("no revenue goals → no revenue columns or CTE fields", async () => {
+    const { result, query } = await captured([{ type: "event", value: "x", customProps: {} }]);
+    expect(query).not.toContain("revenue_");
+    expect(result.goals[0].revenue).toBeNull();
+    expect(result.anyRevenue).toBeNull();
   });
 });
