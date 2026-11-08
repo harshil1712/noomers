@@ -80,6 +80,7 @@ vp install
 cd apps/web && vp dev   # vite dev (SPA only; worker calls need alchemy dev)
 # or, with your own CF account creds in env:
 vp run dev              # alchemy dev — worker + D1 + DO locally
+                        # (no Pipeline/Basin: realtime only, no history)
 ```
 
 Verification before every change: `vp check`, `vp run -r test`, `vp run -r build`.
