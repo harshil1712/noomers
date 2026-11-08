@@ -67,7 +67,6 @@ On top of the table above the deploy token also needs, because
 | Account · Workers R2 SQL · Read                | minting the read-only Basin SQL token |
 | Account · Cloudflare Workers KV Storage · Read | DO state inspection (optional)        |
 
-
 ### Additional secrets (noomers analytics)
 
 `alchemy.run.ts` mints `BETTER_AUTH_SECRET`, `VISITOR_SALT`, the Basin SQL
