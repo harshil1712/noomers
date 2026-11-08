@@ -46,7 +46,7 @@ cd packages/tracker && vp test
 
 Tracker integration tests (Playwright) stay a separate `test:integration` script — browsers required, not part of `vp test`.
 
-Local dev: `vp run dev` / `alchemy dev` needs `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` in env (your own account); point `BETTER_AUTH_URL` at the printed URL. Verification/reset mail lands in `.alchemy/local/email/`. Never put production credentials in `.dev.vars`.
+Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API token in env; point `BETTER_AUTH_URL` at the printed URL. Local dev has no Pipeline/Basin, so the dashboard shows realtime only and no history — end-to-end Basin testing needs a deployed dev stage (`vp run deploy:dev`). Verification/reset mail lands in `.alchemy/local/email/`. Never put production credentials in `.dev.vars`.
 
 ## Architecture
 
