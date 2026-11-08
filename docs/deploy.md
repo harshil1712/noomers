@@ -61,9 +61,10 @@ On top of the table above the deploy token also needs, because
 
 | Permission                                     | Why                                   |
 | ---------------------------------------------- | ------------------------------------- |
-| Account · Workers Pipelines · Write            | `EVENT_STREAM` stream, sink, pipeline |
-| Account · Workers R2 Storage · Write           | `noomers-events` bucket               |
-| Account · R2 Data Catalog · Write              | `noomers.events` Iceberg table (sink) |
+| Account · Pipelines · Write                    | `EVENT_STREAM` stream, sink, pipeline |
+| Account · Workers R2 Storage · Write           | the stage's warehouse bucket          |
+| Account · Workers R2 Data Catalog · Write      | `noomers.events` Iceberg table (sink) |
+| Account · Workers R2 SQL · Read                | minting the read-only Basin SQL token |
 | Account · Cloudflare Workers KV Storage · Read | DO state inspection (optional)        |
 
 (If `cf-token-preflight.sh` doesn't already name them, grant Pipelines and
@@ -99,14 +100,11 @@ none of these are secrets you set.
   The old worker and its routes/custom domain are NOT removed
   automatically — verify `noomers-web` serves everything, then retire the
   old worker manually.
-- **Pipelines are not adopted.** The interactively-created stream/sink
-  (old docs named the stream `noomers_events`, table `default.events`)
-  will not match the new names (`noomers-events-stream`,
-  `noomers_events_sink`, table `noomers.events`). `R2_SQL_BUCKET` is bound
-  to the provisioned bucket, so the old table is queryable only through
-  `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives in the same bucket's
-  catalog; otherwise history starts fresh. Verify which names exist in the
-  account before cutover.
+- **Pipelines are not adopted.** Stream, sink, pipeline, bucket, and token
+  names are generated per stage, so the deploy provisions its own set.
+  `R2_SQL_BUCKET` is bound from the provisioned bucket, so an old table is
+  queryable only through `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives
+  in the same bucket's catalog; otherwise history starts fresh.
 - **Drain the SiteEvents DO first.** Unshipped buffered rows live in the
   old worker's DOs. Check `/api/health/ready` reports zero backlog on the
   old deployment before switching traffic, or those events are stranded.
