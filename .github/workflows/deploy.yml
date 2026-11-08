@@ -49,6 +49,11 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           OWNER_ADMIN_EMAIL: ${{ secrets.OWNER_ADMIN_EMAIL }}
           SIGNUP_DISABLED: ${{ vars.SIGNUP_DISABLED }}
+          SITES_API_TOKEN: ${{ secrets.SITES_API_TOKEN }}
+          STATS_API_TOKEN: ${{ secrets.STATS_API_TOKEN }}
+          SERVER_EVENTS_TOKEN: ${{ secrets.SERVER_EVENTS_TOKEN }}
+          CF_TRACKER_SCRIPT_NAME: ${{ vars.CF_TRACKER_SCRIPT_NAME }}
+          R2_SQL_IMPORT_TABLE: ${{ vars.R2_SQL_IMPORT_TABLE }}
           # alchemy.run.ts gates prod resources (custom domains, real Turnstile
           # widget, email subdomain) on ALCHEMY_STAGE — required.
           ALCHEMY_STAGE: prod
