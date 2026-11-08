@@ -12,13 +12,11 @@ export function TimezonePicker({
   onChange,
   label,
   description,
-  ariaLabel,
 }: {
   value: string;
   onChange: (tz: string) => void;
   label?: string;
   description?: string;
-  ariaLabel?: string;
 }) {
   return (
     <Combobox
@@ -28,7 +26,7 @@ export function TimezonePicker({
       label={label}
       description={description}
     >
-      <Combobox.TriggerValue className="w-full" aria-label={ariaLabel} />
+      <Combobox.TriggerValue className="w-full" />
       <Combobox.Content>
         <Combobox.Input placeholder="Search timezones" aria-label="Search timezones" />
         <Combobox.Empty>No matching timezone.</Combobox.Empty>
