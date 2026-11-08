@@ -62,7 +62,6 @@ On top of the table above the deploy token also needs, because
 | Permission                                     | Why                                   |
 | ---------------------------------------------- | ------------------------------------- |
 | Account · Pipelines · Write                    | `EVENT_STREAM` stream, sink, pipeline |
-| Account · Workers R2 Storage · Write           | the stage's warehouse bucket          |
 | Account · Workers R2 Data Catalog · Write      | `noomers.events` Iceberg table (sink) |
 | Account · Workers R2 SQL · Read                | minting the read-only Basin SQL token |
 | Account · Cloudflare Workers KV Storage · Read | DO state inspection (optional)        |
@@ -74,14 +73,16 @@ token (`R2_SQL_TOKEN`) and the Data Catalog sink token, and derives
 `CF_ACCOUNT_ID` and `R2_SQL_BUCKET` from the provisioned account and bucket —
 none of these are secrets you set.
 
-| Secret                   | Purpose                                                                            |
-| ------------------------ | ---------------------------------------------------------------------------------- |
-| `SITES_API_TOKEN`        | Bearer for `/api/v1/*` (Plausible Sites API)                                       |
-| `STATS_API_TOKEN`        | Bearer for `/api/v2/query` (and /api/v1 fallback)                                  |
-| `SERVER_EVENTS_TOKEN`    | Optional first-party server tracker token                                          |
-| `R2_SQL_TABLE`           | Basin SQL query table (`noomers.events`)                                           |
-| `R2_SQL_IMPORT_TABLE`    | Optional imported-history table UNIONed into queries (`scripts/plausible-import/`) |
-| `CF_TRACKER_SCRIPT_NAME` | Optional custom tracker script path                                                |
+Set `SITES_API_TOKEN` and `STATS_API_TOKEN` to long random values (e.g.
+`openssl rand -hex 32`).
+
+| Name                     | Kind                                        | Purpose                                                                   |
+| ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------- |
+| `SITES_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v1/*` (Plausible Sites API) and the erasure workflow     |
+| `STATS_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v2/query` (and /api/v1 fallback)                         |
+| `SERVER_EVENTS_TOKEN`    | `production` environment secret             | Optional first-party server tracker token                                 |
+| `R2_SQL_IMPORT_TABLE`    | `production` environment variable, optional | Imported-history table UNIONed into queries (`scripts/plausible-import/`) |
+| `CF_TRACKER_SCRIPT_NAME` | `production` environment variable, optional | Custom tracker script path                                                |
 
 ### Iceberg erasure
 
@@ -100,33 +101,12 @@ for the workflow to run; it skips with a notice otherwise),
 Actions → iceberg-erasure → Run workflow. Set the repo variable
 `R2_SQL_BUCKET` to the deployed stage's warehouse bucket name.
 
-## Cutover from the wrangler-based deployment
+## Before going live
 
-- **D1 `noomers-goals` is adopted by name.** Alchemy reuses the existing
-  database and does not create a second one. Its own bookkeeping table is
-  `__alchemy_migrations`; a database previously migrated by
-  `wrangler d1 migrations apply` (wrangler's `d1_migrations` table) is
-  converted one-way on first `alchemy deploy` — the wrangler table is left
-  frozen and 0001–0007 are never re-applied.
-- **Worker name changes** from the wrangler-era name to `noomers-web`.
-  The old worker and its routes/custom domain are NOT removed
-  automatically — verify `noomers-web` serves everything, then retire the
-  old worker manually.
-- **Pipelines are not adopted.** Stream, sink, pipeline, bucket, and token
-  names are generated per stage, so the deploy provisions its own set.
-  `R2_SQL_BUCKET` is bound from the provisioned bucket, so an old table is
-  queryable only through `R2_SQL_TABLE`/`R2_SQL_IMPORT_TABLE` if it lives
-  in the same bucket's catalog; otherwise history starts fresh.
-- **Events send straight to Pipelines.** An event is accepted only after
-  `EVENT_STREAM.send` confirms ingest — if Pipelines is down collection
-  returns 500 and the tracker does not retry, so those events are lost.
-  The SiteEvents DO now holds realtime rows only; nothing needs draining.
-- **Basin/R2 tokens are minted by the deploy** (`Account API Tokens · Edit`
-  on the CI token grants this). The minted R2 SQL token is read-only —
-  confirm the first real preview answers `/api/health/ready` before
-  switching traffic. Wrangler-era `CF_PASSWORD_HASH`, `CF_JWT_SECRET`,
-  `CF_AUTH_ENABLED` are gone — dashboard auth is Better Auth with
-  `OWNER_ADMIN_EMAIL` — set it before the public URL is live, or the first stranger to sign up becomes admin.
-- **New `VISITOR_SALT`.** Alchemy mints a fresh salt, so visitor IDs on the
-  cutover day won't match pre-cutover ones. Visitor IDs rotate daily in UTC
-  anyway, so the only effect is a one-day discontinuity in visitor counts.
+- Events are accepted only after `EVENT_STREAM.send` confirms ingest — if
+  Pipelines is down collection returns 500 and the tracker does not retry,
+  so those events are lost.
+- After the first deploy, check `https://app.<domain>/api/health/ready`
+  returns `ready` before pointing real sites at it.
+- Set `OWNER_ADMIN_EMAIL` before the public URL is live, or the first
+  stranger to sign up becomes admin.
