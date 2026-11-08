@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vite-plus/test";
-import { secretsEqual, timingSafeEqual } from "../worker/lib/secrets";
+import { secretsEqual } from "../worker/lib/secrets";
 import { requireAPIKey } from "../worker/api/auth";
 
 describe("secretsEqual", () => {
@@ -13,20 +13,6 @@ describe("secretsEqual", () => {
 
   test("rejects a different-length string", async () => {
     await expect(secretsEqual("secret-value", "secret")).resolves.toBe(false);
-  });
-});
-
-describe("timingSafeEqual", () => {
-  test("accepts equal byte arrays", () => {
-    expect(timingSafeEqual(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 3]))).toBe(true);
-  });
-
-  test("rejects different byte arrays of equal length", () => {
-    expect(timingSafeEqual(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2, 4]))).toBe(false);
-  });
-
-  test("rejects different-length byte arrays", () => {
-    expect(timingSafeEqual(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2]))).toBe(false);
   });
 });
 

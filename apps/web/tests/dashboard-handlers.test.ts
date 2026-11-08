@@ -1,25 +1,12 @@
 /// <reference types="@cloudflare/vitest-plugin/types" />
 import { describe, expect, test, vi } from "vite-plus/test";
 import {
-  browser,
-  browserVersion,
-  country,
-  device,
-  entryPages,
-  exitPages,
-  events,
+  cardBreakdown,
   goals,
   mutateGoal,
-  paths,
   props,
-  referrer,
   stats,
   timeseries,
-  utmCampaign,
-  utmContent,
-  utmMedium,
-  utmSource,
-  utmTerm,
 } from "../worker/routes/dashboard";
 import type { R2SQLAPI } from "../worker/analytics/r2-sql";
 import { migrate, seedGoal, seedSite } from "./helpers";
@@ -42,7 +29,11 @@ describe("dashboard handlers (ported loader tests)", () => {
         { dimension: "/", visitors: 2, views: 7, events: 7 },
       ],
     });
-    const res = await paths(ctx({ getBasicMetrics }), url("paths?site=example.com&interval=7d"));
+    const res = await cardBreakdown(
+      ctx({ getBasicMetrics }),
+      url("paths?site=example.com&interval=7d"),
+      "paths",
+    );
     expect(getBasicMetrics).toHaveBeenCalledWith(
       "example.com",
       expect.any(Date),
@@ -68,7 +59,11 @@ describe("dashboard handlers (ported loader tests)", () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({
       rows: [{ dimension: "google.com", visitors: 3, visits: 3, views: 9, events: 9 }],
     });
-    const res = await referrer(ctx({ getSessionBreakdown }), url("referrer?site=x&page=2"));
+    const res = await cardBreakdown(
+      ctx({ getSessionBreakdown }),
+      url("referrer?site=x&page=2"),
+      "referrer",
+    );
     expect(getSessionBreakdown).toHaveBeenCalledWith(
       "x",
       expect.any(Date),
@@ -81,6 +76,11 @@ describe("dashboard handlers (ported loader tests)", () => {
     expect(await res.json()).toEqual({ countsByProperty: [["google.com", 3, 3]], page: 2 });
   });
 
+  test("unknown card → 404", async () => {
+    const res = await cardBreakdown(ctx({}), url("nope?site=x"), "nope");
+    expect(res.status).toBe(404);
+  });
+
   test("events drops pageview/engagement rows", async () => {
     const getBasicMetrics = vi.fn().mockResolvedValue({
       rows: [
@@ -89,24 +89,24 @@ describe("dashboard handlers (ported loader tests)", () => {
         { dimension: "engagement", visitors: 1, views: 1, events: 1 },
       ],
     });
-    const res = await events(ctx({ getBasicMetrics }), url("events?site=x"));
+    const res = await cardBreakdown(ctx({ getBasicMetrics }), url("events?site=x"), "events");
     expect(await res.json()).toEqual({ countsByProperty: [["signup", 2]], page: 1 });
   });
 
   test.each([
-    ["entry-pages", entryPages, "visit:entry_page"],
-    ["exit-pages", exitPages, "visit:exit_page"],
-    ["browser", browser, "visit:browser"],
-    ["browserversion", browserVersion, "visit:browser_version"],
-    ["device", device, "visit:device_type"],
-    ["utm-source", utmSource, "visit:utm_source"],
-    ["utm-medium", utmMedium, "visit:utm_medium"],
-    ["utm-campaign", utmCampaign, "visit:utm_campaign"],
-    ["utm-term", utmTerm, "visit:utm_term"],
-    ["utm-content", utmContent, "visit:utm_content"],
-  ] as const)("%s → %s via session breakdown", async (name, handler, dimension) => {
+    ["entry-pages", "visit:entry_page"],
+    ["exit-pages", "visit:exit_page"],
+    ["browser", "visit:browser"],
+    ["browserversion", "visit:browser_version"],
+    ["device", "visit:device_type"],
+    ["utm-source", "visit:utm_source"],
+    ["utm-medium", "visit:utm_medium"],
+    ["utm-campaign", "visit:utm_campaign"],
+    ["utm-term", "visit:utm_term"],
+    ["utm-content", "visit:utm_content"],
+  ] as const)("%s → %s via session breakdown", async (name, dimension) => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
-    await handler(ctx({ getSessionBreakdown }), url(`${name}?site=x`));
+    await cardBreakdown(ctx({ getSessionBreakdown }), url(`${name}?site=x`), name);
     expect(getSessionBreakdown).toHaveBeenCalledWith(
       "x",
       expect.any(Date),
@@ -122,7 +122,7 @@ describe("dashboard handlers (ported loader tests)", () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({
       rows: [{ dimension: "US", visitors: 1, visits: 1, views: 2, events: 2 }],
     });
-    const res = await country(ctx({ getSessionBreakdown }), url("country?site=x"));
+    const res = await cardBreakdown(ctx({ getSessionBreakdown }), url("country?site=x"), "country");
     expect(await res.json()).toEqual({
       countsByProperty: [[["US", "United States"], 1, 1]],
       page: 1,

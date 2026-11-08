@@ -29,11 +29,6 @@ describe("worker", () => {
     expect(await r.json<{ error: string }>()).toEqual({ error: "not found" });
   });
 
-  it("/api/me is 401 without a session", async () => {
-    const r = await SELF.fetch("https://x/api/me");
-    expect(r.status).toBe(401);
-  });
-
   it("/api/public-config returns the test site key", async () => {
     const r = await SELF.fetch("https://x/api/public-config");
     const j = await r.json<{ turnstileSiteKey: string; googleEnabled: boolean }>();

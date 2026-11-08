@@ -253,50 +253,39 @@ export async function props(c: Ctx, request: Request) {
   });
 }
 
-/** Card endpoints — one breakdown handler per dashboard card. */
-export function paths(c: Ctx, r: Request) {
-  return breakdown(c, r, "event:page", "views");
+/** Card endpoints — URL segment → breakdown dimension/metric/transform. */
+interface BreakdownCard {
+  dimension: SessionDimension;
+  metric: "visitors" | "visits" | "views" | "events";
+  map?: (rows: CountRow[]) => CountRow[];
 }
-export function entryPages(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:entry_page", "visits");
-}
-export function exitPages(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:exit_page", "visits");
-}
-export function referrer(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:referrer", "visits");
-}
-export function events(c: Ctx, r: Request) {
-  return breakdown(c, r, "event:name", "events", (rows) =>
-    rows.filter((row) => row[0] !== "pageview" && row[0] !== "engagement"),
-  );
-}
-export function browser(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:browser", "visits");
-}
-export function browserVersion(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:browser_version", "visits");
-}
-export function country(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:country", "visits", toCountryRows);
-}
-export function device(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:device_type", "visits");
-}
-export function utmSource(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_source", "visits");
-}
-export function utmMedium(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_medium", "visits");
-}
-export function utmCampaign(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_campaign", "visits");
-}
-export function utmTerm(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_term", "visits");
-}
-export function utmContent(c: Ctx, r: Request) {
-  return breakdown(c, r, "visit:utm_content", "visits");
+const BREAKDOWNS = {
+  paths: { dimension: "event:page", metric: "views" },
+  "entry-pages": { dimension: "visit:entry_page", metric: "visits" },
+  "exit-pages": { dimension: "visit:exit_page", metric: "visits" },
+  referrer: { dimension: "visit:referrer", metric: "visits" },
+  events: {
+    dimension: "event:name",
+    metric: "events",
+    map: (rows) => rows.filter((row) => row[0] !== "pageview" && row[0] !== "engagement"),
+  },
+  browser: { dimension: "visit:browser", metric: "visits" },
+  browserversion: { dimension: "visit:browser_version", metric: "visits" },
+  country: { dimension: "visit:country", metric: "visits", map: toCountryRows },
+  device: { dimension: "visit:device_type", metric: "visits" },
+  "utm-source": { dimension: "visit:utm_source", metric: "visits" },
+  "utm-medium": { dimension: "visit:utm_medium", metric: "visits" },
+  "utm-campaign": { dimension: "visit:utm_campaign", metric: "visits" },
+  "utm-term": { dimension: "visit:utm_term", metric: "visits" },
+  "utm-content": { dimension: "visit:utm_content", metric: "visits" },
+} satisfies Record<string, BreakdownCard>;
+
+export function cardBreakdown(c: Ctx, r: Request, card: string) {
+  if (!Object.hasOwn(BREAKDOWNS, card)) {
+    return Response.json({ error: "Not found" }, { status: 404 });
+  }
+  const b: BreakdownCard = BREAKDOWNS[card as keyof typeof BREAKDOWNS];
+  return breakdown(c, r, b.dimension, b.metric, b.map);
 }
 
 /**
@@ -327,17 +316,5 @@ export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>
   .get("/api/dashboard/goals", (c) => goals(c.get("ctx"), c.req.raw))
   .post("/api/dashboard/goals", (c) => mutateGoal(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/props", (c) => props(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/paths", (c) => paths(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/entry-pages", (c) => entryPages(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/exit-pages", (c) => exitPages(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/referrer", (c) => referrer(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/events", (c) => events(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/browser", (c) => browser(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/browserversion", (c) => browserVersion(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/country", (c) => country(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/device", (c) => device(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-source", (c) => utmSource(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-medium", (c) => utmMedium(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-campaign", (c) => utmCampaign(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-term", (c) => utmTerm(c.get("ctx"), c.req.raw))
-  .get("/api/dashboard/utm-content", (c) => utmContent(c.get("ctx"), c.req.raw));
+  // Single dynamic card route — after the explicit routes above.
+  .get("/api/dashboard/:card", (c) => cardBreakdown(c.get("ctx"), c.req.raw, c.req.param("card")));
