@@ -2,71 +2,99 @@ import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Effect from "effect/Effect";
 import * as Config from "effect/Config";
+import * as Output from "alchemy/Output";
 import { fileURLToPath } from "node:url";
 import { PROJECT, APP_DOMAIN } from "./project.config";
 import eventsSchema from "./apps/web/pipelines/events.schema.json";
 
 const isProd = process.env.ALCHEMY_STAGE === "prod";
+// `alchemy dev` marks the process; Basin/Pipeline resources are live-only
+// in dev (the R2 bucket is a virtual `dev:<uuid>`), so they're skipped.
+const isDev = ["true", "1", "yes", "on"].includes((process.env.ALCHEMY_DEV ?? "").toLowerCase());
+const APP_URL = isProd
+  ? `https://${APP_DOMAIN}`
+  : (process.env.PUBLIC_APP_URL ?? "http://localhost:1338");
 
 // ---------------------------------------------------------------------------
 // Resources
 // ---------------------------------------------------------------------------
 
-// Analytics/registry database. No explicit `name`: Alchemy generates a
-// unique one, so a fresh deploy can never adopt a stray pre-existing DB.
-// Applied-migration bookkeeping lives in `__alchemy_migrations`.
+// Analytics/registry database and R2 warehouse bucket. Physical names are
+// Alchemy-generated per stage (app-id-stage-suffix), so stages never adopt
+// stray resources. Alchemy keeps applied-migration bookkeeping in its own
+// `__alchemy_migrations` table.
 const DB = Cloudflare.D1.Database(`${PROJECT.name}-db`, {
   migrations: "./apps/web/migrations",
 });
 
-// R2 warehouse bucket for durable events + its Basin (Iceberg) Data Catalog.
-const WarehouseBucket = Cloudflare.R2.Bucket(`${PROJECT.name}-warehouse`, {
-  name: `${PROJECT.name}-events`,
-});
+// Basin resources are skipped in local dev: the dev R2 bucket is a
+// virtual local `dev:<uuid>` name, and durable history needs a deployed stage.
+const WarehouseBucket = isDev ? null : Cloudflare.R2.Bucket(`${PROJECT.name}-warehouse`);
+// Managed snapshot expiration physically removes the data files erased rows
+// left behind; the maintenance token lets the catalog run that cleanup.
+const EventsCatalog = isDev
+  ? null
+  : Cloudflare.R2.DataCatalog(
+      `${PROJECT.name}-events-catalog`,
+      Effect.gen(function* () {
+        const token = yield* EventsSinkToken!;
+        return {
+          bucket: WarehouseBucket!,
+          token: token.value,
+          snapshotExpiration: {
+            state: "enabled" as const,
+            maxSnapshotAge: "7d",
+            minSnapshotsToKeep: 5,
+          },
+        };
+      }),
+    );
 
 // Account API tokens minted by the deploy itself — no hand-managed secrets.
 // Minting requires the deploy token to have "Account API Tokens: Edit".
-const EventsSinkToken = Cloudflare.ApiToken.AccountApiToken(
-  `${PROJECT.name}-events-sink-token`,
-  Effect.gen(function* () {
-    const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
-    return {
-      name: `${PROJECT.name}-events-sink`,
-      accountId,
-      policies: [
-        {
-          effect: "allow" as const,
-          permissionGroups: [
-            "Workers R2 Data Catalog Write" as const,
-            "Workers R2 Storage Write" as const,
+const EventsSinkToken = isDev
+  ? null
+  : Cloudflare.ApiToken.AccountApiToken(
+      `${PROJECT.name}-events-sink-token`,
+      Effect.gen(function* () {
+        const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
+        return {
+          accountId,
+          policies: [
+            {
+              effect: "allow" as const,
+              permissionGroups: [
+                "Workers R2 Data Catalog Write" as const,
+                "Workers R2 Storage Write" as const,
+              ],
+              resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
+            },
           ],
-          resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
-        },
-      ],
-    };
-  }),
-);
-const R2SqlToken = Cloudflare.ApiToken.AccountApiToken(
-  `${PROJECT.name}-r2-sql-token`,
-  Effect.gen(function* () {
-    const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
-    return {
-      name: `${PROJECT.name}-r2-sql`,
-      accountId,
-      policies: [
-        {
-          effect: "allow" as const,
-          permissionGroups: [
-            "Workers R2 SQL Read" as const,
-            "Workers R2 Data Catalog Read" as const,
-            "Workers R2 Storage Read" as const,
+        };
+      }),
+    );
+const R2SqlToken = isDev
+  ? null
+  : Cloudflare.ApiToken.AccountApiToken(
+      `${PROJECT.name}-r2-sql-token`,
+      Effect.gen(function* () {
+        const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
+        return {
+          accountId,
+          policies: [
+            {
+              effect: "allow" as const,
+              permissionGroups: [
+                "Workers R2 SQL Read" as const,
+                "Workers R2 Data Catalog Read" as const,
+                "Workers R2 Storage Read" as const,
+              ],
+              resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
+            },
           ],
-          resources: { [`com.cloudflare.api.account.${accountId}`]: "*" },
-        },
-      ],
-    };
-  }),
-);
+        };
+      }),
+    );
 
 // Generated secrets — minted once, persisted in alchemy state.
 const AuthSecret = Alchemy.Random(`${PROJECT.name}-auth-secret`);
@@ -75,46 +103,41 @@ const VisitorSalt = Alchemy.Random(`${PROJECT.name}-visitor-salt`);
 // Durable events pipeline: SiteEvents DO → EVENT_STREAM → Iceberg table
 // `events` in namespace `noomers` (i.e. `noomers.events`, the default of
 // R2_SQL_TABLE). Schema comes from apps/web/pipelines/events.schema.json.
-const EventsStream = Cloudflare.Pipelines.Stream(`${PROJECT.name}-events-stream`, {
-  name: "noomers_events_stream",
-  schema: eventsSchema as Cloudflare.Pipelines.StreamFieldsSchema,
-  // No public HTTP ingest — the DO writes via the worker binding only.
-  http: false,
-});
-const EventsSink = Cloudflare.Pipelines.Sink(
-  `${PROJECT.name}-events-sink`,
-  Effect.gen(function* () {
-    const token = yield* EventsSinkToken;
-    return {
-      name: "noomers_events_sink",
-      type: "r2_data_catalog" as const,
-      catalog: EventsCatalog,
-      table: { namespace: "noomers", name: "events" },
-      token: token.value,
-    };
-  }),
-);
-// Managed snapshot expiration physically removes the data files erased rows
-// left behind; the maintenance token lets the catalog run that cleanup.
-const EventsCatalog = Cloudflare.R2.DataCatalog(
-  `${PROJECT.name}-events-catalog`,
-  Effect.gen(function* () {
-    const token = yield* EventsSinkToken;
-    return {
-      bucket: WarehouseBucket,
-      token: token.value,
-      snapshotExpiration: {
-        state: "enabled" as const,
-        maxSnapshotAge: "7d",
-        minSnapshotsToKeep: 5,
-      },
-    };
-  }),
-);
-const EventsPipeline = Cloudflare.Pipelines.Pipeline(`${PROJECT.name}-events-pipeline`, {
-  name: "noomers_events_pipeline",
-  sql: `INSERT INTO noomers_events_sink SELECT * FROM noomers_events_stream`,
-});
+const EventsStream = isDev
+  ? null
+  : Cloudflare.Pipelines.Stream(`${PROJECT.name}-events-stream`, {
+      schema: eventsSchema as Cloudflare.Pipelines.StreamFieldsSchema,
+      // No public HTTP ingest — the DO writes via the worker binding only.
+      http: false,
+    });
+const EventsSink = isDev
+  ? null
+  : Cloudflare.Pipelines.Sink(
+      `${PROJECT.name}-events-sink`,
+      Effect.gen(function* () {
+        const token = yield* EventsSinkToken!;
+        return {
+          type: "r2_data_catalog" as const,
+          catalog: EventsCatalog!,
+          table: { namespace: "noomers", name: "events" },
+          token: token.value,
+        };
+      }),
+    );
+// Effect props so the pipeline is ordered after its stream and sink —
+// a literal SQL string created it concurrently and failed with a 500.
+const EventsPipeline = isDev
+  ? null
+  : Cloudflare.Pipelines.Pipeline(
+      `${PROJECT.name}-events-pipeline`,
+      Effect.gen(function* () {
+        const stream = yield* EventsStream!;
+        const sink = yield* EventsSink!;
+        return {
+          sql: Output.interpolate`INSERT INTO ${sink.name} SELECT * FROM ${stream.name}`,
+        };
+      }),
+    );
 
 // Turnstile widget — prod only; every other stage uses Cloudflare's
 // always-pass test pair so previews/e2e/local dev stay automatable.
@@ -150,10 +173,15 @@ export const Web = Cloudflare.Website.Vite(
   `${PROJECT.name}-web`,
   Effect.gen(function* () {
     const widget = isProd ? yield* TurnstileWidget! : null;
-    const eventsStream = yield* EventsStream;
+    const eventsStream = isDev ? null : yield* EventsStream!;
     const { accountId } = yield* yield* Cloudflare.CloudflareEnvironment;
-    const warehouseBucket = yield* WarehouseBucket;
-    const r2SqlToken = yield* R2SqlToken;
+    const warehouseBucket = isDev ? null : yield* WarehouseBucket!;
+    const r2SqlToken = isDev ? null : yield* R2SqlToken!;
+    // Basin bindings omitted in local dev — the collector keeps realtime
+    // events buffered in the DO and Basin SQL is unconfigured.
+    const basinEnv: { EVENT_STREAM?: Cloudflare.Pipelines.Stream } = isDev
+      ? {}
+      : { EVENT_STREAM: eventsStream! };
     const authSecret = yield* AuthSecret;
     const visitorSalt = yield* VisitorSalt;
     return {
@@ -197,10 +225,10 @@ export const Web = Cloudflare.Website.Vite(
         ],
       },
       env: {
-        PUBLIC_APP_URL: "https://" + APP_DOMAIN,
+        PUBLIC_APP_URL: APP_URL,
         DB,
         SITE_EVENTS: Cloudflare.DurableObject("SiteEvents"),
-        EVENT_STREAM: eventsStream,
+        ...basinEnv,
         EMAIL: Cloudflare.Email.SendEmail("email"),
         // Auth-endpoint throttle (per-IP).
         RATE_LIMITER: Cloudflare.RateLimit("RATE_LIMITER", {
@@ -215,9 +243,7 @@ export const Web = Cloudflare.Website.Vite(
         TURNSTILE_SECRET_KEY: widget ? widget.secret : "1x0000000000000000000000000000000AA",
         TURNSTILE_SITE_KEY: widget ? widget.sitekey : "1x00000000000000000000AA",
         BETTER_AUTH_SECRET: authSecret.text,
-        BETTER_AUTH_URL: Config.Redacted("BETTER_AUTH_URL").pipe(
-          Config.withDefault(isProd ? `https://${APP_DOMAIN}` : "http://localhost:1338"),
-        ),
+        BETTER_AUTH_URL: Config.Redacted("BETTER_AUTH_URL").pipe(Config.withDefault(APP_URL)),
         GOOGLE_CLIENT_ID: Config.Redacted("GOOGLE_CLIENT_ID").pipe(Config.withDefault("")),
         GOOGLE_CLIENT_SECRET: Config.Redacted("GOOGLE_CLIENT_SECRET").pipe(Config.withDefault("")),
         OWNER_ADMIN_EMAIL: Config.String("OWNER_ADMIN_EMAIL").pipe(Config.withDefault("")),
@@ -239,10 +265,10 @@ export const Web = Cloudflare.Website.Vite(
           Config.withDefault(""),
         ),
         // Basin SQL warehouse — bound from the provisioned bucket/token.
-        R2_SQL_BUCKET: warehouseBucket.bucketName,
+        R2_SQL_BUCKET: warehouseBucket ? warehouseBucket.bucketName : "",
         R2_SQL_TABLE: Config.String("R2_SQL_TABLE").pipe(Config.withDefault("noomers.events")),
         R2_SQL_IMPORT_TABLE: Config.String("R2_SQL_IMPORT_TABLE").pipe(Config.withDefault("")),
-        R2_SQL_TOKEN: r2SqlToken.value,
+        R2_SQL_TOKEN: r2SqlToken ? r2SqlToken.value : "",
       },
     };
   }),
@@ -266,7 +292,7 @@ export const Site = Cloudflare.Website.Astro(`${PROJECT.name}-site`, {
   preview: PREVIEW_NAME ? { of: `${PROJECT.name}-site`, name: PREVIEW_NAME } : undefined,
   dev: { port: 1337, strictPort: true },
   env: {
-    PUBLIC_APP_URL: isProd ? `https://${APP_DOMAIN}` : "http://localhost:1338",
+    PUBLIC_APP_URL: APP_URL,
   },
 });
 
@@ -276,8 +302,10 @@ export default Alchemy.Stack(
   Effect.gen(function* () {
     // The pipeline resources aren't referenced by a binding, so yield them
     // explicitly — unreferenced resource Effects are never applied.
-    yield* EventsSink;
-    yield* EventsPipeline;
+    if (!isDev) {
+      yield* EventsSink!;
+      yield* EventsPipeline!;
+    }
     const web = yield* Web;
     const site = yield* Site;
     return { url: web.url, siteUrl: site.url };
