@@ -3,7 +3,7 @@ import PageLayout from "../components/PageLayout.astro";
 import { formatDate, isoDate } from "../lib/format";
 import { PROJECT } from "#project";
 
-const LAST_UPDATED = new Date("2026-11-02");
+const LAST_UPDATED = new Date("2026-11-09");
 ---
 <PageLayout title={`Privacy · ${PROJECT.productName}`} description={`How ${PROJECT.productName} handles your data.`}>
   <span class="mono-label eyebrow">Legal</span>
@@ -26,6 +26,13 @@ const LAST_UPDATED = new Date("2026-11-02");
         Raw IP addresses and full user-agent strings are never persisted; visitor
         identifiers are site-scoped, hostname-scoped, salted, and rotate daily in UTC,
         so there is no cross-day, cross-site, or cross-device identity.
+      </p>
+    </section>
+    <section>
+      <h2>This website</h2>
+      <p>
+        {PROJECT.domain} measures its own visits with noomers, using the same cookieless
+        tracker described above. That data stays in our own Cloudflare account.
       </p>
     </section>
     <section>
