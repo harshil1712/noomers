@@ -13,7 +13,7 @@ export interface Props {
   jsonLdEntities?: object[];
 }
 import "../styles.css";
-import { PROJECT } from "#project";
+import { PROJECT, APP_DOMAIN } from "#project";
 import { THEME_BOOT_SCRIPT } from "@noomers/brand/theme";
 const {
   title,
@@ -79,6 +79,7 @@ const jsonLd = {
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     {/* sets data-mode before first paint; shared with the app via @noomers/brand/theme */}
     <script is:inline set:html={THEME_BOOT_SCRIPT} />
+    <script is:inline defer src={`https://${APP_DOMAIN}/tracker.js`} data-site-id={PROJECT.domain}></script>
   </head>
   <body>
     <slot />
