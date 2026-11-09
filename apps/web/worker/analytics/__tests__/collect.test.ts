@@ -39,7 +39,7 @@ function generateRequestParams(headers: Record<string, string>) {
     url:
       "https://example.com/user/42?" +
       new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/post/123",
         r: "https://google.com",
@@ -197,7 +197,7 @@ describe("collectRequestHandler", () => {
     // verify data shows up in the right place
     expect((siteEventsStub.record as Mock).mock.calls[0][0]).toMatchObject({
       schema_version: 2,
-      site_id: "example",
+      site_id: "example.com",
       event_type: "pageview",
       event_name: "pageview",
       hostname: "example.com",
@@ -449,12 +449,15 @@ describe("collectRequestHandler", () => {
       VISITOR_SALT: "test-salt",
       SERVER_EVENTS_TOKEN: "s3cr3t",
     } as unknown as Env;
-    const request = new Request("https://example.com/collect?sid=example&h=example.com&p=/&r=", {
-      headers: {
-        "cf-connecting-ip": "203.0.113.10",
-        "user-agent": defaultBrowserUserAgent,
+    const request = new Request(
+      "https://example.com/collect?sid=example.com&h=example.com&p=/&r=",
+      {
+        headers: {
+          "cf-connecting-ip": "203.0.113.10",
+          "user-agent": defaultBrowserUserAgent,
+        },
       },
-    });
+    );
 
     await collectRequestHandler(request, env as Env);
     await collectRequestHandler(request, env as Env);
@@ -479,7 +482,7 @@ describe("collectRequestHandler", () => {
         "user-agent": "Mozilla/5.0 Chrome/120.0.0.0",
       },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/signup",
         r: "https://search.example/",
@@ -499,7 +502,7 @@ describe("collectRequestHandler", () => {
         schema_version: 2,
         event_id: expect.any(String),
         received_at: new Date().toISOString(),
-        site_id: "example",
+        site_id: "example.com",
         event_type: "custom",
         event_name: "Signup",
         event_properties: JSON.stringify({ plan: "pro" }),
@@ -523,7 +526,7 @@ describe("collectRequestHandler", () => {
       SITE_EVENTS: siteEventsNamespace,
       VISITOR_SALT: "test-salt",
     };
-    const request = new Request("https://example.com/collect?sid=example&h=example.com&p=/", {
+    const request = new Request("https://example.com/collect?sid=example.com&h=example.com&p=/", {
       headers: { "user-agent": defaultBrowserUserAgent },
     });
 
@@ -548,7 +551,7 @@ describe("collectRequestHandler", () => {
         authorization: "Bearer s3cr3t",
       },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/signup",
         r: "",
@@ -571,7 +574,7 @@ describe("collectRequestHandler", () => {
     } as unknown as Env;
     const request = new Request("https://example.com/collect", {
       method: "POST",
-      body: `sid=example&payload=${"x".repeat(32 * 1024)}`,
+      body: `sid=example.com&payload=${"x".repeat(32 * 1024)}`,
     });
 
     const response = await collectRequestHandler(request, env as Env);
@@ -590,7 +593,7 @@ describe("collectRequestHandler", () => {
       method: "POST",
       headers: { "user-agent": defaultBrowserUserAgent },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/signup",
         r: "",
@@ -610,11 +613,14 @@ describe("collectRequestHandler", () => {
       SITE_EVENTS: siteEventsNamespace,
       VISITOR_SALT: "test-salt",
     };
-    const request = new Request("https://example.com/collect?sid=example&h=example.com&p=/query", {
-      method: "POST",
-      headers: { "user-agent": defaultBrowserUserAgent },
-      body: "",
-    });
+    const request = new Request(
+      "https://example.com/collect?sid=example.com&h=example.com&p=/query",
+      {
+        method: "POST",
+        headers: { "user-agent": defaultBrowserUserAgent },
+        body: "",
+      },
+    );
 
     const response = await collectRequestHandler(request, env as Env);
 
@@ -670,7 +676,7 @@ describe("collectRequestHandler", () => {
         "user-agent": "Mozilla/5.0 Chrome/120.0.0.0",
       },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/private/page",
         r: "https://referrer.example/",
@@ -706,7 +712,7 @@ describe("collectRequestHandler", () => {
       SITE_EVENTS: siteEventsNamespace,
       VISITOR_SALT: "test-salt",
     };
-    const request = new Request("https://example.com/collect?sid=example&h=example.com&p=/", {
+    const request = new Request("https://example.com/collect?sid=example.com&h=example.com&p=/", {
       headers: {
         "cf-connecting-ip": "203.0.113.10",
         "user-agent": "agent-browser",
@@ -728,7 +734,7 @@ describe("collectRequestHandler", () => {
       SITE_EVENTS: siteEventsNamespace,
       VISITOR_SALT: "test-salt",
     };
-    const request = new Request("https://example.com/collect?sid=example&h=example.com&p=/", {
+    const request = new Request("https://example.com/collect?sid=example.com&h=example.com&p=/", {
       headers: {
         "cf-connecting-ip": "203.0.113.10",
         "user-agent": "noomers-tracker-server/3.4.1",
@@ -747,7 +753,7 @@ describe("collectRequestHandler", () => {
       SITE_EVENTS: siteEventsNamespace,
       VISITOR_SALT: "test-salt",
     };
-    const request = new Request("https://example.com/collect?sid=example&h=example.com&p=/", {
+    const request = new Request("https://example.com/collect?sid=example.com&h=example.com&p=/", {
       headers: {
         "user-agent": "custom-server-lib/2.0",
       },
@@ -770,7 +776,7 @@ describe("collectRequestHandler", () => {
       method: "POST",
       headers: { "user-agent": defaultBrowserUserAgent },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/article",
         r: "",
@@ -809,7 +815,7 @@ describe("collectRequestHandler", () => {
       method: "POST",
       headers: { "user-agent": defaultBrowserUserAgent },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/article",
         r: "",
@@ -836,7 +842,7 @@ describe("collectRequestHandler", () => {
       method: "POST",
       headers: { "user-agent": defaultBrowserUserAgent },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/",
         r: "",
@@ -861,7 +867,7 @@ describe("collectRequestHandler", () => {
       method: "POST",
       headers: { "user-agent": defaultBrowserUserAgent },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/article",
         r: "",
@@ -894,7 +900,7 @@ describe("collectRequestHandler", () => {
       method: "POST",
       headers: { "user-agent": defaultBrowserUserAgent },
       body: new URLSearchParams({
-        sid: "example",
+        sid: "example.com",
         h: "example.com",
         p: "/article",
         r: "",
@@ -927,7 +933,7 @@ describe("collectRequestHandler", () => {
       VISITOR_SALT: "test-salt",
     };
     const params: Record<string, string> = {
-      sid: "example",
+      sid: "example.com",
       h: "example.com",
       p: "/article",
       r: "",
@@ -992,7 +998,7 @@ describe("collectRequestHandler", () => {
     let request: Request;
     if (engagementParams === null) {
       request = new Request(
-        "https://example.com/collect?sid=example&h=example.com&p=/article&et=engagement&e=5000",
+        "https://example.com/collect?sid=example.com&h=example.com&p=/article&et=engagement&e=5000",
         { headers: { "user-agent": defaultBrowserUserAgent } },
       );
     } else {
@@ -1000,7 +1006,7 @@ describe("collectRequestHandler", () => {
         method: "POST",
         headers: { "user-agent": defaultBrowserUserAgent },
         body: new URLSearchParams({
-          sid: "example",
+          sid: "example.com",
           h: "example.com",
           p: "/article",
           r: "",
@@ -1014,5 +1020,85 @@ describe("collectRequestHandler", () => {
     expect(response.status).toBe(400);
     expect(siteEventsStub.record).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe("hostname allowlist", () => {
+  const localEnv = () =>
+    ({
+      SITE_EVENTS: siteEventsNamespace,
+      VISITOR_SALT: "test-salt",
+      DB: {
+        prepare: vi.fn(() => ({
+          bind: vi.fn().mockReturnThis(),
+          first: vi.fn(async () => ({ status: "active" })),
+        })),
+      },
+    }) as unknown as Env;
+
+  const req = (h: string, origin?: string) =>
+    generateRequestParams(origin ? { origin } : {}) && {
+      method: "GET" as const,
+      url:
+        "https://example.com/user/42?" +
+        new URLSearchParams({ sid: "example.com", h, p: "/", r: "" }).toString(),
+      headers: {
+        "user-agent": defaultBrowserUserAgent,
+        ...(origin ? { origin } : {}),
+        get: (n: string) =>
+          ({ "user-agent": defaultBrowserUserAgent, ...(origin ? { origin } : {}) })[n] ?? null,
+      },
+    };
+
+  test("matching Origin + host records", async () => {
+    const r = await handleCollectRequest(
+      req("example.com", "https://example.com") as never,
+      localEnv(),
+    );
+    expect(r.status).toBe(200);
+    expect(siteEventsStub.record).toHaveBeenCalled();
+  });
+  test("mismatched Origin drops", async () => {
+    const r = await handleCollectRequest(
+      req("example.com", "https://evil.net") as never,
+      localEnv(),
+    );
+    expect(r.status).toBe(200);
+    expect(siteEventsStub.record).not.toHaveBeenCalled();
+  });
+  test("subdomain and www hosts record", async () => {
+    for (const h of ["blog.example.com", "www.example.com"]) {
+      siteEventsStub.record.mockClear();
+      const r = await handleCollectRequest(req(h) as never, localEnv());
+      expect(siteEventsStub.record).toHaveBeenCalled();
+    }
+  });
+  test("no Origin + matching host records; mismatched host drops", async () => {
+    siteEventsStub.record.mockClear();
+    const good = await handleCollectRequest(req("example.com") as never, localEnv());
+    expect(siteEventsStub.record).toHaveBeenCalled();
+    siteEventsStub.record.mockClear();
+    const bad = await handleCollectRequest(req("evil.net") as never, localEnv());
+    expect(siteEventsStub.record).not.toHaveBeenCalled();
+  });
+  test("SERVER_EVENTS_TOKEN bypasses the check", async () => {
+    const env = { ...localEnv(), SERVER_EVENTS_TOKEN: "s3cr3t" } as unknown as Env;
+    const request = req("evil.net", "https://evil.net") as never as Record<string, unknown>;
+    (request.headers as Record<string, string>)["authorization"] = "Bearer s3cr3t";
+    const h = request.headers as { get: (n: string) => string | null };
+    const store = request.headers as Record<string, string>;
+    h.get = (n: string) => store[n] ?? null;
+    const r = await handleCollectRequest(request as never, env);
+    expect(siteEventsStub.record).toHaveBeenCalled();
+  });
+  test("localhost instance accepts localhost origin for a remote-domain site", async () => {
+    siteEventsStub.record.mockClear();
+    const request = req("localhost", "http://localhost:5500");
+    request.url = (request.url as string).replace(
+      "https://example.com/user/42",
+      "http://localhost:1338/collect",
+    );
+    const r = await handleCollectRequest(request as never, localEnv());
+    expect(siteEventsStub.record).toHaveBeenCalled();
   });
 });

@@ -6,6 +6,7 @@ import UAParserDefault, { IDevice } from "ua-parser-js";
 const UAParser =
   (UAParserDefault as unknown as { UAParser?: typeof UAParserDefault }).UAParser ?? UAParserDefault;
 import { shouldDropBot } from "./bot";
+import { shouldDropForeignHost } from "./hostname";
 import { hasServerEventsToken } from "./server-token";
 import { maskBrowserVersion } from "../lib/utils";
 import { SitesRepository, type SiteCollectionStatus } from "../sites/repository";
@@ -638,6 +639,13 @@ export async function collectRequestHandler(
   if (statusResponse) return statusResponse;
 
   if (shouldDropBot(request)) {
+    return trackingPixelResponse({ dropped: true });
+  }
+
+  if (
+    !(await hasServerEventsToken(request, env)) &&
+    shouldDropForeignHost(request, params.h ?? "", siteId)
+  ) {
     return trackingPixelResponse({ dropped: true });
   }
 

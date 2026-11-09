@@ -110,3 +110,5 @@ Actions → iceberg-erasure → Run workflow. Set the repo variable
   returns `ready` before pointing real sites at it.
 - Set `OWNER_ADMIN_EMAIL` before the public URL is live, or the first
   stranger to sign up becomes admin.
+- Optional: if a site sees collection abuse, add a Cloudflare WAF
+  rate-limiting rule on `/collect` and `/api/event` (not provisioned).

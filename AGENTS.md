@@ -64,11 +64,12 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 
 1. Native `/collect` or Plausible-compatible `/api/event` receives an event.
 2. D1 verifies that the site is active. Unknown, deleted, or unavailable registry states fail closed.
-3. The collector normalizes URL, geography, user agent, campaign, event, and property fields.
-4. A salted visitor identifier is generated and rotated daily in UTC.
-5. The canonical event is sent to `EVENT_STREAM` (Pipelines confirms ingest) and recorded in the site's `SiteEvents` Durable Object for realtime — both awaited; either failing returns 500.
-6. Dashboard and Stats API queries read Basin SQL over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
-7. Deleting a site tombstones it and purges its DO immediately.
+3. The Origin header (when present) and the page host must fall inside the site's registered domain or a subdomain, or the event is silently dropped; `SERVER_EVENTS_TOKEN` callers bypass this check. Requests can fake both headers — this blocks cross-site pollution, not determined attackers.
+4. The collector normalizes URL, geography, user agent, campaign, event, and property fields.
+5. A salted visitor identifier is generated and rotated daily in UTC.
+6. The canonical event is sent to `EVENT_STREAM` (Pipelines confirms ingest) and recorded in the site's `SiteEvents` Durable Object for realtime — both awaited; either failing returns 500.
+7. Dashboard and Stats API queries read Basin SQL over `noomers.events` (plus an optional import table); the DO serves only the realtime panel.
+8. Deleting a site tombstones it and purges its DO immediately.
 
 ### Dashboard and auth
 

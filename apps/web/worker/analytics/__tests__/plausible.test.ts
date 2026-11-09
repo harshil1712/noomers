@@ -249,7 +249,7 @@ describe("Plausible Events API", () => {
       },
       body: JSON.stringify({
         name: "pageview",
-        url: "/home",
+        url: `https://${domain}/home`,
         domain,
       }),
     });
@@ -329,7 +329,7 @@ describe("Plausible Events API", () => {
       },
       body: JSON.stringify({
         name: "pageview",
-        url: "/app?utm_source=newsletter#settings",
+        url: "https://example.com/app?utm_source=newsletter#settings",
         domain: "example.com",
         hashBasedRouting: true,
       }),
@@ -340,9 +340,9 @@ describe("Plausible Events API", () => {
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(
       expect.objectContaining({
-        hostname: "(none)",
+        hostname: "example.com",
         pathname: "/app#settings",
-        url: "/app#settings",
+        url: "https://example.com/app#settings",
         utm_source: "newsletter",
       }),
     );
@@ -565,5 +565,80 @@ describe("Hardening", () => {
       referrer?: string;
     };
     expect(recorded.referrer).toBe("");
+  });
+});
+
+describe("hostname allowlist", () => {
+  const body = (url: string, domain = "example.com") =>
+    JSON.stringify({ name: "pageview", url, domain });
+  const req = (
+    b: string,
+    headers: Record<string, string> = {},
+    target = "https://analytics.example/api/event",
+  ) =>
+    new Request(target, {
+      method: "POST",
+      headers: { "content-type": "application/json", "user-agent": browserUserAgent, ...headers },
+      body: b,
+    });
+
+  test("matching Origin + host records", async () => {
+    const r = await plausibleEventRequestHandler(
+      req(body("https://example.com/"), { origin: "https://example.com" }),
+      createEnv(),
+    );
+    expect(r.status).toBe(202);
+    expect(siteEventsRecord).toHaveBeenCalled();
+  });
+  test("mismatched Origin drops", async () => {
+    siteEventsRecord.mockClear();
+    const r = await plausibleEventRequestHandler(
+      req(body("https://example.com/"), { origin: "https://evil.net" }),
+      createEnv(),
+    );
+    expect(r.status).toBe(202);
+    expect(r.headers.get("x-plausible-dropped")).toBe("1");
+    expect(siteEventsRecord).not.toHaveBeenCalled();
+  });
+  test("subdomain and www hosts record", async () => {
+    for (const u of ["https://blog.example.com/", "https://www.example.com/"]) {
+      siteEventsRecord.mockClear();
+      const r = await plausibleEventRequestHandler(req(body(u)), createEnv());
+      expect(siteEventsRecord).toHaveBeenCalled();
+    }
+  });
+  test("no Origin + matching host records; mismatched host drops", async () => {
+    siteEventsRecord.mockClear();
+    const good = await plausibleEventRequestHandler(req(body("https://example.com/")), createEnv());
+    expect(siteEventsRecord).toHaveBeenCalled();
+    siteEventsRecord.mockClear();
+    const bad = await plausibleEventRequestHandler(req(body("https://evil.net/")), createEnv());
+    expect(siteEventsRecord).not.toHaveBeenCalled();
+  });
+  test("SERVER_EVENTS_TOKEN bypasses the check", async () => {
+    siteEventsRecord.mockClear();
+    const env = { ...createEnv(), SERVER_EVENTS_TOKEN: "s3cr3t" };
+    const r = await plausibleEventRequestHandler(
+      req(body("https://evil.net/"), {
+        origin: "https://evil.net",
+        authorization: "Bearer s3cr3t",
+      }),
+      env,
+    );
+    expect(r.status).toBe(202);
+    expect(siteEventsRecord).toHaveBeenCalled();
+  });
+  test("localhost instance accepts localhost origin for a remote-domain site", async () => {
+    siteEventsRecord.mockClear();
+    const r = await plausibleEventRequestHandler(
+      req(
+        body("http://localhost:5500/"),
+        { origin: "http://localhost:5500" },
+        "http://localhost:1338/api/event",
+      ),
+      createEnv(),
+    );
+    expect(r.status).toBe(202);
+    expect(siteEventsRecord).toHaveBeenCalled();
   });
 });

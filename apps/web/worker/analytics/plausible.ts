@@ -9,6 +9,7 @@ import {
 } from "./collect";
 import { hasServerEventsToken } from "./server-token";
 import { shouldDropBot } from "./bot";
+import { shouldDropForeignHost } from "./hostname";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -312,6 +313,20 @@ export async function plausibleEventRequestHandler(
   if (statusResponse) return statusResponse;
 
   if (shouldDropBot(request)) {
+    return new Response("ok", {
+      status: 202,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "text/plain; charset=utf-8",
+        "x-plausible-dropped": "1",
+      },
+    });
+  }
+
+  if (
+    !(await hasServerEventsToken(request, env)) &&
+    shouldDropForeignHost(request, input.url ?? "", input.siteId)
+  ) {
     return new Response("ok", {
       status: 202,
       headers: {

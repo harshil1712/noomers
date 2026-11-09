@@ -37,7 +37,7 @@ describe("collect endpoint", () => {
   test("accepts ht parameter and doesn't return Last-Modified header", async () => {
     // Create a request with ht parameter
     const requestWithHt = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1",
       { headers: { "user-agent": browserUserAgent } },
     );
 
@@ -56,7 +56,7 @@ describe("collect endpoint", () => {
   test("handles invalid ht parameter", async () => {
     // Create a request with invalid ht parameter
     const requestWithInvalidHt = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=invalid",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=invalid",
       { headers: { "user-agent": browserUserAgent } },
     );
 
@@ -80,7 +80,7 @@ describe("collect endpoint", () => {
     headers.set("If-Modified-Since", initialDateString);
 
     const requestWithoutVB = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=",
       { headers },
     );
 
@@ -95,7 +95,7 @@ describe("collect endpoint", () => {
 
   test("drops a bot user agent with a tracking pixel and a dropped marker", async () => {
     const request = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=",
       {
         headers: { "user-agent": "agent-browser" },
       },
@@ -112,7 +112,7 @@ describe("collect endpoint", () => {
 
   test("preserves the first-party server tracker UA", async () => {
     const request = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=",
       {
         headers: { "user-agent": "noomers-tracker-server/3.4.1" },
       },
@@ -131,7 +131,7 @@ describe("collect endpoint", () => {
       method: "POST",
       headers: { "user-agent": browserUserAgent },
       body: new URLSearchParams({
-        sid: "test-site",
+        sid: "example.com",
         h: "example.com",
         p: "/article",
         r: "",
@@ -158,7 +158,7 @@ describe("collect endpoint", () => {
     const send = vi.fn().mockResolvedValue(undefined);
     const env = { ...mockEnv, EVENT_STREAM: { send } };
     const request = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1",
       { headers: { "user-agent": browserUserAgent } },
     );
 
@@ -170,7 +170,7 @@ describe("collect endpoint", () => {
     expect(sent).toHaveLength(1);
     expect(sent[0]).toEqual(
       expect.objectContaining({
-        site_id: "test-site",
+        site_id: "example.com",
         event_type: "pageview",
         pathname: "/test",
         hostname: "example.com",
@@ -183,7 +183,7 @@ describe("collect endpoint", () => {
     const send = vi.fn().mockRejectedValue(new Error("pipeline down"));
     const env = { ...mockEnv, EVENT_STREAM: { send } };
     const request = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1",
       { headers: { "user-agent": browserUserAgent } },
     );
 
@@ -194,7 +194,7 @@ describe("collect endpoint", () => {
 
   test("missing EVENT_STREAM (local dev) still records for realtime", async () => {
     const request = new Request(
-      "https://example.com/collect?sid=test-site&p=/test&h=example.com&r=&ht=1",
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1",
       { headers: { "user-agent": browserUserAgent } },
     );
 
@@ -209,7 +209,7 @@ describe("collect endpoint", () => {
       method: "POST",
       headers: { "user-agent": browserUserAgent },
       body: new URLSearchParams({
-        sid: "test-site",
+        sid: "example.com",
         h: "example.com",
         p: "/article",
         r: "",
