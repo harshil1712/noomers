@@ -204,7 +204,7 @@ describe("dashboard handlers (ported loader tests)", () => {
 
   test("timeseries picks hour/day buckets by interval", async () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({
-      rows: [{ dimension: "2024-01-01", visitors: 1, visits: 1, views: 2, events: 2, bounces: 0 }],
+      rows: [{ dimension: new Date().toISOString().slice(0, 10), visitors: 1, visits: 1, views: 2, events: 2, bounces: 0 }],
     });
     const res = await timeseries(
       ctx({ getSessionBreakdown }),
@@ -216,12 +216,11 @@ describe("dashboard handlers (ported loader tests)", () => {
       expect.any(Date),
       {},
       "time:day",
-      undefined,
-      expect.objectContaining({ orderBy: [{ field: "dimension", direction: "asc" }] }),
+      expect.any(Array),
     );
-    const body = await res.json<{ intervalType: string; chartData: unknown[] }>();
+    const body = await res.json<{ intervalType: string; chartData: { views: number }[] }>();
     expect(body.intervalType).toBe("DAY");
-    expect(body.chartData).toHaveLength(1);
+    expect(body.chartData.some((r) => r.views === 2)).toBe(true);
   });
 
   test("goals returns goals with conversions", async () => {
@@ -287,5 +286,56 @@ describe("dashboard handlers (ported loader tests)", () => {
     );
     const body = await list.json<{ goals: { name: string }[] }>();
     expect(body.goals.map((g) => g.name)).toContain("purchase");
+  });
+});
+
+describe("timeseries", () => {
+  test("returns chronological, zero-filled buckets", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          dimension: new Date().toISOString().slice(0, 10),
+          visitors: 2,
+          visits: 2,
+          views: 5,
+          events: 5,
+          bounces: 0,
+        },
+      ],
+    });
+    const res = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=30d"),
+    );
+    const body = await res.json();
+    expect(body.intervalType).toBe("DAY");
+    expect(body.chartData.length).toBeGreaterThan(25);
+    const dates = body.chartData.map((r) => r.date);
+    expect([...dates].sort()).toEqual(dates);
+    const withViews = body.chartData.filter((r) => r.views > 0);
+    expect(withViews).toHaveLength(1);
+    expect(withViews[0].visitors).toBe(2);
+    expect(body.chartData.every((r) => "date" in r && "bounceRate" in r)).toBe(true);
+    // buckets are the 6th arg
+    expect(getSessionBreakdown.mock.calls[0][5]).toBeInstanceOf(Array);
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:day");
+  });
+
+  test("6mo uses MONTH buckets", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
+    const res = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=6mo"),
+    );
+    const body = await res.json();
+    expect(body.intervalType).toBe("MONTH");
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:month");
+    expect(body.chartData.length).toBe(6);
+  });
+
+  test("unsupported interval → 400", async () => {
+    const res = await timeseries(ctx({}), url("timeseries?site=x&interval=bogus"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Unsupported interval" });
   });
 });

@@ -81,39 +81,41 @@ export function getUserTimezone(): string {
   }
 }
 
-export function getIntervalType(interval: string): "DAY" | "HOUR" {
-  switch (interval) {
-    case "today":
-    case "yesterday":
-    case "1d":
-      return "HOUR";
-    case "7d":
-    case "30d":
-    case "90d":
-      return "DAY";
-    default:
-      return "DAY";
+export type IntervalType = "HOUR" | "DAY" | "MONTH";
+
+export function getIntervalType(interval: string): IntervalType {
+  if (interval === "1d" || interval === "day" || interval === "today" || interval === "yesterday") {
+    return "HOUR";
   }
+  if (/^\d+d$/.test(interval) || interval === "month") {
+    return "DAY";
+  }
+  if (/^\d+mo$/.test(interval)) {
+    return "MONTH";
+  }
+  throw new Error("Unsupported interval");
 }
 
 export function getDateTimeRange(interval: string, tz: string) {
-  let localDateTime = dayjs().utc();
+  const now = dayjs().utc().tz(tz);
+  let localDateTime = now;
   let localEndDateTime: dayjs.Dayjs | undefined;
 
-  if (interval === "today") {
-    localDateTime = localDateTime.tz(tz).startOf("day");
+  if (interval === "1d") {
+    localDateTime = now.subtract(24, "hour").startOf("hour");
+  } else if (interval === "day" || interval === "today") {
+    localDateTime = now.startOf("day");
   } else if (interval === "yesterday") {
-    localDateTime = localDateTime.tz(tz).startOf("day").subtract(1, "day");
+    localDateTime = now.startOf("day").subtract(1, "day");
     localEndDateTime = localDateTime.endOf("day").add(2, "ms");
+  } else if (/^\d+d$/.test(interval)) {
+    localDateTime = now.subtract(Number(interval.slice(0, -1)), "day").startOf("day");
+  } else if (interval === "month") {
+    localDateTime = now.startOf("month");
+  } else if (/^\d+mo$/.test(interval)) {
+    localDateTime = now.startOf("month").subtract(Number(interval.slice(0, -2)) - 1, "month");
   } else {
-    const daysAgo = Number(interval.split("d")[0]);
-    const intervalType = getIntervalType(interval);
-
-    if (intervalType === "DAY") {
-      localDateTime = localDateTime.subtract(daysAgo, "day").tz(tz).startOf("day");
-    } else if (intervalType === "HOUR") {
-      localDateTime = localDateTime.subtract(daysAgo, "day").startOf("hour");
-    }
+    throw new Error("Unsupported interval");
   }
 
   if (!localEndDateTime) {

@@ -8,6 +8,7 @@ import {
   getIntervalType,
   paramsFromUrl,
 } from "../lib/utils";
+import { getTimeBuckets } from "../analytics/stats-api";
 import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
@@ -136,9 +137,15 @@ export async function listSites(c: Ctx) {
 /** GET /api/dashboard/stats */
 export async function stats(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
-  const tz = searchParams(request).get("timezone") || "UTC";
+  const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
+  let startDate: Date;
+  let endDate: Date;
+  try {
+    ({ startDate, endDate } = getDateTimeRange(interval, tz));
+  } catch {
+    return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  }
   const analytics = c.sessionAnalytics();
   const toStatsMetrics = (m: Awaited<ReturnType<typeof analytics.getSessionMetrics>>) => ({
     views: m.views,
@@ -160,23 +167,34 @@ export async function stats(c: Ctx, request: Request) {
 /** GET /api/dashboard/timeseries */
 export async function timeseries(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
-  const tz = searchParams(request).get("timezone") || "UTC";
+  const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
-  const intervalType = getIntervalType(interval);
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
-  const dimension = intervalType === "HOUR" ? "time:hour" : "time:day";
+  let intervalType;
+  let startDate: Date;
+  let endDate: Date;
+  try {
+    intervalType = getIntervalType(interval);
+    ({ startDate, endDate } = getDateTimeRange(interval, tz));
+  } catch {
+    return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  }
+  const dimension =
+    intervalType === "HOUR" ? "time:hour" : intervalType === "MONTH" ? "time:month" : "time:day";
+  const buckets = getTimeBuckets(dimension, startDate, endDate, tz);
   const { rows } = await c
     .sessionAnalytics()
-    .getSessionBreakdown(site, startDate, endDate, filters, dimension, undefined, {
-      orderBy: [{ field: "dimension", direction: "asc" }],
-    });
+    .getSessionBreakdown(site, startDate, endDate, filters, dimension, buckets);
+  const byLabel = new Map(rows.map((row) => [row.dimension, row]));
   return Response.json({
-    chartData: rows.map((row) => ({
-      date: row.dimension,
-      views: row.views,
-      visitors: row.visitors,
-      bounceRate: Math.floor((row.visits > 0 ? row.bounces / row.visits : 0) * 100),
-    })),
+    chartData: buckets.map((bucket) => {
+      const row = byLabel.get(bucket.label);
+      return {
+        date: bucket.start.toISOString(),
+        views: row?.views ?? 0,
+        visitors: row?.visitors ?? 0,
+        bounceRate: Math.floor((row && row.visits > 0 ? row.bounces / row.visits : 0) * 100),
+      };
+    }),
     intervalType,
   });
 }

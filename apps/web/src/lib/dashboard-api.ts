@@ -22,7 +22,7 @@ export interface StatsResponse extends StatsMetrics {
 
 export interface TimeseriesResponse {
   chartData: { date: string; views: number; visitors: number; bounceRate: number }[];
-  intervalType: "DAY" | "HOUR";
+  intervalType: "HOUR" | "DAY" | "MONTH";
 }
 
 export interface RealtimeStats {
@@ -93,7 +93,7 @@ async function get<T>(
 export interface DashboardQuery {
   site: string;
   interval: string;
-  timezone: string;
+  timezone?: string;
   filters: Record<string, string>;
   nonce?: number;
   page?: number;
@@ -105,7 +105,6 @@ function params(q: DashboardQuery, extra?: Record<string, string>) {
   return {
     site: q.site,
     interval: q.interval,
-    timezone: q.timezone,
     page: q.page,
     ...q.filters,
     ...extra,

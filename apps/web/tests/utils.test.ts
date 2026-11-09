@@ -1,6 +1,7 @@
 import {
   getFiltersFromSearchParams,
   getDateTimeRange,
+  getIntervalType,
   maskBrowserVersion,
 } from "../worker/lib/utils";
 import { describe, test, expect, beforeEach, afterEach, vi } from "vite-plus/test";
@@ -136,5 +137,42 @@ describe("maskBrowserVersion", () => {
 
   test.each(browserVersions)("%s", (_, version, expected) => {
     expect(maskBrowserVersion(version)).toEqual(expected);
+  });
+});
+
+describe("getDateTimeRange intervals", () => {
+  test("month / Nmo / unknown intervals", () => {
+    const month = getDateTimeRange("month", "UTC");
+    const d = new Date(month.startDate);
+    expect(d.getUTCDate()).toBe(1);
+    expect(d.getUTCHours()).toBe(0);
+    const six = getDateTimeRange("6mo", "UTC");
+    const now = new Date();
+    const expected = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
+    expect(six.startDate.getTime()).toBe(expected.getTime());
+    expect(() => getDateTimeRange("bogus", "UTC")).toThrow("Unsupported interval");
+    expect(() => getDateTimeRange("week", "UTC")).toThrow();
+  });
+
+  test("Nd starts at beginning of day in tz", () => {
+    const { startDate } = getDateTimeRange("30d", "UTC");
+    const d = new Date(startDate);
+    expect(d.getUTCHours()).toBe(0);
+    expect(d.getUTCMinutes()).toBe(0);
+  });
+});
+
+describe("getIntervalType", () => {
+  test("maps intervals to bucket types", () => {
+    expect(getIntervalType("1d")).toBe("HOUR");
+    expect(getIntervalType("day")).toBe("HOUR");
+    expect(getIntervalType("today")).toBe("HOUR");
+    expect(getIntervalType("yesterday")).toBe("HOUR");
+    expect(getIntervalType("7d")).toBe("DAY");
+    expect(getIntervalType("30d")).toBe("DAY");
+    expect(getIntervalType("month")).toBe("DAY");
+    expect(getIntervalType("6mo")).toBe("MONTH");
+    expect(getIntervalType("12mo")).toBe("MONTH");
+    expect(() => getIntervalType("bogus")).toThrow();
   });
 });

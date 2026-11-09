@@ -1174,3 +1174,42 @@ describe("getGoalBreakdown revenue", () => {
     expect(result.anyRevenue).toBeNull();
   });
 });
+
+describe("ORDER BY without pagination", () => {
+  const emptyRows = () =>
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ success: true, result: { rows: [] } })),
+    );
+  const lastQuery = (fetcher: ReturnType<typeof vi.fn>) =>
+    JSON.parse((fetcher.mock.calls[0][1] as RequestInit).body as string).query as string;
+
+  test("getSessionBreakdown applies orderBy without pagination", async () => {
+    const fetcher = emptyRows();
+    const api = new R2SQLAPI("account", "bucket", "token", "analytics.events", fetcher as typeof fetch);
+    await api.getSessionBreakdown(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      "event:page",
+      undefined,
+      { orderBy: [{ field: "visitors", direction: "desc" }] },
+    );
+    expect(lastQuery(fetcher)).toContain("ORDER BY visitors DESC, dimension ASC LIMIT 10001");
+  });
+
+  test("getBasicMetrics applies orderBy without pagination", async () => {
+    const fetcher = emptyRows();
+    const api = new R2SQLAPI("account", "bucket", "token", "analytics.events", fetcher as typeof fetch);
+    await api.getBasicMetrics(
+      "example.com",
+      new Date("2026-08-01T00:00:00.000Z"),
+      new Date("2026-08-02T00:00:00.000Z"),
+      {},
+      "event:page",
+      undefined,
+      { orderBy: [{ field: "pageviews", direction: "desc" }] },
+    );
+    expect(lastQuery(fetcher)).toContain("ORDER BY views DESC, dimension ASC LIMIT 10001");
+  });
+});

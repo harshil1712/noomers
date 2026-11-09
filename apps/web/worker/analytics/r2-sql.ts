@@ -636,8 +636,12 @@ export class R2SQLAPI {
 
     let rows: Row[];
     if (!usePagination) {
+      const orderSql =
+        orderBy?.length && dimensionExpression
+          ? ` ${buildOrderBy(orderBy, basicOrderExpression)}`
+          : "";
       rows = await this.query<Row>(
-        `WITH ${eventsCte}${aggregateSelect}${dimensionExpression ? " LIMIT 10001" : ""}`,
+        `WITH ${eventsCte}${aggregateSelect}${dimensionExpression ? `${orderSql} LIMIT 10001` : ""}`,
         endDate.getTime(),
       );
       if (rows.length > 10_000) {
@@ -1020,7 +1024,11 @@ export class R2SQLAPI {
     };
     let rows: Row[];
     if (!pagination) {
-      rows = await this.query<Row>(`${ctes}${finalSelect} LIMIT 10001`, endDate.getTime());
+      const orderSql = orderBy?.length ? ` ${buildOrderBy(orderBy, sessionOrderExpression)}` : "";
+      rows = await this.query<Row>(
+        `${ctes}${finalSelect}${orderSql} LIMIT 10001`,
+        endDate.getTime(),
+      );
       if (rows.length > 10_000) {
         throw new Error("R2 SQL dimension breakdown exceeds 10,000 rows");
       }
