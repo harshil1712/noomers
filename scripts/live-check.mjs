@@ -55,7 +55,7 @@ function check(name, actual, expected) {
   return ok;
 }
 function checkRange(name, actual, min, max) {
-  const ok = typeof actual === "number" && actual >= min && actual <= max;
+  const ok = Number.isFinite(actual) && actual >= min && actual <= max;
   if (!ok) failures++;
   console.log(
     `${ok ? "PASS" : "FAIL"}  ${name}${ok ? ` (${actual})` : `  expected ${min}..${max}, got ${JSON.stringify(actual)}`}`,
@@ -63,11 +63,12 @@ function checkRange(name, actual, min, max) {
 }
 
 async function sitesApi(method, path, body) {
-  const res = await fetch(`${APP}${path}`, {
+  const init = {
     method,
     headers: { Authorization: `Bearer ${SITES_TOKEN}`, "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(`${APP}${path}`, init);
   const text = await res.text();
   if (!res.ok) throw new Error(`${method} ${path} -> ${res.status} ${text.slice(0, 200)}`);
   return text ? JSON.parse(text) : null;
@@ -91,16 +92,20 @@ async function statsRows(query) {
 }
 
 // Native tracker: GET for pageviews/custom events, POST body for engagement.
-async function native(visitor, params, { method = "GET", headers = {} } = {}) {
+async function native(visitor, params, headers = {}) {
   const qs = new URLSearchParams({ sid: DOMAIN, h: ORIGIN, ...params }).toString();
-  const res = await fetch(method === "GET" ? `${APP}/collect?${qs}` : `${APP}/collect`, {
-    method,
-    headers: {
-      "User-Agent": ua(visitor),
-      ...(method === "POST" ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
-      ...headers,
-    },
-    body: method === "POST" ? qs : undefined,
+  const res = await fetch(`${APP}/collect?${qs}`, {
+    headers: { "User-Agent": ua(visitor), ...headers },
+  });
+  await res.arrayBuffer();
+  return { status: res.status, dropped: res.headers.get("x-noomers-dropped") === "1" };
+}
+
+async function nativeEngagement(visitor, params) {
+  const res = await fetch(`${APP}/collect`, {
+    method: "POST",
+    headers: { "User-Agent": ua(visitor), "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ sid: DOMAIN, h: ORIGIN, ...params }).toString(),
   });
   await res.arrayBuffer();
   return { status: res.status, dropped: res.headers.get("x-noomers-dropped") === "1" };
@@ -166,16 +171,12 @@ async function sendDataset() {
   accepted("v5 pageview /", await native("v5", { p: "/", ht: "1" }), 200);
   accepted(
     "v5 engagement",
-    await native("v5", { p: "/", et: "engagement", e: "5000", sd: "80" }, { method: "POST" }),
+    await nativeEngagement("v5", { p: "/", et: "engagement", e: "5000", sd: "80" }),
     200,
   );
 
   console.log("\n# Events that must be refused or dropped");
-  const foreignOrigin = await native(
-    "x1",
-    { p: "/", ht: "1" },
-    { headers: { Origin: "https://evil.example" } },
-  );
+  const foreignOrigin = await native("x1", { p: "/", ht: "1" }, { Origin: "https://evil.example" });
   check("foreign Origin dropped", foreignOrigin, { status: 200, dropped: true });
   const foreignHost = await plausible("x2", { name: "pageview", url: "https://evil.example/" });
   check("foreign page host dropped", foreignHost, { status: 202, dropped: true });
