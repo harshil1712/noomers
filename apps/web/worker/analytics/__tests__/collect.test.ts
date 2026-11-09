@@ -3,6 +3,8 @@ import { Mock, describe, expect, test, vi, beforeEach } from "vite-plus/test";
 import httpMocks from "node-mocks-http";
 
 import { collectRequestHandler as handleCollectRequest } from "../collect";
+
+const fakeCtx = { waitUntil: (p: Promise<unknown>) => void p.catch(() => {}) };
 import { createSiteEventsStub } from "../../__testutils__/site-events";
 
 const { stub: siteEventsStub, namespace: siteEventsNamespace } = createSiteEventsStub();
@@ -19,7 +21,7 @@ function collectRequestHandler(
   env: Parameters<typeof handleCollectRequest>[1],
   extra?: Parameters<typeof handleCollectRequest>[2],
 ) {
-  return handleCollectRequest(request, { DB: activeSitesDatabase, ...env }, extra);
+  return handleCollectRequest(request, { DB: activeSitesDatabase, ...env }, fakeCtx, extra);
 }
 
 const defaultBrowserUserAgent =
@@ -107,17 +109,21 @@ describe("collectRequestHandler", () => {
       },
     } as unknown as Env;
 
-    const response = await handleCollectRequest(defaultRequestParams as any, env);
+    const response = await collectRequestHandler(defaultRequestParams as any, env);
 
     expect(response.status).toBe(expectedStatus);
     expect(siteEventsStub.record).not.toHaveBeenCalled();
   });
 
   test("returns 503 when the site registry binding is missing", async () => {
-    const response = await handleCollectRequest(defaultRequestParams as any, {
-      SITE_EVENTS: siteEventsNamespace,
-      VISITOR_SALT: "test-salt",
-    });
+    const response = await handleCollectRequest(
+      defaultRequestParams as any,
+      {
+        SITE_EVENTS: siteEventsNamespace,
+        VISITOR_SALT: "test-salt",
+      } as never,
+      fakeCtx,
+    );
 
     expect(response.status).toBe(503);
     expect(siteEventsStub.record).not.toHaveBeenCalled();
@@ -1051,7 +1057,7 @@ describe("hostname allowlist", () => {
     };
 
   test("matching Origin + host records", async () => {
-    const r = await handleCollectRequest(
+    const r = await collectRequestHandler(
       req("example.com", "https://example.com") as never,
       localEnv(),
     );
@@ -1059,7 +1065,7 @@ describe("hostname allowlist", () => {
     expect(siteEventsStub.record).toHaveBeenCalled();
   });
   test("mismatched Origin drops", async () => {
-    const r = await handleCollectRequest(
+    const r = await collectRequestHandler(
       req("example.com", "https://evil.net") as never,
       localEnv(),
     );
@@ -1069,16 +1075,16 @@ describe("hostname allowlist", () => {
   test("subdomain and www hosts record", async () => {
     for (const h of ["blog.example.com", "www.example.com"]) {
       siteEventsStub.record.mockClear();
-      const r = await handleCollectRequest(req(h) as never, localEnv());
+      const r = await collectRequestHandler(req(h) as never, localEnv());
       expect(siteEventsStub.record).toHaveBeenCalled();
     }
   });
   test("no Origin + matching host records; mismatched host drops", async () => {
     siteEventsStub.record.mockClear();
-    const good = await handleCollectRequest(req("example.com") as never, localEnv());
+    const good = await collectRequestHandler(req("example.com") as never, localEnv());
     expect(siteEventsStub.record).toHaveBeenCalled();
     siteEventsStub.record.mockClear();
-    const bad = await handleCollectRequest(req("evil.net") as never, localEnv());
+    const bad = await collectRequestHandler(req("evil.net") as never, localEnv());
     expect(siteEventsStub.record).not.toHaveBeenCalled();
   });
   test("SERVER_EVENTS_TOKEN bypasses the check", async () => {
@@ -1088,7 +1094,7 @@ describe("hostname allowlist", () => {
     const h = request.headers as { get: (n: string) => string | null };
     const store = request.headers as Record<string, string>;
     h.get = (n: string) => store[n] ?? null;
-    const r = await handleCollectRequest(request as never, env);
+    const r = await collectRequestHandler(request as never, env);
     expect(siteEventsStub.record).toHaveBeenCalled();
   });
   test("localhost instance accepts localhost origin for a remote-domain site", async () => {
@@ -1098,7 +1104,56 @@ describe("hostname allowlist", () => {
       "https://example.com/user/42",
       "http://localhost:1338/collect",
     );
-    const r = await handleCollectRequest(request as never, localEnv());
+    const r = await collectRequestHandler(request as never, localEnv());
     expect(siteEventsStub.record).toHaveBeenCalled();
+  });
+});
+
+describe("waitUntil ingest", () => {
+  test("successful pageview registers one waitUntil promise; send resolves before record", async () => {
+    const captured: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (p: Promise<unknown>) => captured.push(p) };
+    const send = vi.fn().mockResolvedValue(undefined);
+    siteEventsStub.record.mockClear();
+    const request = generateRequestParams({});
+    const response = await handleCollectRequest(
+      request as never,
+      {
+        DB: activeSitesDatabase,
+        SITE_EVENTS: siteEventsNamespace,
+        VISITOR_SALT: "test-salt",
+        EVENT_STREAM: { send },
+      } as never,
+      ctx,
+    );
+    expect(response.status).toBe(200);
+    expect(captured).toHaveLength(1);
+    await captured[0];
+    expect(send).toHaveBeenCalledOnce();
+    expect(siteEventsStub.record).toHaveBeenCalled();
+    expect(send.mock.invocationCallOrder[0]).toBeLessThan(
+      siteEventsStub.record.mock.invocationCallOrder[0],
+    );
+  });
+
+  test("EVENT_STREAM rejection still returns 500 and waitUntil settles cleanly", async () => {
+    const captured: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (p: Promise<unknown>) => captured.push(p) };
+    const send = vi.fn().mockRejectedValue(new Error("pipeline down"));
+    const request = generateRequestParams({});
+    const response = await handleCollectRequest(
+      request as never,
+      {
+        DB: activeSitesDatabase,
+        SITE_EVENTS: siteEventsNamespace,
+        VISITOR_SALT: "test-salt",
+        EVENT_STREAM: { send },
+      } as never,
+      ctx,
+    );
+    expect(response.status).toBe(500);
+    expect(captured).toHaveLength(1);
+    await expect(captured[0]).resolves.toBeUndefined();
+    expect(siteEventsStub.record).not.toHaveBeenCalled();
   });
 });

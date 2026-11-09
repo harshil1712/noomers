@@ -395,6 +395,7 @@ export async function normalizeEvent(
 export async function recordNormalizedEvent(
   env: CollectEnv,
   event: NormalizedEvent,
+  ctx: Pick<ExecutionContext, "waitUntil">,
 ): Promise<void> {
   const durableEvent: DurableEvent = {
     schema_version: 2,
@@ -434,16 +435,20 @@ export async function recordNormalizedEvent(
     throw new Error("SITE_EVENTS binding is not configured");
   }
   const namespace = env.SITE_EVENTS as unknown as SiteEventsNamespace;
-  // Pipelines confirms ingest on send() resolution; the DO keeps the same
-  // event for realtime. Both are awaited — either failing is fail-closed 500.
-  await Promise.all([
-    env.EVENT_STREAM
-      ? env.EVENT_STREAM.send([
-          durableEvent as unknown as import("cloudflare:pipelines").PipelineRecord,
-        ])
-      : undefined,
-    namespace.get(namespace.idFromName(event.siteId)).record(durableEvent),
-  ]);
+  // Pipelines confirms ingest on send() resolution; only then does the DO
+  // keep the event for realtime, so realtime never counts an event that never
+  // reached history. Either failing is fail-closed 500; waitUntil keeps it
+  // alive through a client disconnect.
+  const ingest = (async () => {
+    if (env.EVENT_STREAM) {
+      await env.EVENT_STREAM.send([
+        durableEvent as unknown as import("cloudflare:pipelines").PipelineRecord,
+      ]);
+    }
+    await namespace.get(namespace.idFromName(event.siteId)).record(durableEvent);
+  })();
+  ctx.waitUntil(ingest.catch(() => {}));
+  await ingest;
 }
 
 const TRACKING_PIXEL_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -614,6 +619,7 @@ function isUnsignedDecimalString(value: string): boolean {
 export async function collectRequestHandler(
   request: Request,
   env: CollectEnv,
+  ctx: Pick<ExecutionContext, "waitUntil">,
   extra: Record<string, string> = {}, // extra request properties (i.e. Cloudflare properties)
 ) {
   if (!env.VISITOR_SALT) {
@@ -705,7 +711,7 @@ export async function collectRequestHandler(
     );
 
     try {
-      await recordNormalizedEvent(env, normalizedEvent);
+      await recordNormalizedEvent(env, normalizedEvent, ctx);
     } catch (error) {
       console.error(
         JSON.stringify({
@@ -743,7 +749,7 @@ export async function collectRequestHandler(
   );
 
   try {
-    await recordNormalizedEvent(env, normalizedEvent);
+    await recordNormalizedEvent(env, normalizedEvent, ctx);
   } catch (error) {
     console.error(
       JSON.stringify({

@@ -9,12 +9,22 @@ export type CacheLoaderBody = {
 
 /** Native tracker endpoint — own CORS/status behavior lives in collect.ts. */
 export function handleCollect(c: Context<{ Bindings: Env }>) {
-  return collectRequestHandler(c.req.raw, c.env, c.req.raw.cf as Record<string, string>);
+  return collectRequestHandler(
+    c.req.raw,
+    c.env,
+    c.executionCtx,
+    c.req.raw.cf as Record<string, string>,
+  );
 }
 
 /** Plausible-compatible /api/event — POST + OPTIONS handled internally. */
 export function handlePlausibleEvent(c: Context<{ Bindings: Env }>) {
-  return plausibleEventRequestHandler(c.req.raw, c.env, c.req.raw.cf as Record<string, string>);
+  return plausibleEventRequestHandler(
+    c.req.raw,
+    c.env,
+    c.executionCtx,
+    c.req.raw.cf as Record<string, string>,
+  );
 }
 
 export function handlePlausibleEventMethodNotAllowed() {
