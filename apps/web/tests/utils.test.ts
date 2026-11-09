@@ -176,3 +176,20 @@ describe("getIntervalType", () => {
     expect(() => getIntervalType("bogus")).toThrow();
   });
 });
+
+describe("getDateTimeRange across DST and timezones", () => {
+  afterEach(() => vi.useRealTimers());
+  test.each([
+    ["7d", "Europe/Berlin", "2026-11-01T23:00:00.000Z"],
+    ["30d", "America/New_York", "2026-10-10T04:00:00.000Z"],
+    ["day", "Europe/Berlin", "2026-11-08T23:00:00.000Z"],
+    ["month", "America/New_York", "2026-11-01T04:00:00.000Z"],
+    ["6mo", "Europe/Berlin", "2026-05-31T22:00:00.000Z"],
+    ["12mo", "Asia/Kolkata", "2025-11-30T18:30:00.000Z"],
+    ["1d", "Asia/Kolkata", "2026-11-08T09:30:00.000Z"],
+  ])("%s in %s", (interval, tz, expected) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-09T09:40:00.000Z"));
+    expect(getDateTimeRange(interval, tz).startDate.toISOString()).toBe(expected);
+  });
+});

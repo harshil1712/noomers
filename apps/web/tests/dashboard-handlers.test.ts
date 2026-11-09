@@ -204,7 +204,16 @@ describe("dashboard handlers (ported loader tests)", () => {
 
   test("timeseries picks hour/day buckets by interval", async () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({
-      rows: [{ dimension: new Date().toISOString().slice(0, 10), visitors: 1, visits: 1, views: 2, events: 2, bounces: 0 }],
+      rows: [
+        {
+          dimension: new Date().toISOString().slice(0, 10),
+          visitors: 1,
+          visits: 1,
+          views: 2,
+          events: 2,
+          bounces: 0,
+        },
+      ],
     });
     const res = await timeseries(
       ctx({ getSessionBreakdown }),

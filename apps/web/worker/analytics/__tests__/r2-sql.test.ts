@@ -1177,15 +1177,21 @@ describe("getGoalBreakdown revenue", () => {
 
 describe("ORDER BY without pagination", () => {
   const emptyRows = () =>
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ success: true, result: { rows: [] } })),
-    );
+    vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ success: true, result: { rows: [] } })));
   const lastQuery = (fetcher: ReturnType<typeof vi.fn>) =>
     JSON.parse((fetcher.mock.calls[0][1] as RequestInit).body as string).query as string;
 
   test("getSessionBreakdown applies orderBy without pagination", async () => {
     const fetcher = emptyRows();
-    const api = new R2SQLAPI("account", "bucket", "token", "analytics.events", fetcher as typeof fetch);
+    const api = new R2SQLAPI(
+      "account",
+      "bucket",
+      "token",
+      "analytics.events",
+      fetcher as typeof fetch,
+    );
     await api.getSessionBreakdown(
       "example.com",
       new Date("2026-08-01T00:00:00.000Z"),
@@ -1200,7 +1206,13 @@ describe("ORDER BY without pagination", () => {
 
   test("getBasicMetrics applies orderBy without pagination", async () => {
     const fetcher = emptyRows();
-    const api = new R2SQLAPI("account", "bucket", "token", "analytics.events", fetcher as typeof fetch);
+    const api = new R2SQLAPI(
+      "account",
+      "bucket",
+      "token",
+      "analytics.events",
+      fetcher as typeof fetch,
+    );
     await api.getBasicMetrics(
       "example.com",
       new Date("2026-08-01T00:00:00.000Z"),

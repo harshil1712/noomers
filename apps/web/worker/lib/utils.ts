@@ -113,7 +113,7 @@ export function getDateTimeRange(interval: string, tz: string) {
   } else if (interval === "month") {
     localDateTime = now.startOf("month");
   } else if (/^\d+mo$/.test(interval)) {
-    localDateTime = now.startOf("month").subtract(Number(interval.slice(0, -2)) - 1, "month");
+    localDateTime = now.subtract(Number(interval.slice(0, -2)) - 1, "month").startOf("month");
   } else {
     throw new Error("Unsupported interval");
   }
