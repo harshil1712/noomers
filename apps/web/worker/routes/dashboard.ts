@@ -2,13 +2,23 @@ import { z } from "zod";
 import { Hono } from "hono";
 import { createAuth } from "../auth";
 import { sessionAnalyticsFactory } from "../lib/context";
+import { getFiltersFromSearchParams, paramsFromUrl } from "../lib/utils";
 import {
-  getDateTimeRange,
-  getFiltersFromSearchParams,
-  getIntervalType,
-  paramsFromUrl,
-} from "../lib/utils";
-import { getTimeBuckets } from "../analytics/stats-api";
+  getTimeBuckets,
+  parseDateRange,
+  resolveTimeDimension,
+  StatsAPIError,
+} from "../analytics/stats-api";
+
+function dateRange(interval: string, tz: string): { startDate: Date; endDate: Date } | null {
+  try {
+    const { start, end } = parseDateRange(interval === "1d" ? "24h" : interval, tz);
+    return { startDate: start, endDate: end };
+  } catch (e) {
+    if (e instanceof StatsAPIError) return null;
+    throw e;
+  }
+}
 import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
@@ -56,7 +66,9 @@ async function breakdown(
   }
   const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(url.searchParams);
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
   const analytics = c.sessionAnalytics();
 
   const isVisit = dimension.startsWith("visit:");
@@ -139,13 +151,9 @@ export async function stats(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
   const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
-  let startDate: Date;
-  let endDate: Date;
-  try {
-    ({ startDate, endDate } = getDateTimeRange(interval, tz));
-  } catch {
-    return Response.json({ error: "Unsupported interval" }, { status: 400 });
-  }
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
   const analytics = c.sessionAnalytics();
   const toStatsMetrics = (m: Awaited<ReturnType<typeof analytics.getSessionMetrics>>) => ({
     views: m.views,
@@ -169,17 +177,10 @@ export async function timeseries(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
   const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
-  let intervalType;
-  let startDate: Date;
-  let endDate: Date;
-  try {
-    intervalType = getIntervalType(interval);
-    ({ startDate, endDate } = getDateTimeRange(interval, tz));
-  } catch {
-    return Response.json({ error: "Unsupported interval" }, { status: 400 });
-  }
-  const dimension =
-    intervalType === "HOUR" ? "time:hour" : intervalType === "MONTH" ? "time:month" : "time:day";
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
+  const dimension = resolveTimeDimension("time", startDate, endDate);
   const buckets = getTimeBuckets(dimension, startDate, endDate, tz);
   const { rows } = await c
     .sessionAnalytics()
@@ -195,7 +196,6 @@ export async function timeseries(c: Ctx, request: Request) {
         bounceRate: Math.floor((row && row.visits > 0 ? row.bounces / row.visits : 0) * 100),
       };
     }),
-    intervalType,
   });
 }
 
@@ -204,9 +204,11 @@ export async function goals(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
   const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
   const repository = new GoalsRepository(c.env.DB);
   const goalList = await repository.list(site);
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
   const analytics = c.sessionAnalytics();
   const result = await analytics.getGoalBreakdown(site, startDate, endDate, filters, goalList);
   return Response.json({

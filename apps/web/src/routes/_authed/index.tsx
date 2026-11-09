@@ -66,7 +66,6 @@ function SiteCard({
   const query: DashboardQuery = {
     site,
     interval,
-    timezone,
     filters: {},
     nonce,
   };

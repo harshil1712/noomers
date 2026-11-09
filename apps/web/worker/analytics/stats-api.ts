@@ -75,7 +75,7 @@ function formatRangeDate(
     .format(includeMilliseconds ? "YYYY-MM-DDTHH:mm:ss.SSSZ" : "YYYY-MM-DDTHH:mm:ssZ");
 }
 
-function parseDateRange(
+export function parseDateRange(
   value: unknown,
   reportingTimezone: string,
 ): {
@@ -348,7 +348,7 @@ function r2BreakdownOptions(
   };
 }
 
-function resolveTimeDimension(
+export function resolveTimeDimension(
   dimension: TimeDimension,
   start: Date,
   end: Date,

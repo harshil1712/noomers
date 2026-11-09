@@ -462,17 +462,12 @@ const TRACKING_PIXEL_BUFFER = encodeTrackingPixel();
 
 // The native tracker sends `h` as a full origin; older snippets/tests send the
 // bare host. Store the hostname so `event:hostname` matches the Plausible path.
-function pageHost(h: string | undefined): string {
-  if (!h) return "";
-  const v = h.trim();
-  if (v.includes("://")) {
-    try {
-      return new URL(v).hostname.toLowerCase();
-    } catch {
-      return "";
-    }
+function pageHost(h = ""): string {
+  try {
+    return new URL(h.includes("://") ? h.trim() : `https://${h.trim()}`).hostname;
+  } catch {
+    return "";
   }
-  return v.toLowerCase();
 }
 
 function trackingPixelResponse({

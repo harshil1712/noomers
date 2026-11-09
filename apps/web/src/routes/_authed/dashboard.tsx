@@ -535,7 +535,7 @@ function KpiStrip({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters, query.nonce]);
+  }, [query.site, query.interval, query.filters, query.nonce]);
 
   const fmt = Intl.NumberFormat("en", { notation: "compact" });
   const duration = (s: number) => {
@@ -718,7 +718,7 @@ function TimeseriesPanel({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters, query.nonce, isDark, metric]);
+  }, [query.site, query.interval, query.filters, query.nonce, isDark, metric]);
 
   return (
     <Surface className="min-w-0 overflow-hidden rounded-xl p-4">
@@ -896,16 +896,7 @@ function BreakdownTable({
     return () => {
       cancelled = true;
     };
-  }, [
-    realCard,
-    isGoals,
-    query.site,
-    query.interval,
-    query.timezone,
-    query.filters,
-    page,
-    query.nonce,
-  ]);
+  }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce]);
 
   const dimSelect = isCampaigns ? (
     <div className="mb-1 mt-3">

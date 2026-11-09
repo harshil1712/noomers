@@ -227,8 +227,7 @@ describe("dashboard handlers (ported loader tests)", () => {
       "time:day",
       expect.any(Array),
     );
-    const body = await res.json<{ intervalType: string; chartData: { views: number }[] }>();
-    expect(body.intervalType).toBe("DAY");
+    const body = await res.json<{ chartData: { views: number }[] }>();
     expect(body.chartData.some((r) => r.views === 2)).toBe(true);
   });
 
@@ -317,7 +316,6 @@ describe("timeseries", () => {
       url("timeseries?site=x&interval=30d"),
     );
     const body = await res.json();
-    expect(body.intervalType).toBe("DAY");
     expect(body.chartData.length).toBeGreaterThan(25);
     const dates = body.chartData.map((r) => r.date);
     expect([...dates].sort()).toEqual(dates);
@@ -330,21 +328,42 @@ describe("timeseries", () => {
     expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:day");
   });
 
-  test("6mo uses MONTH buckets", async () => {
+  test("12mo uses MONTH buckets; day uses hourly", async () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
     const res = await timeseries(
       ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=12mo"),
+    );
+    expect(res.status).toBe(200);
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:month");
+    getSessionBreakdown.mockClear();
+    const day = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=day"),
+    );
+    expect(day.status).toBe(200);
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:hour");
+    const six = await timeseries(
+      ctx({ getSessionBreakdown }),
       url("timeseries?site=x&interval=6mo"),
     );
-    const body = await res.json();
-    expect(body.intervalType).toBe("MONTH");
-    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:month");
-    expect(body.chartData.length).toBe(6);
+    expect(six.status).toBe(200);
+    const month = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=month"),
+    );
+    expect(month.status).toBe(200);
   });
 
-  test("unsupported interval → 400", async () => {
+  test("unsupported interval → 400 on every range route", async () => {
     const res = await timeseries(ctx({}), url("timeseries?site=x&interval=bogus"));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Unsupported interval" });
+    const st = await stats(ctx({}), url("stats?site=x&interval=bogus"));
+    expect(st.status).toBe(400);
+    const bd = await cardBreakdown(ctx({}), url("paths?site=x&interval=bogus"), "paths");
+    expect(bd.status).toBe(400);
+    const gl = await goals(ctx({}), url("goals?site=x&interval=bogus"));
+    expect(gl.status).toBe(400);
   });
 });
