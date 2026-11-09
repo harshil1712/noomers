@@ -311,7 +311,7 @@ describe("trackPageview", () => {
             expect(makeRequest).toHaveBeenCalledWith(
                 "https://example.com/collect",
                 requestParams,
-                5000,
+                1000,
                 undefined,
             );
         });
@@ -397,7 +397,7 @@ describe("trackPageview", () => {
             expect(makeRequest).toHaveBeenCalledWith(
                 "https://example.com/collect",
                 requestParams,
-                5000,
+                1000,
                 "Visitor Browser",
             );
         });

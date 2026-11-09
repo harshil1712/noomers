@@ -4,7 +4,7 @@ import { queryParamStringify } from "../shared/utils";
 export async function makeRequest(
     url: string,
     params: CollectRequestParams,
-    timeout = 5000,
+    timeout = 1000,
     userAgent?: string,
 ): Promise<void> {
     try {

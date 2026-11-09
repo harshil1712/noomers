@@ -5,7 +5,7 @@ export class ServerClient {
     reporterUrl: string;
     reportOnLocalhost = false;
     userAgent?: string;
-    timeout = 5000;
+    timeout = 1000;
 
     constructor(opts: ServerClientOpts) {
         this.siteId = opts.siteId;
