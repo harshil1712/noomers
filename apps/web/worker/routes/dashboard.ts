@@ -9,16 +9,6 @@ import {
   resolveTimeDimension,
   StatsAPIError,
 } from "../analytics/stats-api";
-
-function dateRange(interval: string, tz: string): { startDate: Date; endDate: Date } | null {
-  try {
-    const { start, end } = parseDateRange(interval === "1d" ? "24h" : interval, tz);
-    return { startDate: start, endDate: end };
-  } catch (e) {
-    if (e instanceof StatsAPIError) return null;
-    throw e;
-  }
-}
 import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
@@ -43,6 +33,16 @@ async function siteTimezone(env: Env, site: string): Promise<string> {
     return (await new SitesRepository(env.DB).get(site))?.timezone || "Etc/UTC";
   } catch {
     return "Etc/UTC";
+  }
+}
+
+function dateRange(interval: string, tz: string): { startDate: Date; endDate: Date } | null {
+  try {
+    const { start, end } = parseDateRange(interval, tz);
+    return { startDate: start, endDate: end };
+  } catch (e) {
+    if (e instanceof StatsAPIError) return null;
+    throw e;
   }
 }
 

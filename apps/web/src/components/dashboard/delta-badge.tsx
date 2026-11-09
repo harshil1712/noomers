@@ -2,7 +2,7 @@ import { Badge, Tooltip } from "@cloudflare/kumo";
 
 export const INTERVAL_LABEL = {
   day: "previous day",
-  "1d": "previous 24 hours",
+  "24h": "previous 24 hours",
   "7d": "previous 7 days",
   "30d": "previous 30 days",
   month: "previous month",
