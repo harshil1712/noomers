@@ -1,24 +1,26 @@
 "use strict";
 
 import * as noomers from "./index";
+import { resolveTrackerConfig } from "./tracker-config";
+
+// Only set while a classic/defer script executes synchronously — capture at
+// module top level, before the DOMContentLoaded wait.
+const currentScript = document.currentScript as HTMLScriptElement | null;
 
 function findReporterScript() {
-    const el = document.getElementById(
-        "noomers-script",
-    ) as HTMLScriptElement;
-    return el;
+    const el =
+        currentScript ??
+        document.getElementById("noomers-script") ??
+        document.querySelector("script[data-site-id]");
+    return el as HTMLScriptElement | null;
 }
 
 function init() {
-    const script = findReporterScript();
-    const siteId = script?.getAttribute("data-site-id");
-    const reportOnLocalhost = (script?.hasAttribute("data-report-localhost") && script?.getAttribute("data-report-localhost") !== "false") || false;
-
-    const reporterUrl = script?.src.replace("tracker.js", "collect");
-
-    if (!siteId || !reporterUrl) {
+    const config = resolveTrackerConfig(findReporterScript());
+    if (!config) {
         return;
     }
+    const { siteId, reportOnLocalhost, reporterUrl } = config;
 
     noomers.init({
         siteId,

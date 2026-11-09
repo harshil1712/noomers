@@ -4,6 +4,7 @@ import { Button, Code, Combobox, Dialog, Input, Text } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
 import { dashboardApi, DashboardApiError } from "../../lib/dashboard-api";
 import { refreshSites } from "../../lib/use-sites";
+import { trackerSnippet } from "../../lib/tracker-snippet";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
@@ -57,6 +58,9 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
   const reset = (next: boolean) => {
     setOpen(next);
     if (!next) {
+      // Refresh once the dialog closes — refreshing while it's still open
+      // unmounts the parent empty state and drops the dialog.
+      if (added) void refreshSites();
       setDomain("");
       setError("");
       setPending(false);
@@ -72,9 +76,8 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
       const site = await dashboardApi.createSite(domain.trim(), timezone);
       setAdded({
         domain: site.domain,
-        snippet: `<script defer src="${location.origin}/tracker.js" data-site-id="${site.domain}"></script>`,
+        snippet: trackerSnippet(site.domain),
       });
-      void refreshSites();
     } catch (err) {
       if (err instanceof DashboardApiError && err.status === 403) {
         setError("Only the owner account can add sites.");
