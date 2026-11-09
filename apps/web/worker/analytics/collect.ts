@@ -622,11 +622,9 @@ export async function collectRequestHandler(
   if (!siteId || siteId === "") {
     return new Response("Missing siteId", { status: 400 });
   }
+  const trusted = await hasServerEventsToken(request, env);
   const collectIp =
-    ((await hasServerEventsToken(request, env)) &&
-    params.ip &&
-    params.ip.length <= 45 &&
-    /^[0-9a-f:.]+$/i.test(params.ip)
+    (trusted && params.ip && params.ip.length <= 45 && /^[0-9a-f:.]+$/i.test(params.ip)
       ? params.ip
       : request.headers.get("cf-connecting-ip")) || "unknown";
   const limited = await env.COLLECT_RATE_LIMIT?.limit({
@@ -642,10 +640,7 @@ export async function collectRequestHandler(
     return trackingPixelResponse({ dropped: true });
   }
 
-  if (
-    !(await hasServerEventsToken(request, env)) &&
-    shouldDropForeignHost(request, params.h ?? "", siteId)
-  ) {
+  if (!trusted && shouldDropForeignHost(request, params.h ?? "", siteId)) {
     return trackingPixelResponse({ dropped: true });
   }
 
@@ -667,7 +662,7 @@ export async function collectRequestHandler(
     return new Response("Invalid engagement parameters", { status: 400 });
   }
 
-  const trustedIp = (await hasServerEventsToken(request, env))
+  const trustedIp = trusted
     ? params.ip && params.ip.length <= 45 && /^[0-9a-f:.]+$/i.test(params.ip)
       ? params.ip
       : undefined

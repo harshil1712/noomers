@@ -5,14 +5,13 @@
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 function normalizeHost(host: string): string {
-  let h = host.trim().toLowerCase();
-  if (h.includes("/") || (h.includes(":") && !h.startsWith("["))) {
-    try {
-      h = new URL(h.includes("://") ? h : `https://${h}`).hostname;
-    } catch {
-      return h;
-    }
+  let h: string;
+  try {
+    h = new URL(host.includes("://") ? host : `https://${host}`).hostname;
+  } catch {
+    return "";
   }
+  h = h.toLowerCase();
   if (h.endsWith(".")) h = h.slice(0, -1);
   if (h.startsWith("www.")) h = h.slice(4);
   return h;

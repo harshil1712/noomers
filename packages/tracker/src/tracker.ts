@@ -9,9 +9,7 @@ const currentScript = document.currentScript as HTMLScriptElement | null;
 
 function findReporterScript() {
     const el =
-        currentScript ??
-        document.getElementById("noomers-script") ??
-        document.querySelector("script[data-site-id]");
+        currentScript ?? document.querySelector("script[data-site-id]");
     return el as HTMLScriptElement | null;
 }
 
