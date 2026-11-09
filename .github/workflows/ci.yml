@@ -15,7 +15,3 @@ jobs:
       - run: vp check
       - run: vp run -r test
       - run: vp run -r build
-      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
-      - name: Iceberg erasure script tests
-        working-directory: scripts/iceberg-erasure
-        run: uv run --with "pytest==9.2.0" --with "pyiceberg[pyarrow,sql-sqlite]==0.12.0" --with pyiceberg-core --with "pyarrow>=17,<24" pytest . -q

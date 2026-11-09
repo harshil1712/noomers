@@ -203,9 +203,6 @@ describe("SitesRepository", () => {
     expect(prepare).toHaveBeenCalledWith(
       expect.stringContaining("INSERT OR IGNORE INTO site_tombstones"),
     );
-    expect(prepare).toHaveBeenCalledWith(
-      expect.stringContaining("INSERT OR IGNORE INTO site_deletion_jobs"),
-    );
     expect(prepare).toHaveBeenCalledWith("DELETE FROM custom_properties WHERE site_id = ?");
   });
 });

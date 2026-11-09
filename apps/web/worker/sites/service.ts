@@ -1,8 +1,7 @@
 import { normalizeDomain, SitesRepository } from "./repository";
 
 /**
- * Tombstone a site, drop its registry rows, record a deletion job, and purge
- * the realtime buffer. Shared by the Sites API DELETE and the dashboard
+ * Tombstone a site, drop its registry rows, and purge the realtime buffer. Shared by the Sites API DELETE and the dashboard
  * delete — both keep the same failure semantics (tombstone always wins over
  * purge errors).
  */

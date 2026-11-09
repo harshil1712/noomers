@@ -1,18 +1,21 @@
-"""pytest suite for erase_jobs — real pyiceberg SqlCatalog over sqlite."""
+"""pytest suite for erase_domain — real pyiceberg SqlCatalog over sqlite."""
 
 import pyarrow as pa
 import pytest
 from pyiceberg.catalog.sql import SqlCatalog
+from pyiceberg.expressions import EqualTo
 from pyiceberg.schema import Schema
 from pyiceberg.types import NestedField, StringType
 
-from erase import erase_jobs
+from erase import erase_domain
 
 SCHEMA = Schema(
     NestedField(1, "site_id", StringType(), required=True),
     NestedField(2, "event_id", StringType(), required=False),
     NestedField(3, "timestamp", StringType(), required=False),
 )
+
+TABLE = "noomers.events"
 
 
 @pytest.fixture()
@@ -26,16 +29,15 @@ def catalog(tmp_path):
     )
 
 
-def make_table(catalog, name="noomers.events", rows=()):
-    namespace, _ = name.split(".", 1)
+def make_table(catalog, rows=()):
     try:
-        catalog.create_namespace(namespace)
+        catalog.create_namespace("noomers")
     except Exception:
         pass
     try:
-        table = catalog.create_table(name, schema=SCHEMA)
+        table = catalog.create_table(TABLE, schema=SCHEMA)
     except Exception:
-        table = catalog.load_table(name)
+        table = catalog.load_table(TABLE)
     if rows:
         table.append(
             pa.table(
@@ -52,96 +54,40 @@ def make_table(catalog, name="noomers.events", rows=()):
     return table
 
 
-class FakeJobsClient:
-    def __init__(self, jobs):
-        self.jobs = jobs
-        self.reports = []
-
-    def list_due(self):
-        return self.jobs
-
-    def report(self, job_id, status, error=None):
-        self.reports.append((job_id, status, error))
+def row(site_id, event_id="e1", ts="2026-01-01T00:00:00Z"):
+    return {"site_id": site_id, "event_id": event_id, "timestamp": ts}
 
 
-def row_count(table, site_id):
-    from pyiceberg.expressions import EqualTo
-
-    table.refresh()
-    return table.scan(
-        row_filter=EqualTo("site_id", site_id), selected_fields=("site_id",)
-    ).to_arrow().num_rows
-
-
-def test_erases_only_the_deleted_site(catalog):
-    table = make_table(
-        catalog,
-        rows=[
-            {"site_id": "a.example", "event_id": "e1", "timestamp": "2026-01-01"},
-            {"site_id": "b.example", "event_id": "e2", "timestamp": "2026-01-01"},
-        ],
-    )
-    jobs = FakeJobsClient([{"id": "j1", "site_id": "a.example"}])
-    results = erase_jobs(catalog, ["noomers.events"], jobs)
-    assert results[0].status == "completed"
-    assert row_count(table, "a.example") == 0
-    assert row_count(table, "b.example") == 1
-    assert jobs.reports == [("j1", "completed", None)]
-
-
-def test_missing_table_is_skipped(catalog):
-    make_table(catalog, rows=[{"site_id": "a.example", "event_id": "e1", "timestamp": "t"}])
-    jobs = FakeJobsClient([{"id": "j2", "site_id": "a.example"}])
-    results = erase_jobs(catalog, ["noomers.events", "noomers.events_import"], jobs)
-    assert results[0].status == "completed"
-
-
-def test_invalid_site_id_reported_failed(catalog):
-    table = make_table(
-        catalog, rows=[{"site_id": "a.example", "event_id": "e1", "timestamp": "t"}]
-    )
-    jobs = FakeJobsClient([{"id": "j3", "site_id": "bad site!"}])
-    results = erase_jobs(catalog, ["noomers.events"], jobs)
-    assert results[0].status == "failed"
-    assert jobs.reports[0][2] == "invalid site_id"
-    assert row_count(table, "a.example") == 1
-
-
-def test_exception_reported_failed_and_next_job_runs(catalog):
-    table = make_table(
-        catalog,
-        rows=[
-            {"site_id": "a.example", "event_id": "e1", "timestamp": "t"},
-            {"site_id": "b.example", "event_id": "e2", "timestamp": "t"},
-        ],
+def remaining(catalog, domain):
+    table = catalog.load_table(TABLE)
+    return (
+        table.scan(row_filter=EqualTo("site_id", domain), selected_fields=("site_id",))
+        .to_arrow()
+        .num_rows
     )
 
-    class FailingCatalog:
-        def __init__(self, real):
-            self.real = real
-            self.calls = 0
 
-        def load_table(self, name):
-            self.calls += 1
-            if self.calls == 1:
-                raise RuntimeError("catalog down")
-            return self.real.load_table(name)
-
-    jobs = FakeJobsClient(
-        [{"id": "j4", "site_id": "a.example"}, {"id": "j5", "site_id": "b.example"}]
-    )
-    results = erase_jobs(FailingCatalog(catalog), ["noomers.events"], jobs)
-    assert [r.status for r in results] == ["failed", "completed"]
-    assert row_count(table, "b.example") == 0
-    assert row_count(table, "a.example") == 1
+def test_skip_when_zero_rows(catalog):
+    make_table(catalog, rows=[row("other.example")])
+    assert erase_domain(catalog, [TABLE], "gone.example", assume_yes=True) is True
+    assert remaining(catalog, "other.example") == 1
 
 
-def test_idempotent_second_run(catalog):
-    table = make_table(
-        catalog, rows=[{"site_id": "a.example", "event_id": "e1", "timestamp": "t"}]
-    )
-    jobs = FakeJobsClient([{"id": "j6", "site_id": "a.example"}])
-    erase_jobs(catalog, ["noomers.events"], jobs)
-    erase_jobs(catalog, ["noomers.events"], jobs)
-    assert jobs.reports == [("j6", "completed", None), ("j6", "completed", None)]
-    assert row_count(table, "a.example") == 0
+def test_delete_and_verify(catalog):
+    make_table(catalog, rows=[row("gone.example"), row("gone.example", "e2"), row("keep.example")])
+    assert erase_domain(catalog, [TABLE], "gone.example", assume_yes=True) is True
+    assert remaining(catalog, "gone.example") == 0
+    assert remaining(catalog, "keep.example") == 1
+
+
+def test_invalid_domain_rejected(catalog):
+    make_table(catalog, rows=[row("gone.example")])
+    assert erase_domain(catalog, [TABLE], "bad domain!", assume_yes=True) is False
+    assert remaining(catalog, "gone.example") == 1
+
+
+def test_decline_at_prompt_deletes_nothing(catalog, monkeypatch):
+    make_table(catalog, rows=[row("gone.example")])
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    assert erase_domain(catalog, [TABLE], "gone.example", assume_yes=False) is True
+    assert remaining(catalog, "gone.example") == 1

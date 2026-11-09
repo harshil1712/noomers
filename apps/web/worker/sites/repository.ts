@@ -308,7 +308,6 @@ export class SitesRepository {
 
   async delete(domain: string): Promise<boolean> {
     const normalized = normalizeDomain(domain);
-    const jobId = crypto.randomUUID();
     const requestedAt = new Date().toISOString();
     const results = await this.database.batch([
       this.database
@@ -317,17 +316,11 @@ export class SitesRepository {
                      SELECT domain, ? FROM sites WHERE domain = ?`,
         )
         .bind(requestedAt, normalized),
-      this.database
-        .prepare(
-          `INSERT OR IGNORE INTO site_deletion_jobs (id, site_id, requested_at)
-                     SELECT ?, domain, ? FROM sites WHERE domain = ?`,
-        )
-        .bind(jobId, requestedAt, normalized),
       this.database.prepare("DELETE FROM goals WHERE site_id = ?").bind(normalized),
       this.database.prepare("DELETE FROM custom_properties WHERE site_id = ?").bind(normalized),
       this.database.prepare("DELETE FROM sites WHERE domain = ?").bind(normalized),
     ]);
-    return Number(results[4].meta.changes || 0) > 0;
+    return Number(results[3].meta.changes || 0) > 0;
   }
 }
 
