@@ -4,6 +4,7 @@ import { createSiteEventsStub } from "../worker/__testutils__/site-events";
 
 const { stub: siteEventsStub, namespace: siteEventsNamespace } = createSiteEventsStub();
 const siteEventsRecord = siteEventsStub.record;
+const fakeCtx = { waitUntil: (p: Promise<unknown>) => void p.catch(() => {}) };
 const browserUserAgent =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -41,7 +42,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(requestWithHt, mockEnv);
+    const response = await collectRequestHandler(requestWithHt, mockEnv, fakeCtx);
 
     // Verify standard headers
     expect(response.status).toBe(200);
@@ -60,7 +61,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(requestWithInvalidHt, mockEnv);
+    const response = await collectRequestHandler(requestWithInvalidHt, mockEnv, fakeCtx);
 
     expect(response.status).toBe(200);
 
@@ -84,7 +85,7 @@ describe("collect endpoint", () => {
       { headers },
     );
 
-    const response = await collectRequestHandler(requestWithoutVB, mockEnv);
+    const response = await collectRequestHandler(requestWithoutVB, mockEnv, fakeCtx);
 
     expect(response.status).toBe(200);
 
@@ -101,7 +102,7 @@ describe("collect endpoint", () => {
       },
     );
 
-    const response = await collectRequestHandler(request, mockEnv);
+    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/gif");
@@ -118,7 +119,7 @@ describe("collect endpoint", () => {
       },
     );
 
-    const response = await collectRequestHandler(request, mockEnv);
+    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-noomers-dropped")).toBeNull();
@@ -140,7 +141,7 @@ describe("collect endpoint", () => {
       }),
     });
 
-    const response = await collectRequestHandler(request, env);
+    const response = await collectRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/gif");
@@ -162,7 +163,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(request, env);
+    const response = await collectRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledOnce();
@@ -187,7 +188,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(request, env);
+    const response = await collectRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(500);
   });
@@ -198,7 +199,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(request, mockEnv);
+    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
 
     expect(response.status).toBe(200);
     expect(siteEventsRecord).toHaveBeenCalledOnce();
@@ -218,7 +219,7 @@ describe("collect endpoint", () => {
       }),
     });
 
-    const response = await collectRequestHandler(request, mockEnv);
+    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
 
     expect(response.status).toBe(400);
     expect(siteEventsRecord).not.toHaveBeenCalled();
@@ -249,6 +250,7 @@ describe("page hostname normalization", () => {
         },
       ),
       env,
+      fakeCtx,
     );
     expect(response.status).toBe(200);
     expect(sentEvent(send)).toEqual(expect.objectContaining({ hostname: "example.com" }));
@@ -262,6 +264,7 @@ describe("page hostname normalization", () => {
         headers: { "user-agent": browserUserAgent },
       }),
       env,
+      fakeCtx,
     );
     expect(response.status).toBe(200);
     expect(sentEvent(send)).toEqual(expect.objectContaining({ hostname: "example.com" }));
@@ -284,6 +287,7 @@ describe("page hostname normalization", () => {
         }),
       }),
       env,
+      fakeCtx,
     );
     expect(response.status).toBe(200);
     expect(sentEvent(send)).toEqual(

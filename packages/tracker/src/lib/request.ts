@@ -61,17 +61,21 @@ export function checkCacheStatus(
  * @param params The parameters to send
  */
 export function makeRequest(url: string, params: CollectRequestParams) {
-    const xhr = new XMLHttpRequest();
     const isEvent = Boolean(params.en || params.et);
-    const fullUrl = isEvent ? url : buildCollectUrl(url, params);
-
-    xhr.open(isEvent ? "POST" : "GET", fullUrl, true);
-    xhr.setRequestHeader(
-        "Content-Type",
-        isEvent ? "application/x-www-form-urlencoded" : "text/plain",
-    );
-    xhr.timeout = REQUEST_TIMEOUT;
-    xhr.send(isEvent ? queryParamStringify(params).slice(1) : undefined);
+    // keepalive keeps the request alive across navigation/disconnect; no
+    // timeout — the server registers ingest with waitUntil either way.
+    void fetch(
+        isEvent ? url : buildCollectUrl(url, params),
+        isEvent
+            ? {
+                  method: "POST",
+                  body: queryParamStringify(params).slice(1),
+                  headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                  keepalive: true,
+                  credentials: "omit",
+              }
+            : { method: "GET", keepalive: true, credentials: "omit" },
+    ).catch(() => {});
 }
 
 /**

@@ -3,65 +3,71 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { makeRequest, sendLifecycleRequest } from "../request";
 
 describe("browser makeRequest", () => {
-    const xhr = {
-        open: vi.fn(),
-        setRequestHeader: vi.fn(),
-        send: vi.fn(),
-        timeout: 0,
-    };
+    const fetchMock = vi.fn<typeof fetch>(() => Promise.resolve(new Response()));
 
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.stubGlobal(
-            "XMLHttpRequest",
-            vi.fn(function () {
-                return xhr;
-            }),
-        );
+        vi.stubGlobal("fetch", fetchMock);
+    });
+
+    const params = {
+        sid: "example",
+        h: "example.com",
+        p: "/signup",
+        r: "",
+    };
+
+    test("sends a pageview GET with keepalive and no credentials", () => {
+        makeRequest("https://example.com/collect", { ...params });
+
+        expect(fetchMock).toHaveBeenCalledOnce();
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(String(url)).toContain("https://example.com/collect?");
+        expect(String(url)).toContain("sid=example");
+        expect(init).toMatchObject({
+            method: "GET",
+            keepalive: true,
+            credentials: "omit",
+        });
+        expect((init as RequestInit).signal ?? null).toBeNull();
     });
 
     test("sends custom event properties in a POST body", () => {
         makeRequest("https://example.com/collect", {
-            sid: "example",
-            h: "example.com",
-            p: "/signup",
-            r: "",
+            ...params,
             en: "Signup",
             ep: '{"plan":"pro"}',
         });
 
-        expect(xhr.open).toHaveBeenCalledWith(
-            "POST",
-            "https://example.com/collect",
-            true,
-        );
-        expect(xhr.setRequestHeader).toHaveBeenCalledWith(
-            "Content-Type",
-            "application/x-www-form-urlencoded",
-        );
-        expect(xhr.send).toHaveBeenCalledWith(
-            expect.stringContaining("ep=%7B%22plan%22%3A%22pro%22%7D"),
-        );
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(String(url)).toBe("https://example.com/collect");
+        expect(init).toMatchObject({
+            method: "POST",
+            keepalive: true,
+            credentials: "omit",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        });
+        expect(String(init?.body)).toContain("ep=%7B%22plan%22%3A%22pro%22%7D");
     });
 
     test("sends engagement events as POST with et parameter", () => {
         makeRequest("https://example.com/collect", {
-            sid: "example",
-            h: "example.com",
-            p: "/article",
-            r: "",
+            ...params,
             et: "engagement",
             e: "5000",
         });
 
-        expect(xhr.open).toHaveBeenCalledWith(
-            "POST",
-            "https://example.com/collect",
-            true,
-        );
-        expect(xhr.send).toHaveBeenCalledWith(
-            expect.stringContaining("et=engagement&e=5000"),
-        );
+        const [url, init] = fetchMock.mock.calls[0];
+        expect(String(url)).toBe("https://example.com/collect");
+        expect(init?.method).toBe("POST");
+        expect(String(init?.body)).toContain("et=engagement&e=5000");
+    });
+
+    test("a rejected fetch does not throw", () => {
+        fetchMock.mockRejectedValueOnce(new Error("offline"));
+        expect(() =>
+            makeRequest("https://example.com/collect", { ...params }),
+        ).not.toThrow();
     });
 });
 

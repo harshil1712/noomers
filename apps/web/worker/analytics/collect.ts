@@ -395,6 +395,7 @@ export async function normalizeEvent(
 export async function recordNormalizedEvent(
   env: CollectEnv,
   event: NormalizedEvent,
+  ctx: Pick<ExecutionContext, "waitUntil">,
 ): Promise<void> {
   const durableEvent: DurableEvent = {
     schema_version: 2,
@@ -435,8 +436,9 @@ export async function recordNormalizedEvent(
   }
   const namespace = env.SITE_EVENTS as unknown as SiteEventsNamespace;
   // Pipelines confirms ingest on send() resolution; the DO keeps the same
-  // event for realtime. Both are awaited — either failing is fail-closed 500.
-  await Promise.all([
+  // event for realtime. Both are awaited — either failing is fail-closed 500 —
+  // and registered with waitUntil so a client disconnect can't cancel them.
+  const ingest = Promise.all([
     env.EVENT_STREAM
       ? env.EVENT_STREAM.send([
           durableEvent as unknown as import("cloudflare:pipelines").PipelineRecord,
@@ -444,6 +446,8 @@ export async function recordNormalizedEvent(
       : undefined,
     namespace.get(namespace.idFromName(event.siteId)).record(durableEvent),
   ]);
+  ctx.waitUntil(ingest.catch(() => {}));
+  await ingest;
 }
 
 const TRACKING_PIXEL_GIF = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
@@ -614,6 +618,7 @@ function isUnsignedDecimalString(value: string): boolean {
 export async function collectRequestHandler(
   request: Request,
   env: CollectEnv,
+  ctx: Pick<ExecutionContext, "waitUntil">,
   extra: Record<string, string> = {}, // extra request properties (i.e. Cloudflare properties)
 ) {
   if (!env.VISITOR_SALT) {
@@ -705,7 +710,7 @@ export async function collectRequestHandler(
     );
 
     try {
-      await recordNormalizedEvent(env, normalizedEvent);
+      await recordNormalizedEvent(env, normalizedEvent, ctx);
     } catch (error) {
       console.error(
         JSON.stringify({
@@ -743,7 +748,7 @@ export async function collectRequestHandler(
   );
 
   try {
-    await recordNormalizedEvent(env, normalizedEvent);
+    await recordNormalizedEvent(env, normalizedEvent, ctx);
   } catch (error) {
     console.error(
       JSON.stringify({

@@ -3,6 +3,8 @@ const siteEventsRecord = siteEventsStub.record;
 
 import { beforeEach, describe, expect, test, vi } from "vite-plus/test";
 import { plausibleEventRequestHandler } from "../plausible";
+
+const fakeCtx = { waitUntil: (p: Promise<unknown>) => void p.catch(() => {}) };
 import { createSiteEventsStub } from "../../__testutils__/site-events";
 
 const browserUserAgent =
@@ -54,7 +56,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(410);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
@@ -89,7 +91,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(expectedStatus);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
@@ -111,7 +113,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(503);
     expect(siteEventsRecord).not.toHaveBeenCalled();
@@ -138,7 +140,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env, {
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx, {
       country: "US",
       region: "California",
       city: "San Francisco",
@@ -198,7 +200,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     const analyticsPoint = vi.mocked(siteEventsRecord).mock.calls[0][0];
@@ -227,7 +229,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(
@@ -254,7 +256,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(expect.objectContaining({ site_id: domain }));
@@ -279,7 +281,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(
@@ -308,7 +310,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(
@@ -335,7 +337,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(
@@ -367,7 +369,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalledWith(
@@ -392,7 +394,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(response.headers.get("x-plausible-dropped")).toBe("1");
@@ -414,7 +416,7 @@ describe("Plausible Events API", () => {
       }),
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(202);
     expect(response.headers.get("x-plausible-dropped")).toBeNull();
@@ -432,7 +434,7 @@ describe("Plausible Events API", () => {
       },
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("text/plain");
@@ -445,7 +447,7 @@ describe("Plausible Events API", () => {
       method: "OPTIONS",
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(204);
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("*");
@@ -490,7 +492,7 @@ describe("Plausible Events API", () => {
       body,
     });
 
-    const response = await plausibleEventRequestHandler(request, env);
+    const response = await plausibleEventRequestHandler(request, env, fakeCtx);
 
     expect(response.status).toBe(expectedStatus);
     expect(siteEventsRecord).not.toHaveBeenCalled();
@@ -521,6 +523,7 @@ describe("Hardening", () => {
     const response = await plausibleEventRequestHandler(
       req({ "x-forwarded-for": "9.9.9.9", "x-debug-request": "true" }),
       env,
+      fakeCtx,
     );
     expect(await response.text()).toBe("1.2.3.4");
   });
@@ -534,6 +537,7 @@ describe("Hardening", () => {
         "x-debug-request": "true",
       }),
       env,
+      fakeCtx,
     );
     expect(await response.text()).toBe("9.9.9.9");
   });
@@ -541,7 +545,7 @@ describe("Hardening", () => {
   test("503 with CORS when VISITOR_SALT is missing", async () => {
     const env = createEnv();
     env.VISITOR_SALT = undefined;
-    const response = await plausibleEventRequestHandler(req(), env);
+    const response = await plausibleEventRequestHandler(req(), env, fakeCtx);
     expect(response.status).toBe(503);
     expect(response.headers.get("access-control-allow-origin")).toBe("*");
   });
@@ -559,6 +563,7 @@ describe("Hardening", () => {
         }),
       ),
       env,
+      fakeCtx,
     );
     expect(response.status).toBe(202);
     const recorded = siteEventsRecord.mock.calls[0][0] as {
@@ -586,6 +591,7 @@ describe("hostname allowlist", () => {
     const r = await plausibleEventRequestHandler(
       req(body("https://example.com/"), { origin: "https://example.com" }),
       createEnv(),
+      fakeCtx,
     );
     expect(r.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalled();
@@ -595,6 +601,7 @@ describe("hostname allowlist", () => {
     const r = await plausibleEventRequestHandler(
       req(body("https://example.com/"), { origin: "https://evil.net" }),
       createEnv(),
+      fakeCtx,
     );
     expect(r.status).toBe(202);
     expect(r.headers.get("x-plausible-dropped")).toBe("1");
@@ -603,16 +610,24 @@ describe("hostname allowlist", () => {
   test("subdomain and www hosts record", async () => {
     for (const u of ["https://blog.example.com/", "https://www.example.com/"]) {
       siteEventsRecord.mockClear();
-      const r = await plausibleEventRequestHandler(req(body(u)), createEnv());
+      const r = await plausibleEventRequestHandler(req(body(u)), createEnv(), fakeCtx);
       expect(siteEventsRecord).toHaveBeenCalled();
     }
   });
   test("no Origin + matching host records; mismatched host drops", async () => {
     siteEventsRecord.mockClear();
-    const good = await plausibleEventRequestHandler(req(body("https://example.com/")), createEnv());
+    const good = await plausibleEventRequestHandler(
+      req(body("https://example.com/")),
+      createEnv(),
+      fakeCtx,
+    );
     expect(siteEventsRecord).toHaveBeenCalled();
     siteEventsRecord.mockClear();
-    const bad = await plausibleEventRequestHandler(req(body("https://evil.net/")), createEnv());
+    const bad = await plausibleEventRequestHandler(
+      req(body("https://evil.net/")),
+      createEnv(),
+      fakeCtx,
+    );
     expect(siteEventsRecord).not.toHaveBeenCalled();
   });
   test("SERVER_EVENTS_TOKEN bypasses the check", async () => {
@@ -624,6 +639,7 @@ describe("hostname allowlist", () => {
         authorization: "Bearer s3cr3t",
       }),
       env,
+      fakeCtx,
     );
     expect(r.status).toBe(202);
     expect(siteEventsRecord).toHaveBeenCalled();
@@ -637,8 +653,31 @@ describe("hostname allowlist", () => {
         "http://localhost:1338/api/event",
       ),
       createEnv(),
+      fakeCtx,
     );
     expect(r.status).toBe(202);
+    expect(siteEventsRecord).toHaveBeenCalled();
+  });
+});
+
+describe("waitUntil ingest", () => {
+  test("plausible event registers one waitUntil promise covering both writes", async () => {
+    const captured: Promise<unknown>[] = [];
+    const ctx = { waitUntil: (p: Promise<unknown>) => captured.push(p) };
+    siteEventsRecord.mockClear();
+    const request = new Request("https://analytics.example/api/event", {
+      method: "POST",
+      headers: { "content-type": "application/json", "user-agent": browserUserAgent },
+      body: JSON.stringify({
+        name: "pageview",
+        url: "https://example.com/",
+        domain: "example.com",
+      }),
+    });
+    const r = await plausibleEventRequestHandler(request, createEnv(), ctx);
+    expect(r.status).toBe(202);
+    expect(captured).toHaveLength(1);
+    await captured[0];
     expect(siteEventsRecord).toHaveBeenCalled();
   });
 });
