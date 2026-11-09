@@ -21,7 +21,7 @@ Last reviewed: 2026-11-05.
 - Privacy invariants and fail-closed collection cannot be weakened for compatibility.
 - Every API feature needs closed validation, bounded resource use, dialect-specific SQL tests, and route-level response tests.
 - Nothing has been deployed to Cloudflare yet; features that depend on Basin SQL, the Pipeline, or the SiteEvents Durable Object need live validation before being marked complete.
-- Deletion is complete only when every storage layer is erased or expired and the deletion job records that outcome.
+- Deletion is complete only when every storage layer is erased or expired; Iceberg erasure is a manual owner-run command.
 - Documentation must describe deployed behavior, not planned behavior.
 
 ## Ordered backlog
@@ -36,11 +36,11 @@ Last reviewed: 2026-11-05.
 
 ### 2. Complete deletion
 
-| Feature                      | Status  | Notes                                                                                                                                                                                    |
-| ---------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Iceberg row erasure          | Partial | A daily PyIceberg job erases due sites' rows through Basin Catalog (≥1 hour after deletion) and managed snapshot expiration removes the files. Live validation pending — never deployed. |
-| User-visible deletion status | Planned | Expose per-layer deletion progress without leaking infrastructure details, once automated erasure exists.                                                                                |
-| Deletion monitoring and SLA  | Planned | Alert on overdue jobs once a processor exists.                                                                                                                                           |
+| Feature                      | Status  | Notes                                                                                                                                                                    |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Iceberg row erasure          | Partial | `scripts/iceberg-erasure/erase.py` row-deletes a site's rows through Basin Catalog when the owner runs it after deletion; managed snapshot expiration removes the files. |
+| User-visible deletion status | Planned | Expose per-layer deletion progress without leaking infrastructure details, once an automated erasure path exists.                                                        |     |
+| Deletion monitoring and SLA  | Planned | Alert on overdue jobs once a processor exists.                                                                                                                           |
 
 ### 3. Core analytics correctness
 

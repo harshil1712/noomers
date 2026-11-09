@@ -135,13 +135,6 @@ describe("/api/dashboard/sites mutations", () => {
     });
     expect(collect.status).not.toBe(200);
 
-    const job = await env.DB.prepare(
-      "SELECT iceberg_status, attempt_count, completed_at FROM site_deletion_jobs WHERE site_id = ?",
-    )
-      .bind(domain)
-      .first<{ iceberg_status: string; attempt_count: number; completed_at: string | null }>();
-    expect(job).toMatchObject({ iceberg_status: "pending", attempt_count: 0, completed_at: null });
-
     expect((await req(BASE, "POST", { domain })).status).toBe(400);
     expect(
       (await req(`${BASE}/gone-${crypto.randomUUID().slice(0, 8)}.dev`, "DELETE")).status,

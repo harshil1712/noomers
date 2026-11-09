@@ -386,7 +386,7 @@ function SitesSettings() {
               </Button>
               <ConfirmDialog
                 title={`Delete ${site.domain}?`}
-                description="Collection stops immediately and this domain can never be added again. Stored history is queued for erasure — it is not erased instantly."
+                description="Collection stops immediately and this domain can never be added again. Its stored history stays in your Basin storage until you erase it with the erasure command in docs/deploy.md."
                 confirmLabel="Delete site"
                 variant="destructive"
                 confirmDisabled={confirmText !== site.domain}

@@ -9,6 +9,7 @@ import {
 } from "./collect";
 import { hasServerEventsToken } from "./server-token";
 import { shouldDropBot } from "./bot";
+import { shouldDropForeignHost } from "./hostname";
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -123,8 +124,8 @@ function isValidIp(value: string): boolean {
   }
 }
 
-async function getClientIp(request: Request, env: CollectEnv): Promise<string | undefined> {
-  if (await hasServerEventsToken(request, env)) {
+async function getClientIp(request: Request, trusted: boolean): Promise<string | undefined> {
+  if (trusted) {
     const forwarded = request.headers.get("x-forwarded-for");
     if (forwarded) {
       const firstValid = forwarded
@@ -250,7 +251,8 @@ export async function plausibleEventRequestHandler(
       headers: CORS_HEADERS,
     });
   }
-  const clientIp = await getClientIp(request, env);
+  const trusted = await hasServerEventsToken(request, env);
+  const clientIp = await getClientIp(request, trusted);
   if (request.headers.get("x-debug-request") === "true") {
     return new Response(clientIp || "", {
       status: 200,
@@ -295,7 +297,7 @@ export async function plausibleEventRequestHandler(
       headers: CORS_HEADERS,
     });
   }
-  const effectiveIp = (await getClientIp(request, env)) || "unknown";
+  const effectiveIp = (await getClientIp(request, trusted)) || "unknown";
   const limited = await env.COLLECT_RATE_LIMIT?.limit({
     key: `${effectiveIp}:${input.siteId}`,
   });
@@ -311,8 +313,8 @@ export async function plausibleEventRequestHandler(
   );
   if (statusResponse) return statusResponse;
 
-  if (shouldDropBot(request)) {
-    return new Response("ok", {
+  const droppedResponse = () =>
+    new Response("ok", {
       status: 202,
       headers: {
         ...CORS_HEADERS,
@@ -320,6 +322,13 @@ export async function plausibleEventRequestHandler(
         "x-plausible-dropped": "1",
       },
     });
+
+  if (shouldDropBot(request)) {
+    return droppedResponse();
+  }
+
+  if (!trusted && shouldDropForeignHost(request, input.url ?? "", input.siteId)) {
+    return droppedResponse();
   }
 
   const event = await normalizeEvent(request, env, input, extra);

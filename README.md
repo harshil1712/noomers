@@ -8,6 +8,7 @@ _noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.d
 
 - **Lightweight tracker** — a single `tracker.js` (ESM or UMD) script tag, plus Plausible-compatible `pa-*.js` script routes, collects pageviews, custom events, scroll/engagement signals, and campaign parameters.
 - **Privacy by construction** — no cookies, no raw IPs or full user-agents persisted; visitor IDs are site-scoped, hostname-scoped, salted, and rotate daily in UTC.
+- **Host-checked collection** — events are only counted when the Origin and page host match the site's registered domain or a subdomain. A non-browser client can still fake those headers; use the server tracker with `SERVER_EVENTS_TOKEN` for events that must be trustworthy. Collection is rate-limited per IP+site.
 - **Realtime** — a per-site `SiteEvents` Durable Object buffers canonical events and serves live realtime aggregates over WebSocket.
 - **Full history** — events go straight to [Cloudflare Basin](https://developers.cloudflare.com/basin/) (Pipelines → R2 → Iceberg → Basin SQL), so there is no fixed retention limit.
 - **Dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; `OWNER_ADMIN_EMAIL`, or the first verified account if unset) with stats, timeseries, realtime, goals, and breakdown cards.

@@ -78,7 +78,7 @@ Set `SITES_API_TOKEN` and `STATS_API_TOKEN` to long random values (e.g.
 
 | Name                     | Kind                                        | Purpose                                                                   |
 | ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------- |
-| `SITES_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v1/*` (Plausible Sites API) and the erasure workflow     |
+| `SITES_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v1/*` (Plausible Sites API)                              |
 | `STATS_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v2/query` (and /api/v1 fallback)                         |
 | `SERVER_EVENTS_TOKEN`    | `production` environment secret             | Optional first-party server tracker token                                 |
 | `R2_SQL_IMPORT_TABLE`    | `production` environment variable, optional | Imported-history table UNIONed into queries (`scripts/plausible-import/`) |
@@ -86,20 +86,20 @@ Set `SITES_API_TOKEN` and `STATS_API_TOKEN` to long random values (e.g.
 
 ### Iceberg erasure
 
-Deleting a site writes a `site_deletion_jobs` row. A scheduled workflow
-(`.github/workflows/iceberg-erasure.yml`, daily at 03:17 UTC plus manual
-`workflow_dispatch`) runs `scripts/iceberg-erasure/erase.py`, which fetches
-due jobs (older than one hour) from `/api/maintenance/deletion-jobs`,
-row-deletes the site's rows through Basin Catalog, verifies nothing is left,
-and reports `completed`/`failed` back to the Worker. Managed snapshot
-expiration on the Data Catalog (enabled in `alchemy.run.ts`) then removes
-the data files the deleted snapshots no longer reference.
+Basin SQL is read-only, so deleting a site's history is a manual command
+run by the owner after deleting the site in the dashboard:
 
-Secrets used: `SITES_API_TOKEN` (must exist in the production environment
-for the workflow to run; it skips with a notice otherwise),
-`CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID`. To run it by hand:
-Actions → iceberg-erasure → Run workflow. Set the repo variable
-`R2_SQL_BUCKET` to the deployed stage's warehouse bucket name.
+```sh
+CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... R2_SQL_BUCKET=...   uv run scripts/iceberg-erasure/erase.py <domain>
+```
+
+The API token needs Basin Catalog Write + R2 Storage Write.
+`R2_SQL_BUCKET` is the stage's warehouse bucket — find it in the R2
+dashboard (the prod bucket is `noomers-noomers-warehouse-prod-qut55meehfd2yq56`).
+The command counts the site's rows, asks for confirmation (`--yes` skips),
+row-deletes them through Basin Catalog, and verifies nothing is left.
+Managed snapshot expiration on the Data Catalog (enabled in
+`alchemy.run.ts`) then removes the data files.
 
 ## Before going live
 
@@ -110,3 +110,5 @@ Actions → iceberg-erasure → Run workflow. Set the repo variable
   returns `ready` before pointing real sites at it.
 - Set `OWNER_ADMIN_EMAIL` before the public URL is live, or the first
   stranger to sign up becomes admin.
+- Optional: if a site sees collection abuse, add a Cloudflare WAF
+  rate-limiting rule on `/collect` and `/api/event` (not provisioned).

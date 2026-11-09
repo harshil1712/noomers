@@ -38,7 +38,7 @@ The primary goal of noomers is to be super easy to self-host and maintain. It sh
 To achieve that:
 
 - Application state lives in three places, all provisioned by `alchemy.run.ts`:
-  - **D1** — the authoritative site registry, goals, custom properties, tombstones/deletion jobs, and Better Auth tables (users, sessions). Collection fails closed against the D1 registry.
+  - **D1** — the authoritative site registry, goals, custom properties, tombstones, and Better Auth tables (users, sessions). Collection fails closed against the D1 registry.
   - **The SiteEvents Durable Object** — per-site realtime buffer that ships canonical events to the Basin Pipeline and serves the live dashboard.
   - **Basin/Iceberg** — the durable event archive (`noomers.events`) that Basin SQL queries for all historical analytics; there is no fixed retention cap.
 - We prioritize backwards compatibility

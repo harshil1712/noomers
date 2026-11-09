@@ -30,6 +30,7 @@ import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
+import { trackerSnippet } from "../../lib/tracker-snippet";
 import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 import {
   dashboardApi,
@@ -253,8 +254,7 @@ function Dashboard() {
   const query: DashboardQuery = { site, interval, timezone, filters, nonce };
   const realtime = useRealtime(site);
 
-  const trackingSnippet = `<script defer\n  src="${location.origin}/tracker.js"\n  data-site-id="${site || "example.com"}"></script>`;
-  const plausibleSnippet = `<script defer\n  src="${location.origin}/js/pa-XXXX.js"\n  data-domain="${site || "example.com"}"></script>`;
+  const trackingSnippet = trackerSnippet(site || "example.com");
 
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -325,7 +325,7 @@ function Dashboard() {
                     )}
                   />
                 </div>
-                <Dialog.Description>Add one of these snippets to your site.</Dialog.Description>
+                <Dialog.Description>Add this snippet to your site.</Dialog.Description>
                 <div className="mt-3 flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <span className="mono-label">Site ID</span>
@@ -339,14 +339,6 @@ function Dashboard() {
                     </Text>
                     <div className="overflow-x-auto">
                       <Code.Block code={trackingSnippet} lang="tsx" />
-                    </div>
-                  </div>
-                  <div>
-                    <Text variant="secondary" size="sm">
-                      Plausible-style
-                    </Text>
-                    <div className="overflow-x-auto">
-                      <Code.Block code={plausibleSnippet} lang="tsx" />
                     </div>
                   </div>
                 </div>
@@ -1246,12 +1238,7 @@ function PanelError({ message }: { message: string }) {
 }
 
 function EmptyRows({ site }: { site: string }) {
-  const snippet = `<script defer src="${location.origin}/tracker.js" data-site-id="${site}"></script>`;
   return (
-    <Empty
-      title="No data in this range"
-      description={`Once the tracker is installed on ${site}, visits appear here within a few minutes.`}
-      commandLine={snippet}
-    />
+    <Empty title="No data in this range" description={`No visits from ${site} in this range.`} />
   );
 }

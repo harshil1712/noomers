@@ -6,26 +6,28 @@
 #   "pyarrow>=17,<24",
 # ]
 # ///
-"""Erase deleted sites' rows from the noomers Basin Iceberg tables.
+"""Manually erase a deleted site's rows from the Basin Iceberg tables.
 
-Runs daily from .github/workflows/iceberg-erasure.yml. Asks the Worker's
-/api/maintenance/deletion-jobs endpoints for due jobs, row-deletes each
-site's rows through the Basin Catalog REST endpoint, verifies nothing is
-left, and reports the result back. Basin's managed snapshot expiration
-(configured in alchemy.run.ts) then removes the orphaned data files.
+Run this ONLY after deleting the site in the dashboard — deletion
+tombstones it, purges its Durable Object, and stops collection, but the
+historical rows stay in the warehouse until this command removes them.
+Basin's managed snapshot expiration (configured in alchemy.run.ts) then
+removes the old data files. Basin SQL is read-only, so physical row
+deletion must go through PyIceberg here, by hand.
 
-Env (all required except ICEBERG_TABLES):
-  NOOMERS_APP_URL, SITES_API_TOKEN, CLOUDFLARE_ACCOUNT_ID,
-  CLOUDFLARE_API_TOKEN, R2_SQL_BUCKET
-  ICEBERG_TABLES — comma-separated, default "noomers.events"
+Usage:
+  uv run scripts/iceberg-erasure/erase.py [--yes] <domain> [<domain> ...]
+
+Env:
+  CLOUDFLARE_ACCOUNT_ID   — Cloudflare account id
+  CLOUDFLARE_API_TOKEN    — needs Basin Catalog Write + R2 Storage Write
+  R2_SQL_BUCKET           — the stage's warehouse bucket (R2 dashboard)
+  ICEBERG_TABLES          — comma-separated, default "noomers.events"
 """
 
-import json
 import os
 import re
 import sys
-import urllib.request
-from dataclasses import dataclass
 
 SITE_ID_RE = re.compile(r"^[a-z0-9.-]+$")
 
@@ -37,91 +39,68 @@ def required_env(name: str) -> str:
     return value
 
 
-class HttpJobsClient:
-    def __init__(self, base_url: str, token: str):
-        self.base_url = base_url.rstrip("/")
-        self.token = token
-
-    def _request(self, method: str, path: str, body=None):
-        req = urllib.request.Request(
-            f"{self.base_url}{path}",
-            method=method,
-            headers={
-                "Authorization": f"Bearer {self.token}",
-                "Content-Type": "application/json",
-            },
-        )
-        if body is not None:
-            req.data = json.dumps(body).encode()
-        with urllib.request.urlopen(req) as res:
-            return json.loads(res.read())
-
-    def list_due(self) -> list[dict]:
-        return self._request("GET", "/api/maintenance/deletion-jobs")["jobs"]
-
-    def report(self, job_id: str, status: str, error=None):
-        body = {"status": status}
-        if error is not None:
-            body["error"] = error
-        self._request("POST", f"/api/maintenance/deletion-jobs/{job_id}", body)
-
-
-@dataclass
-class Result:
-    job_id: str
-    status: str
-    error: str | None = None
-
-
-def erase_jobs(catalog, tables: list[str], jobs_client) -> list[Result]:
-    """Erase each due job's site rows from every table; report back per job."""
+def erase_domain(catalog, tables: list[str], domain: str, assume_yes: bool) -> bool:
+    """Delete one site's rows from every table. Returns True on success."""
     from pyiceberg.catalog import NoSuchTableError
     from pyiceberg.expressions import EqualTo
 
-    results: list[Result] = []
-    for job in jobs_client.list_due():
-        job_id = job["id"]
-        site_id = job["site_id"]
+    if not SITE_ID_RE.match(domain):
+        print(f"{domain}: invalid domain, skipping")
+        return False
+
+    for name in tables:
         try:
-            if not site_id or not site_id.strip() or not SITE_ID_RE.match(site_id):
-                jobs_client.report(job_id, "failed", "invalid site_id")
-                results.append(Result(job_id, "failed", "invalid site_id"))
-                print(f"job {job_id}: failed (invalid site_id)")
+            table = catalog.load_table(name)
+        except NoSuchTableError:
+            print(f"{domain}: table {name} not found, skipping")
+            continue
+        count = (
+            table.scan(
+                row_filter=EqualTo("site_id", domain),
+                selected_fields=("site_id",),
+            )
+            .to_arrow()
+            .num_rows
+        )
+        if count == 0:
+            print(f"{domain}: no rows in {name}, skipping")
+            continue
+        if not assume_yes:
+            if input(f"{count} rows for {domain} in {name} — delete? [y/N] ").strip().lower() != "y":
+                print(f"{domain}: declined, nothing deleted in {name}")
                 continue
-            for name in tables:
-                try:
-                    table = catalog.load_table(name)
-                except NoSuchTableError:
-                    continue
-                table.delete(delete_filter=EqualTo("site_id", site_id))
-                table.refresh()
-                remaining = table.scan(
-                    row_filter=EqualTo("site_id", site_id),
-                    selected_fields=("site_id",),
-                ).to_arrow().num_rows
-                if remaining != 0:
-                    raise RuntimeError(f"{name} still has {remaining} rows")
-            jobs_client.report(job_id, "completed")
-            results.append(Result(job_id, "completed"))
-            print(f"job {job_id}: completed")
-        except Exception as e:  # noqa: BLE001 — report and continue
-            detail = f"{type(e).__name__}: {str(e)[:300]}"
-            try:
-                jobs_client.report(job_id, "failed", detail)
-            except Exception:
-                pass
-            results.append(Result(job_id, "failed", detail))
-            print(f"job {job_id}: failed ({type(e).__name__})")
-    return results
+        table.delete(delete_filter=EqualTo("site_id", domain))
+        table.refresh()
+        remaining = (
+            table.scan(
+                row_filter=EqualTo("site_id", domain),
+                selected_fields=("site_id",),
+            )
+            .to_arrow()
+            .num_rows
+        )
+        if remaining != 0:
+            raise RuntimeError(f"{name} still has {remaining} rows for {domain}")
+        print(f"{domain}: deleted {count} rows from {name}")
+    return True
 
 
 def main() -> int:
-    app_url = required_env("NOOMERS_APP_URL")
-    sites_token = required_env("SITES_API_TOKEN")
+    args = [a for a in sys.argv[1:]]
+    assume_yes = "--yes" in args
+    domains = [a for a in args if not a.startswith("--")]
+    if not domains:
+        print(__doc__)
+        return 1
+
     account = required_env("CLOUDFLARE_ACCOUNT_ID")
     api_token = required_env("CLOUDFLARE_API_TOKEN")
     bucket = required_env("R2_SQL_BUCKET")
-    tables = [t.strip() for t in os.environ.get("ICEBERG_TABLES", "noomers.events").split(",") if t.strip()]
+    tables = [
+        t.strip()
+        for t in os.environ.get("ICEBERG_TABLES", "noomers.events").split(",")
+        if t.strip()
+    ]
 
     from pyiceberg.catalog import load_catalog
 
@@ -133,9 +112,16 @@ def main() -> int:
             "token": api_token,
         },
     )
-    jobs = HttpJobsClient(app_url, sites_token)
-    results = erase_jobs(catalog, tables, jobs)
-    return 1 if any(r.status == "failed" for r in results) else 0
+
+    ok = True
+    for domain in domains:
+        try:
+            if not erase_domain(catalog, tables, domain, assume_yes):
+                ok = False
+        except Exception as e:  # noqa: BLE001 — continue with other domains
+            ok = False
+            print(f"{domain}: failed ({type(e).__name__}: {str(e)[:300]})")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

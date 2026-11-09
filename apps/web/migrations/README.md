@@ -7,6 +7,9 @@ Hand-maintained SQL, applied by Alchemy on deploy (see `alchemy.run.ts`).
 - `0002_auth.sql` — Better Auth schema (user/session/account/verification),
   matching `src/auth-schema.ts` (regenerate that file with
   `vp run auth:generate`).
+- `0003_goal_currency.sql` — goal currency column.
+- `0004_drop_site_deletion_jobs.sql` — drops the deletion-jobs table; Iceberg
+  erasure is now a manual command, not a worker-tracked job.
 
 Migrations are append-only: add the next numbered file and never edit or
 rename one that any deployment has applied. Nothing has been deployed yet,
