@@ -1,0 +1,22 @@
+name: Live check
+on:
+  workflow_run:
+    workflows: [Deploy prod]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency: live-check
+jobs:
+  live-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    environment: production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - name: Live check against production
+        env:
+          SITES_API_TOKEN: ${{ secrets.SITES_API_TOKEN }}
+          STATS_API_TOKEN: ${{ secrets.STATS_API_TOKEN }}
+        run: node scripts/live-check.mjs

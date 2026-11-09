@@ -110,5 +110,11 @@ Managed snapshot expiration on the Data Catalog (enabled in
   returns `ready` before pointing real sites at it.
 - Set `OWNER_ADMIN_EMAIL` before the public URL is live, or the first
   stranger to sign up becomes admin.
+- The **Live check** workflow (`scripts/live-check.mjs`) runs after every
+  successful prod deploy, or by hand from Actions. It registers a throwaway
+  `r<run>.livecheck.noomers.com` site, sends a fixed dataset through
+  `/collect` and `/api/event`, waits for Basin (~5 min), asserts exact Stats
+  API results, then deletes the site. Run it locally with
+  `SITES_API_TOKEN=… STATS_API_TOKEN=… node scripts/live-check.mjs`.
 - Optional: if a site sees collection abuse, add a Cloudflare WAF
   rate-limiting rule on `/collect` and `/api/event` (not provisioned).
