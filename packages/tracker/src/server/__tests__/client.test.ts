@@ -16,7 +16,7 @@ describe("ServerClient", () => {
             expect(client.reporterUrl).toBe("https://example.com/collect");
             expect(client.reportOnLocalhost).toBe(false);
             expect(client.userAgent).toBeUndefined();
-            expect(client.timeout).toBe(1000);
+            expect(client.timeout).toBe(5000);
         });
 
         it("should set reportOnLocalhost when provided", () => {

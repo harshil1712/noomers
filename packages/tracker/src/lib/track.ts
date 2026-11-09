@@ -106,6 +106,24 @@ export async function trackPageview(
     startEngagement(client, hostname, path, referrer);
 
     let hitType: string | undefined;
+
+    const send = (ht: string | undefined) => {
+        const requestParams = buildCollectRequestParams(
+            client.siteId,
+            hostname,
+            path,
+            referrer,
+            utmParams,
+            ht,
+        );
+        makeRequest(client.reporterUrl, requestParams);
+    };
+
+    // If the page unloads while /cache is pending, flushPendingPageview sends
+    // with the "1" fallback; otherwise the resolved ht is used. Either way the
+    // pageview is sent exactly once.
+    flushPendingPageview();
+    pendingPageview = send;
     try {
         const cacheStatus = await checkCacheStatus(
             client.reporterUrl,
@@ -117,16 +135,18 @@ export async function trackPageview(
         // The collect endpoint will handle the missing parameters
     }
 
-    const requestParams = buildCollectRequestParams(
-        client.siteId,
-        hostname,
-        path,
-        referrer,
-        utmParams,
-        hitType,
-    );
+    if (pendingPageview === send) {
+        pendingPageview = undefined;
+        send(hitType);
+    }
+}
 
-    makeRequest(client.reporterUrl, requestParams);
+let pendingPageview: ((ht?: string) => void) | undefined;
+
+export function flushPendingPageview() {
+    const send = pendingPageview;
+    pendingPageview = undefined;
+    send?.("1");
 }
 
 export async function trackEvent(

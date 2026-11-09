@@ -749,3 +749,95 @@ describe("trackPageview", () => {
         });
     });
 });
+
+describe("pending pageview on unload", () => {
+    const makeRequestMock = vi.fn();
+    let client: Client;
+
+    beforeEach(() => {
+        client = new Client({
+            siteId: "example.com",
+            reporterUrl: "https://a.test/collect",
+            auto: false,
+            reportOnLocalhost: true,
+        } as never);
+        vi.spyOn(requestModule, "makeRequest").mockImplementation(makeRequestMock);
+        makeRequestMock.mockReset();
+        vi.spyOn(document, "querySelector").mockReturnValue(null);
+        Object.defineProperty(window, "location", {
+            writable: true,
+            value: {
+                pathname: "/test-path",
+                search: "",
+                host: "example.com",
+                hostname: "example.com",
+            },
+        });
+        Object.defineProperty(document, "referrer", { writable: true, value: "" });
+    });
+
+    afterEach(async () => {
+        const { flushPendingPageview } = await import("../track");
+        flushPendingPageview();
+        makeRequestMock.mockReset();
+    });
+
+    test("cache resolves first → one pageview with returned ht", async () => {
+        vi.spyOn(requestModule, "checkCacheStatus").mockResolvedValue({ ht: 2 } as never);
+        const { flushPendingPageview } = await import("../track");
+        await trackPageview(client);
+        expect(makeRequestMock).toHaveBeenCalledTimes(1);
+        flushPendingPageview();
+        expect(makeRequestMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("flush while /cache pending → sends ht=1 once, not again on resolve", async () => {
+        vi.spyOn(requestModule, "checkCacheStatus").mockImplementation(
+            () => new Promise(() => {}) as never,
+        );
+        const { flushPendingPageview } = await import("../track");
+        const p = trackPageview(client);
+        await Promise.resolve();
+        flushPendingPageview();
+        expect(makeRequestMock).toHaveBeenCalledTimes(1);
+        expect(makeRequestMock.mock.calls[0][1]).toMatchObject({ ht: "1" });
+        // Pending was cleared — a later resolve sends nothing more.
+        flushPendingPageview();
+        expect(makeRequestMock).toHaveBeenCalledTimes(1);
+        void p;
+    });
+
+    test("pagehide issues the pageview fetch before the engagement request", async () => {
+        const { instrumentEngagementLifecycle } = await import("../instrument");
+        vi.spyOn(requestModule, "checkCacheStatus").mockImplementation(
+            () => new Promise(() => {}) as never,
+        );
+        const lifecycleMock = vi.fn();
+        vi.spyOn(requestModule, "sendLifecycleRequest").mockImplementation(
+            lifecycleMock as typeof requestModule.sendLifecycleRequest,
+        );
+        instrumentEngagementLifecycle(client);
+        void trackPageview(client);
+        await Promise.resolve();
+        window.dispatchEvent(new Event("pagehide"));
+        expect(makeRequestMock).toHaveBeenCalled();
+        expect(
+            makeRequestMock.mock.invocationCallOrder[0],
+        ).toBeLessThan(lifecycleMock.mock.invocationCallOrder[0] ?? Infinity);
+    });
+
+    test("second trackPageview flushes the first, then sends its own", async () => {
+        vi.spyOn(requestModule, "checkCacheStatus").mockImplementation(
+            () => new Promise(() => {}) as never,
+        );
+        const p1 = trackPageview(client);
+        await Promise.resolve();
+        const p2 = trackPageview(client);
+        await Promise.resolve();
+        const { flushPendingPageview } = await import("../track");
+        flushPendingPageview();
+        expect(makeRequestMock).toHaveBeenCalledTimes(2);
+        void p1;
+        void p2;
+    });
+});

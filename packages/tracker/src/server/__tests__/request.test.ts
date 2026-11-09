@@ -88,7 +88,7 @@ describe("makeRequest", () => {
                 r: "",
                 ip: "203.0.113.10",
             },
-            1000,
+            5000,
             "Visitor Browser",
         );
 
@@ -130,7 +130,7 @@ describe("makeRequest", () => {
 
         expect(global.setTimeout).toHaveBeenCalledWith(
             expect.any(Function),
-            1000,
+            5000,
         );
     });
 

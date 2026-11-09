@@ -1,4 +1,5 @@
 import type { Client } from "./client";
+import { flushPendingPageview } from "./track";
 import {
     onEngagementHidden,
     onEngagementPagehide,
@@ -35,6 +36,7 @@ export function instrumentHistoryBuiltIns(callback: () => void) {
 export function instrumentEngagementLifecycle(client: Client): () => void {
     const onVisibilityChange = () => {
         if (document.visibilityState === "hidden") {
+            flushPendingPageview();
             onEngagementHidden(client);
         } else {
             onEngagementVisible(client);
@@ -42,6 +44,7 @@ export function instrumentEngagementLifecycle(client: Client): () => void {
     };
 
     const onPagehide = () => {
+        flushPendingPageview();
         onEngagementPagehide(client);
     };
 

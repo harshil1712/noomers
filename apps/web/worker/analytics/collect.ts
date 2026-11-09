@@ -435,17 +435,18 @@ export async function recordNormalizedEvent(
     throw new Error("SITE_EVENTS binding is not configured");
   }
   const namespace = env.SITE_EVENTS as unknown as SiteEventsNamespace;
-  // Pipelines confirms ingest on send() resolution; the DO keeps the same
-  // event for realtime. Both are awaited — either failing is fail-closed 500 —
-  // and registered with waitUntil so a client disconnect can't cancel them.
-  const ingest = Promise.all([
-    env.EVENT_STREAM
-      ? env.EVENT_STREAM.send([
-          durableEvent as unknown as import("cloudflare:pipelines").PipelineRecord,
-        ])
-      : undefined,
-    namespace.get(namespace.idFromName(event.siteId)).record(durableEvent),
-  ]);
+  // Pipelines confirms ingest on send() resolution; only then does the DO
+  // keep the event for realtime, so realtime never counts an event that never
+  // reached history. Either failing is fail-closed 500; waitUntil keeps it
+  // alive through a client disconnect.
+  const ingest = (async () => {
+    if (env.EVENT_STREAM) {
+      await env.EVENT_STREAM.send([
+        durableEvent as unknown as import("cloudflare:pipelines").PipelineRecord,
+      ]);
+    }
+    await namespace.get(namespace.idFromName(event.siteId)).record(durableEvent);
+  })();
   ctx.waitUntil(ingest.catch(() => {}));
   await ingest;
 }

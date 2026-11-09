@@ -1110,7 +1110,7 @@ describe("hostname allowlist", () => {
 });
 
 describe("waitUntil ingest", () => {
-  test("successful pageview registers one waitUntil promise covering both writes", async () => {
+  test("successful pageview registers one waitUntil promise; send resolves before record", async () => {
     const captured: Promise<unknown>[] = [];
     const ctx = { waitUntil: (p: Promise<unknown>) => captured.push(p) };
     const send = vi.fn().mockResolvedValue(undefined);
@@ -1131,6 +1131,9 @@ describe("waitUntil ingest", () => {
     await captured[0];
     expect(send).toHaveBeenCalledOnce();
     expect(siteEventsStub.record).toHaveBeenCalled();
+    expect(send.mock.invocationCallOrder[0]).toBeLessThan(
+      siteEventsStub.record.mock.invocationCallOrder[0],
+    );
   });
 
   test("EVENT_STREAM rejection still returns 500 and waitUntil settles cleanly", async () => {
@@ -1151,5 +1154,6 @@ describe("waitUntil ingest", () => {
     expect(response.status).toBe(500);
     expect(captured).toHaveLength(1);
     await expect(captured[0]).resolves.toBeUndefined();
+    expect(siteEventsStub.record).not.toHaveBeenCalled();
   });
 });
