@@ -460,6 +460,16 @@ function encodeTrackingPixel(): ArrayBuffer {
 
 const TRACKING_PIXEL_BUFFER = encodeTrackingPixel();
 
+// The native tracker sends `h` as a full origin; older snippets/tests send the
+// bare host. Store the hostname so `event:hostname` matches the Plausible path.
+function pageHost(h = ""): string {
+  try {
+    return new URL(h.includes("://") ? h.trim() : `https://${h.trim()}`).hostname;
+  } catch {
+    return "";
+  }
+}
+
 function trackingPixelResponse({
   dropped,
   nextLastModifiedDate,
@@ -677,7 +687,7 @@ export async function collectRequestHandler(
         eventType: "engagement",
         eventName: "engagement",
         eventProperties: "",
-        host: params.h,
+        host: pageHost(params.h),
         path: params.p,
         referrer: params.r,
         interactive: false,
@@ -718,7 +728,7 @@ export async function collectRequestHandler(
       eventType: event.eventName ? "custom" : "pageview",
       eventName: event.eventName || "pageview",
       eventProperties: event.eventProperties,
-      host: params.h,
+      host: pageHost(params.h),
       path: params.p,
       referrer: params.r,
       interactive: true,

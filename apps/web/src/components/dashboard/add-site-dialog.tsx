@@ -1,10 +1,10 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Button, Code, Combobox, Dialog, Input, Text } from "@cloudflare/kumo";
+import { Button, Combobox, Dialog, Input, Text } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
 import { dashboardApi, DashboardApiError } from "../../lib/dashboard-api";
 import { refreshSites } from "../../lib/use-sites";
-import { trackerSnippet } from "../../lib/tracker-snippet";
+import { TrackerSnippetBlock } from "./tracker-snippet-block";
 
 const TIMEZONES = Intl.supportedValuesOf("timeZone");
 
@@ -53,7 +53,7 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
   );
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
-  const [added, setAdded] = useState<{ domain: string; snippet: string } | null>(null);
+  const [added, setAdded] = useState<{ domain: string } | null>(null);
 
   const reset = (next: boolean) => {
     setOpen(next);
@@ -74,10 +74,7 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
     setPending(true);
     try {
       const site = await dashboardApi.createSite(domain.trim(), timezone);
-      setAdded({
-        domain: site.domain,
-        snippet: trackerSnippet(site.domain),
-      });
+      setAdded({ domain: site.domain });
     } catch (err) {
       if (err instanceof DashboardApiError && err.status === 403) {
         setError("Only the owner account can add sites.");
@@ -111,10 +108,11 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
         {added ? (
           <>
             <Dialog.Description>
-              Add this snippet to the site to start collecting.
+              Paste this into the {"<head>"} of every page on {added.domain}. Visits show up in
+              Realtime within seconds.
             </Dialog.Description>
             <div className="mt-3">
-              <Code.Block code={added.snippet} lang="tsx" />
+              <TrackerSnippetBlock domain={added.domain} />
             </div>
             <div className="mt-4 flex justify-end">
               <Button

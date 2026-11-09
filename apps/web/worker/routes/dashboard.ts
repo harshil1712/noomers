@@ -2,12 +2,13 @@ import { z } from "zod";
 import { Hono } from "hono";
 import { createAuth } from "../auth";
 import { sessionAnalyticsFactory } from "../lib/context";
+import { getFiltersFromSearchParams, paramsFromUrl } from "../lib/utils";
 import {
-  getDateTimeRange,
-  getFiltersFromSearchParams,
-  getIntervalType,
-  paramsFromUrl,
-} from "../lib/utils";
+  getTimeBuckets,
+  parseDateRange,
+  resolveTimeDimension,
+  StatsAPIError,
+} from "../analytics/stats-api";
 import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
@@ -35,6 +36,16 @@ async function siteTimezone(env: Env, site: string): Promise<string> {
   }
 }
 
+function dateRange(interval: string, tz: string): { startDate: Date; endDate: Date } | null {
+  try {
+    const { start, end } = parseDateRange(interval, tz);
+    return { startDate: start, endDate: end };
+  } catch (e) {
+    if (e instanceof StatsAPIError) return null;
+    throw e;
+  }
+}
+
 function searchParams(request: Request): URLSearchParams {
   return new URL(request.url).searchParams;
 }
@@ -55,7 +66,9 @@ async function breakdown(
   }
   const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(url.searchParams);
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
   const analytics = c.sessionAnalytics();
 
   const isVisit = dimension.startsWith("visit:");
@@ -136,9 +149,11 @@ export async function listSites(c: Ctx) {
 /** GET /api/dashboard/stats */
 export async function stats(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
-  const tz = searchParams(request).get("timezone") || "UTC";
+  const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
   const analytics = c.sessionAnalytics();
   const toStatsMetrics = (m: Awaited<ReturnType<typeof analytics.getSessionMetrics>>) => ({
     views: m.views,
@@ -160,24 +175,27 @@ export async function stats(c: Ctx, request: Request) {
 /** GET /api/dashboard/timeseries */
 export async function timeseries(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
-  const tz = searchParams(request).get("timezone") || "UTC";
+  const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
-  const intervalType = getIntervalType(interval);
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
-  const dimension = intervalType === "HOUR" ? "time:hour" : "time:day";
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
+  const dimension = resolveTimeDimension("time", startDate, endDate);
+  const buckets = getTimeBuckets(dimension, startDate, endDate, tz);
   const { rows } = await c
     .sessionAnalytics()
-    .getSessionBreakdown(site, startDate, endDate, filters, dimension, undefined, {
-      orderBy: [{ field: "dimension", direction: "asc" }],
-    });
+    .getSessionBreakdown(site, startDate, endDate, filters, dimension, buckets);
+  const byLabel = new Map(rows.map((row) => [row.dimension, row]));
   return Response.json({
-    chartData: rows.map((row) => ({
-      date: row.dimension,
-      views: row.views,
-      visitors: row.visitors,
-      bounceRate: Math.floor((row.visits > 0 ? row.bounces / row.visits : 0) * 100),
-    })),
-    intervalType,
+    chartData: buckets.map((bucket) => {
+      const row = byLabel.get(bucket.label);
+      return {
+        date: bucket.start.toISOString(),
+        views: row?.views ?? 0,
+        visitors: row?.visitors ?? 0,
+        bounceRate: Math.floor((row && row.visits > 0 ? row.bounces / row.visits : 0) * 100),
+      };
+    }),
   });
 }
 
@@ -186,9 +204,11 @@ export async function goals(c: Ctx, request: Request) {
   const { interval, site } = paramsFromUrl(request.url);
   const tz = await siteTimezone(c.env, site);
   const filters = getFiltersFromSearchParams(searchParams(request));
+  const range = dateRange(interval, tz);
+  if (!range) return Response.json({ error: "Unsupported interval" }, { status: 400 });
+  const { startDate, endDate } = range;
   const repository = new GoalsRepository(c.env.DB);
   const goalList = await repository.list(site);
-  const { startDate, endDate } = getDateTimeRange(interval, tz);
   const analytics = c.sessionAnalytics();
   const result = await analytics.getGoalBreakdown(site, startDate, endDate, filters, goalList);
   return Response.json({

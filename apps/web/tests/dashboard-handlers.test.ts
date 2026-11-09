@@ -204,7 +204,16 @@ describe("dashboard handlers (ported loader tests)", () => {
 
   test("timeseries picks hour/day buckets by interval", async () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({
-      rows: [{ dimension: "2024-01-01", visitors: 1, visits: 1, views: 2, events: 2, bounces: 0 }],
+      rows: [
+        {
+          dimension: new Date().toISOString().slice(0, 10),
+          visitors: 1,
+          visits: 1,
+          views: 2,
+          events: 2,
+          bounces: 0,
+        },
+      ],
     });
     const res = await timeseries(
       ctx({ getSessionBreakdown }),
@@ -216,12 +225,10 @@ describe("dashboard handlers (ported loader tests)", () => {
       expect.any(Date),
       {},
       "time:day",
-      undefined,
-      expect.objectContaining({ orderBy: [{ field: "dimension", direction: "asc" }] }),
+      expect.any(Array),
     );
-    const body = await res.json<{ intervalType: string; chartData: unknown[] }>();
-    expect(body.intervalType).toBe("DAY");
-    expect(body.chartData).toHaveLength(1);
+    const body = await res.json<{ chartData: { views: number }[] }>();
+    expect(body.chartData.some((r) => r.views === 2)).toBe(true);
   });
 
   test("goals returns goals with conversions", async () => {
@@ -287,5 +294,76 @@ describe("dashboard handlers (ported loader tests)", () => {
     );
     const body = await list.json<{ goals: { name: string }[] }>();
     expect(body.goals.map((g) => g.name)).toContain("purchase");
+  });
+});
+
+describe("timeseries", () => {
+  test("returns chronological, zero-filled buckets", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          dimension: new Date().toISOString().slice(0, 10),
+          visitors: 2,
+          visits: 2,
+          views: 5,
+          events: 5,
+          bounces: 0,
+        },
+      ],
+    });
+    const res = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=30d"),
+    );
+    const body = await res.json();
+    expect(body.chartData.length).toBeGreaterThan(25);
+    const dates = body.chartData.map((r) => r.date);
+    expect([...dates].sort()).toEqual(dates);
+    const withViews = body.chartData.filter((r) => r.views > 0);
+    expect(withViews).toHaveLength(1);
+    expect(withViews[0].visitors).toBe(2);
+    expect(body.chartData.every((r) => "date" in r && "bounceRate" in r)).toBe(true);
+    // buckets are the 6th arg
+    expect(getSessionBreakdown.mock.calls[0][5]).toBeInstanceOf(Array);
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:day");
+  });
+
+  test("12mo uses MONTH buckets; day uses hourly", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
+    const res = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=12mo"),
+    );
+    expect(res.status).toBe(200);
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:month");
+    getSessionBreakdown.mockClear();
+    const day = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=day"),
+    );
+    expect(day.status).toBe(200);
+    expect(getSessionBreakdown.mock.calls[0][4]).toBe("time:hour");
+    const six = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=6mo"),
+    );
+    expect(six.status).toBe(200);
+    const month = await timeseries(
+      ctx({ getSessionBreakdown }),
+      url("timeseries?site=x&interval=month"),
+    );
+    expect(month.status).toBe(200);
+  });
+
+  test("unsupported interval → 400 on every range route", async () => {
+    const res = await timeseries(ctx({}), url("timeseries?site=x&interval=bogus"));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Unsupported interval" });
+    const st = await stats(ctx({}), url("stats?site=x&interval=bogus"));
+    expect(st.status).toBe(400);
+    const bd = await cardBreakdown(ctx({}), url("paths?site=x&interval=bogus"), "paths");
+    expect(bd.status).toBe(400);
+    const gl = await goals(ctx({}), url("goals?site=x&interval=bogus"));
+    expect(gl.status).toBe(400);
   });
 });

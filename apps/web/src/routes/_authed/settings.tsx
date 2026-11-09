@@ -371,6 +371,7 @@ function SitesSettings() {
               <Text>{site.domain}</Text>
               <div className="w-56">
                 <TimezonePicker
+                  label={`Reporting timezone for ${site.domain}`}
                   value={timezones[site.domain] ?? site.timezone}
                   onChange={(tz) => setTimezones((t) => ({ ...t, [site.domain]: tz }))}
                 />

@@ -20,7 +20,7 @@ import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 echarts.use([LineChart, GridComponent, TooltipComponent, CanvasRenderer]);
 
 const OVERVIEW_INTERVALS = [
-  { value: "1d", label: "Last 24 hours" },
+  { value: "24h", label: "Last 24 hours" },
   { value: "day", label: "Today" },
   { value: "7d", label: "Last 7 days" },
   { value: "30d", label: "Last 30 days" },
@@ -66,7 +66,6 @@ function SiteCard({
   const query: DashboardQuery = {
     site,
     interval,
-    timezone,
     filters: {},
     nonce,
   };
@@ -220,7 +219,7 @@ function SitesOverview() {
   const { sites: siteList, error: sitesError, forbidden } = useSharedSites();
   const sites = useMemo(() => siteList?.map((s) => s.domain) ?? null, [siteList]);
   const [failures, setFailures] = useState<Set<string>>(new Set());
-  const interval = search.interval || "1d";
+  const interval = search.interval || "24h";
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   const reportError = (key: string, failed: boolean) => {

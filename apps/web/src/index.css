@@ -127,12 +127,12 @@
   color: var(--brand-text-hover);
 }
 
-/* live accent — amber dot, pulsing unless reduced motion */
+/* live accent — brand dot, pulsing unless reduced motion */
 .live-dot {
   width: 8px;
   height: 8px;
   border-radius: 9999px;
-  background: var(--live-dot);
+  background: var(--color-kumo-brand);
   display: inline-block;
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -141,7 +141,7 @@
   }
   @keyframes live-pulse {
     0% {
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--live-dot) 60%, transparent);
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-kumo-brand) 60%, transparent);
     }
     70% {
       box-shadow: 0 0 0 8px transparent;

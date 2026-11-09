@@ -224,3 +224,70 @@ describe("collect endpoint", () => {
     expect(siteEventsRecord).not.toHaveBeenCalled();
   });
 });
+describe("page hostname normalization", () => {
+  const collectEnv = (send: ReturnType<typeof vi.fn>) => ({
+    SITE_EVENTS: siteEventsNamespace,
+    VISITOR_SALT: "test-salt",
+    EVENT_STREAM: { send },
+    DB: {
+      prepare: vi.fn(() => ({
+        bind: vi.fn().mockReturnThis(),
+        first: vi.fn().mockResolvedValue({ status: "active" }),
+      })),
+    },
+  });
+  const sentEvent = (send: ReturnType<typeof vi.fn>) => send.mock.calls[0][0][0];
+
+  test("records the hostname for an origin-form h", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = collectEnv(send);
+    const response = await collectRequestHandler(
+      new Request(
+        "https://example.com/collect?sid=example.com&p=/test&h=https%3A%2F%2Fexample.com&r=&ht=1",
+        {
+          headers: { "user-agent": browserUserAgent },
+        },
+      ),
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(sentEvent(send)).toEqual(expect.objectContaining({ hostname: "example.com" }));
+  });
+
+  test("records the hostname for a bare-host h", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = collectEnv(send);
+    const response = await collectRequestHandler(
+      new Request("https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1", {
+        headers: { "user-agent": browserUserAgent },
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(sentEvent(send)).toEqual(expect.objectContaining({ hostname: "example.com" }));
+  });
+
+  test("engagement POST records the hostname for an origin-form h", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = collectEnv(send);
+    const response = await collectRequestHandler(
+      new Request("https://example.com/collect", {
+        method: "POST",
+        headers: { "user-agent": browserUserAgent },
+        body: new URLSearchParams({
+          sid: "example.com",
+          h: "https://example.com",
+          p: "/article",
+          r: "",
+          et: "engagement",
+          e: "5000",
+        }),
+      }),
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(sentEvent(send)).toEqual(
+      expect.objectContaining({ event_type: "engagement", hostname: "example.com" }),
+    );
+  });
+});

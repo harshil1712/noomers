@@ -11,8 +11,6 @@ import {
   Breadcrumbs,
   Button,
   ChartLegend,
-  Code,
-  ClipboardText,
   Dialog,
   Empty,
   Grid,
@@ -30,7 +28,7 @@ import { useDocumentTitle } from "../../lib/use-document-title";
 import { themeColor } from "../../lib/use-is-dark";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
-import { trackerSnippet } from "../../lib/tracker-snippet";
+import { TrackerSnippetBlock } from "../../components/dashboard/tracker-snippet-block";
 import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 import {
   dashboardApi,
@@ -78,7 +76,7 @@ const CAMPAIGN_DIMS: { card: BreakdownCard; label: string; filter: FilterKey }[]
 const PANELS: {
   title: string;
   tabs: {
-    card: BreakdownCard | "goals" | "events-props" | "campaigns";
+    card: BreakdownCard | "goals" | "campaigns";
     label: string;
     filter?: FilterKey;
   }[];
@@ -110,17 +108,13 @@ const PANELS: {
   { title: "Goals", tabs: [{ card: "goals", label: "Conversions" }] },
   {
     title: "Events",
-    tabs: [
-      { card: "events", label: "Events", filter: "name" },
-      { card: "events-props", label: "Props" },
-    ],
+    tabs: [{ card: "events", label: "Events", filter: "name" }],
   },
 ];
 
 interface SearchParams {
   site?: string;
   interval?: string;
-  timezone?: string;
   tab?: string;
   path?: string;
   name?: string;
@@ -138,10 +132,7 @@ interface SearchParams {
 
 const searchSchema = z.object(
   Object.fromEntries(
-    ["site", "interval", "timezone", "tab", ...FILTER_KEYS].map((key) => [
-      key,
-      z.string().optional(),
-    ]),
+    ["site", "interval", "tab", ...FILTER_KEYS].map((key) => [key, z.string().optional()]),
   ),
 );
 
@@ -152,14 +143,6 @@ export const Route = createFileRoute("/_authed/dashboard")({
   },
   component: Dashboard,
 });
-
-function userTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return "UTC";
-  }
-}
 
 function useIsDark(): boolean {
   const [dark, setDark] = useState(
@@ -217,7 +200,7 @@ function Dashboard() {
   }, [sites, site, navigate]);
 
   const interval = search.interval || "7d";
-  const timezone = search.timezone || userTimezone();
+  const timezone = siteList?.find((s) => s.domain === (search.site ?? ""))?.timezone ?? "UTC";
   const tab = search.tab === "realtime" ? "realtime" : "overview";
   const filters = useMemo(() => {
     const out: Record<string, string> = {};
@@ -251,10 +234,8 @@ function Dashboard() {
     setNonce((n) => n + 1);
   };
 
-  const query: DashboardQuery = { site, interval, timezone, filters, nonce };
+  const query: DashboardQuery = { site, interval, filters, nonce };
   const realtime = useRealtime(site);
-
-  const trackingSnippet = trackerSnippet(site || "example.com");
 
   return (
     <div className="flex flex-col gap-5 p-6">
@@ -294,19 +275,21 @@ function Dashboard() {
               selectedValue={tab}
               onValueChange={(v) => setSearch({ tab: v as string })}
             />
-            <Select
-              value={interval}
-              onValueChange={(v) => {
-                if (v !== undefined && v !== null) setSearch({ interval: v as string });
-              }}
-              renderValue={(v) => INTERVALS.find((i) => i.value === v)?.label ?? v}
-            >
-              {INTERVALS.map((option) => (
-                <Select.Option key={option.value} value={option.value}>
-                  {option.label}
-                </Select.Option>
-              ))}
-            </Select>
+            {tab !== "realtime" && (
+              <Select
+                value={interval}
+                onValueChange={(v) => {
+                  if (v !== undefined && v !== null) setSearch({ interval: v as string });
+                }}
+                renderValue={(v) => INTERVALS.find((i) => i.value === v)?.label ?? v}
+              >
+                {INTERVALS.map((option) => (
+                  <Select.Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Select.Option>
+                ))}
+              </Select>
+            )}
             <Dialog.Root>
               <Dialog.Trigger render={<Button variant="secondary">Tracking code</Button>} />
               <Dialog size="lg" className="p-6">
@@ -325,22 +308,11 @@ function Dashboard() {
                     )}
                   />
                 </div>
-                <Dialog.Description>Add this snippet to your site.</Dialog.Description>
-                <div className="mt-3 flex flex-col gap-4">
-                  <div className="flex flex-col gap-2">
-                    <span className="mono-label">Site ID</span>
-                    <ClipboardText text={site || "example.com"} size="sm" />
-                    <span className="mono-label">Script URL</span>
-                    <ClipboardText text={`${location.origin}/tracker.js`} size="sm" />
-                  </div>
-                  <div>
-                    <Text variant="secondary" size="sm">
-                      Script tag
-                    </Text>
-                    <div className="overflow-x-auto">
-                      <Code.Block code={trackingSnippet} lang="tsx" />
-                    </div>
-                  </div>
+                <Dialog.Description>
+                  Paste this into the {"<head>"} of every page on {site || "example.com"}.
+                </Dialog.Description>
+                <div className="mt-3">
+                  <TrackerSnippetBlock domain={site || "example.com"} />
                 </div>
               </Dialog>
             </Dialog.Root>
@@ -563,7 +535,7 @@ function KpiStrip({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters, query.nonce]);
+  }, [query.site, query.interval, query.filters, query.nonce]);
 
   const fmt = Intl.NumberFormat("en", { notation: "compact" });
   const duration = (s: number) => {
@@ -746,7 +718,7 @@ function TimeseriesPanel({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.timezone, query.filters, query.nonce, isDark, metric]);
+  }, [query.site, query.interval, query.filters, query.nonce, isDark, metric]);
 
   return (
     <Surface className="min-w-0 overflow-hidden rounded-xl p-4">
@@ -843,7 +815,7 @@ function BreakdownTable({
   onError,
   quiet,
 }: {
-  card: BreakdownCard | "goals" | "events-props" | "campaigns";
+  card: BreakdownCard | "goals" | "campaigns";
   filter?: FilterKey;
   query: DashboardQuery;
   onFilter: (patch: Partial<SearchParams>) => void;
@@ -862,16 +834,11 @@ function BreakdownTable({
   const isGoals = card === "goals";
   const [goalRevenue, setGoalRevenue] = useState<Record<string, string>>({});
   const hasRevenue = isGoals && Object.values(goalRevenue).some((v) => v !== "-");
-  const isProps = card === "events-props";
 
   useEffect(() => setPage(1), [realCard, query.site, query.interval, query.filters]);
   useEffect(() => {
     let cancelled = false;
     setError(false);
-    if (isProps) {
-      setData({ countsByProperty: [], page: 1 });
-      return;
-    }
     const finish = (fn: () => void) => {
       if (!cancelled) fn();
     };
@@ -929,16 +896,7 @@ function BreakdownTable({
     return () => {
       cancelled = true;
     };
-  }, [
-    realCard,
-    isGoals,
-    query.site,
-    query.interval,
-    query.timezone,
-    query.filters,
-    page,
-    query.nonce,
-  ]);
+  }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce]);
 
   const dimSelect = isCampaigns ? (
     <div className="mb-1 mt-3">
@@ -986,13 +944,7 @@ function BreakdownTable({
     return (
       <>
         {dimSelect}
-        {isProps ? (
-          <Text variant="secondary" size="sm">
-            Custom-event property breakdown needs an event name and property key.
-          </Text>
-        ) : (
-          <EmptyRows site={site} />
-        )}
+        <EmptyRows site={site} card={card} />
       </>
     );
   }
@@ -1028,17 +980,19 @@ function BreakdownTable({
         <Table.Body>
           {shown.map((row, index) => {
             const pct = isGoals && row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
+            const rowLabel = label(row[0]);
+            const emptyDirect = realCard === "referrer" && rowLabel === "";
+            const filterable = Boolean(realFilter) && !emptyDirect;
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}
-                tabIndex={0}
-                role="button"
-                className={`group/row relative ${realFilter ? "cursor-pointer" : ""} [&>*]:bg-transparent hover:[&>*]:bg-kumo-tint/30`}
-                onClick={() => realFilter && onFilter({ [realFilter]: value(row[0]) })}
+                {...(filterable ? { tabIndex: 0, role: "button" } : {})}
+                className={`group/row relative ${filterable ? "cursor-pointer" : ""} [&>*]:bg-transparent hover:[&>*]:bg-kumo-tint/30`}
+                onClick={() => filterable && onFilter({ [realFilter!]: value(row[0]) })}
                 onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && realFilter) {
+                  if ((e.key === "Enter" || e.key === " ") && filterable) {
                     e.preventDefault();
-                    onFilter({ [realFilter]: value(row[0]) });
+                    onFilter({ [realFilter!]: value(row[0]) });
                   }
                 }}
               >
@@ -1048,7 +1002,11 @@ function BreakdownTable({
                     className="absolute inset-y-0 left-0 rounded bg-kumo-tint"
                     style={{ width: `${(row[1] / max) * 100}%` }}
                   />
-                  <span className="relative max-w-full truncate">{label(row[0])}</span>
+                  <span className="relative max-w-full truncate">
+                    {realCard === "referrer" && label(row[0]) === ""
+                      ? "Direct / None"
+                      : label(row[0])}
+                  </span>
                 </Table.Cell>
                 <Table.Cell className="relative tabular-nums text-right">
                   {new Intl.NumberFormat("en", {
@@ -1237,7 +1195,23 @@ function PanelError({ message }: { message: string }) {
   );
 }
 
-function EmptyRows({ site }: { site: string }) {
+function EmptyRows({ site, card }: { site: string; card: string }) {
+  if (card === "goals") {
+    return (
+      <Empty
+        title="No goals yet"
+        description="Goals are created through the Sites API (PUT /api/v1/sites/goals)."
+      />
+    );
+  }
+  if (card === "events") {
+    return (
+      <Empty
+        title="No custom events in this range"
+        description="Send events with the tracker's track() call."
+      />
+    );
+  }
   return (
     <Empty title="No data in this range" description={`No visits from ${site} in this range.`} />
   );
