@@ -3,8 +3,6 @@ import { Mock, describe, expect, test, vi, beforeEach } from "vite-plus/test";
 import httpMocks from "node-mocks-http";
 
 import { collectRequestHandler as handleCollectRequest } from "../collect";
-
-const fakeCtx = { waitUntil: (p: Promise<unknown>) => void p.catch(() => {}) };
 import { createSiteEventsStub } from "../../__testutils__/site-events";
 
 const { stub: siteEventsStub, namespace: siteEventsNamespace } = createSiteEventsStub();
@@ -21,7 +19,7 @@ function collectRequestHandler(
   env: Parameters<typeof handleCollectRequest>[1],
   extra?: Parameters<typeof handleCollectRequest>[2],
 ) {
-  return handleCollectRequest(request, { DB: activeSitesDatabase, ...env }, fakeCtx, extra);
+  return handleCollectRequest(request, { DB: activeSitesDatabase, ...env }, extra);
 }
 
 const defaultBrowserUserAgent =
@@ -116,14 +114,10 @@ describe("collectRequestHandler", () => {
   });
 
   test("returns 503 when the site registry binding is missing", async () => {
-    const response = await handleCollectRequest(
-      defaultRequestParams as any,
-      {
-        SITE_EVENTS: siteEventsNamespace,
-        VISITOR_SALT: "test-salt",
-      } as never,
-      fakeCtx,
-    );
+    const response = await handleCollectRequest(defaultRequestParams as any, {
+      SITE_EVENTS: siteEventsNamespace,
+      VISITOR_SALT: "test-salt",
+    });
 
     expect(response.status).toBe(503);
     expect(siteEventsStub.record).not.toHaveBeenCalled();
@@ -1109,26 +1103,23 @@ describe("hostname allowlist", () => {
   });
 });
 
-describe("waitUntil ingest", () => {
-  test("successful pageview registers one waitUntil promise; send resolves before record", async () => {
-    const captured: Promise<unknown>[] = [];
-    const ctx = { waitUntil: (p: Promise<unknown>) => captured.push(p) };
+describe("ordered ingest", () => {
+  const ingestEnv = (send: ReturnType<typeof vi.fn>) =>
+    ({
+      DB: activeSitesDatabase,
+      SITE_EVENTS: siteEventsNamespace,
+      VISITOR_SALT: "test-salt",
+      EVENT_STREAM: { send },
+    }) as never as Env;
+
+  test("EVENT_STREAM.send resolves before the DO record", async () => {
     const send = vi.fn().mockResolvedValue(undefined);
     siteEventsStub.record.mockClear();
-    const request = generateRequestParams({});
     const response = await handleCollectRequest(
-      request as never,
-      {
-        DB: activeSitesDatabase,
-        SITE_EVENTS: siteEventsNamespace,
-        VISITOR_SALT: "test-salt",
-        EVENT_STREAM: { send },
-      } as never,
-      ctx,
+      generateRequestParams({}) as never,
+      ingestEnv(send),
     );
     expect(response.status).toBe(200);
-    expect(captured).toHaveLength(1);
-    await captured[0];
     expect(send).toHaveBeenCalledOnce();
     expect(siteEventsStub.record).toHaveBeenCalled();
     expect(send.mock.invocationCallOrder[0]).toBeLessThan(
@@ -1136,24 +1127,14 @@ describe("waitUntil ingest", () => {
     );
   });
 
-  test("EVENT_STREAM rejection still returns 500 and waitUntil settles cleanly", async () => {
-    const captured: Promise<unknown>[] = [];
-    const ctx = { waitUntil: (p: Promise<unknown>) => captured.push(p) };
+  test("EVENT_STREAM rejection returns 500 and the DO never records", async () => {
     const send = vi.fn().mockRejectedValue(new Error("pipeline down"));
-    const request = generateRequestParams({});
+    siteEventsStub.record.mockClear();
     const response = await handleCollectRequest(
-      request as never,
-      {
-        DB: activeSitesDatabase,
-        SITE_EVENTS: siteEventsNamespace,
-        VISITOR_SALT: "test-salt",
-        EVENT_STREAM: { send },
-      } as never,
-      ctx,
+      generateRequestParams({}) as never,
+      ingestEnv(send),
     );
     expect(response.status).toBe(500);
-    expect(captured).toHaveLength(1);
-    await expect(captured[0]).resolves.toBeUndefined();
     expect(siteEventsStub.record).not.toHaveBeenCalled();
   });
 });

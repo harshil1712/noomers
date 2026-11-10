@@ -223,7 +223,6 @@ function parsePayload(payload: unknown, suppliedIp?: string): EventInput | null 
 export async function plausibleEventRequestHandler(
   request: Request,
   env: CollectEnv,
-  ctx: Pick<ExecutionContext, "waitUntil">,
   extra: Record<string, string> = {},
 ): Promise<Response> {
   if (request.method === "OPTIONS") {
@@ -334,7 +333,7 @@ export async function plausibleEventRequestHandler(
 
   const event = await normalizeEvent(request, env, input, extra);
   try {
-    await recordNormalizedEvent(env, event, ctx);
+    await recordNormalizedEvent(env, event);
   } catch (error) {
     console.error(
       JSON.stringify({

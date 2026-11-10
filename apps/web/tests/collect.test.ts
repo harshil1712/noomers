@@ -4,7 +4,6 @@ import { createSiteEventsStub } from "../worker/__testutils__/site-events";
 
 const { stub: siteEventsStub, namespace: siteEventsNamespace } = createSiteEventsStub();
 const siteEventsRecord = siteEventsStub.record;
-const fakeCtx = { waitUntil: (p: Promise<unknown>) => void p.catch(() => {}) };
 const browserUserAgent =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
   "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -42,7 +41,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(requestWithHt, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(requestWithHt, mockEnv);
 
     // Verify standard headers
     expect(response.status).toBe(200);
@@ -61,7 +60,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(requestWithInvalidHt, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(requestWithInvalidHt, mockEnv);
 
     expect(response.status).toBe(200);
 
@@ -85,7 +84,7 @@ describe("collect endpoint", () => {
       { headers },
     );
 
-    const response = await collectRequestHandler(requestWithoutVB, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(requestWithoutVB, mockEnv);
 
     expect(response.status).toBe(200);
 
@@ -102,7 +101,7 @@ describe("collect endpoint", () => {
       },
     );
 
-    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(request, mockEnv);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/gif");
@@ -119,7 +118,7 @@ describe("collect endpoint", () => {
       },
     );
 
-    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(request, mockEnv);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("x-noomers-dropped")).toBeNull();
@@ -141,7 +140,7 @@ describe("collect endpoint", () => {
       }),
     });
 
-    const response = await collectRequestHandler(request, env, fakeCtx);
+    const response = await collectRequestHandler(request, env);
 
     expect(response.status).toBe(200);
     expect(response.headers.get("Content-Type")).toBe("image/gif");
@@ -163,7 +162,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(request, env, fakeCtx);
+    const response = await collectRequestHandler(request, env);
 
     expect(response.status).toBe(200);
     expect(send).toHaveBeenCalledOnce();
@@ -188,7 +187,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(request, env, fakeCtx);
+    const response = await collectRequestHandler(request, env);
 
     expect(response.status).toBe(500);
   });
@@ -199,7 +198,7 @@ describe("collect endpoint", () => {
       { headers: { "user-agent": browserUserAgent } },
     );
 
-    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(request, mockEnv);
 
     expect(response.status).toBe(200);
     expect(siteEventsRecord).toHaveBeenCalledOnce();
@@ -219,7 +218,7 @@ describe("collect endpoint", () => {
       }),
     });
 
-    const response = await collectRequestHandler(request, mockEnv, fakeCtx);
+    const response = await collectRequestHandler(request, mockEnv);
 
     expect(response.status).toBe(400);
     expect(siteEventsRecord).not.toHaveBeenCalled();
@@ -250,7 +249,6 @@ describe("page hostname normalization", () => {
         },
       ),
       env,
-      fakeCtx,
     );
     expect(response.status).toBe(200);
     expect(sentEvent(send)).toEqual(expect.objectContaining({ hostname: "example.com" }));
@@ -264,7 +262,6 @@ describe("page hostname normalization", () => {
         headers: { "user-agent": browserUserAgent },
       }),
       env,
-      fakeCtx,
     );
     expect(response.status).toBe(200);
     expect(sentEvent(send)).toEqual(expect.objectContaining({ hostname: "example.com" }));
@@ -287,11 +284,88 @@ describe("page hostname normalization", () => {
         }),
       }),
       env,
-      fakeCtx,
     );
     expect(response.status).toBe(200);
     expect(sentEvent(send)).toEqual(
       expect.objectContaining({ event_type: "engagement", hostname: "example.com" }),
     );
+  });
+});
+
+describe("waitUntil registration at route entry", () => {
+  const collectEnv = () => ({
+    SITE_EVENTS: siteEventsNamespace,
+    VISITOR_SALT: "test-salt",
+    DB: {
+      prepare: vi.fn(() => ({
+        bind: vi.fn().mockReturnThis(),
+        first: vi.fn().mockResolvedValue({ status: "active" }),
+      })),
+    },
+  });
+  const fakeContext = (request: Request, env: unknown) => {
+    const waitUntilCalls: Promise<unknown>[] = [];
+    const c = {
+      req: { raw: request, header: () => null },
+      env,
+      executionCtx: { waitUntil: (p: Promise<unknown>) => waitUntilCalls.push(p) },
+    } as never;
+    return { c, waitUntilCalls };
+  };
+
+  test("/collect registers the handler promise synchronously, before awaiting", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = { ...collectEnv(), EVENT_STREAM: { send } };
+    const request = new Request(
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1",
+      { headers: { "user-agent": browserUserAgent } },
+    );
+    const { c, waitUntilCalls } = fakeContext(request, env);
+    const { handleCollect } = await import("../worker/routes/collect");
+    const response = handleCollect(c);
+    expect(waitUntilCalls).toHaveLength(1);
+    expect(send).not.toHaveBeenCalled();
+    const res = await response;
+    expect(res.status).toBe(200);
+    await expect(waitUntilCalls[0]).resolves.toBeInstanceOf(Response);
+    expect(send).toHaveBeenCalled();
+    expect(siteEventsRecord).toHaveBeenCalled();
+  });
+
+  test("/collect failure: registered promise still resolves, response is 500", async () => {
+    const send = vi.fn().mockRejectedValue(new Error("pipeline down"));
+    const env = { ...collectEnv(), EVENT_STREAM: { send } };
+    const request = new Request(
+      "https://example.com/collect?sid=example.com&p=/test&h=example.com&r=&ht=1",
+      { headers: { "user-agent": browserUserAgent } },
+    );
+    const { c, waitUntilCalls } = fakeContext(request, env);
+    const { handleCollect } = await import("../worker/routes/collect");
+    const res = await handleCollect(c);
+    expect(res.status).toBe(500);
+    await expect(waitUntilCalls[0]).resolves.toBeDefined();
+    expect(siteEventsRecord).not.toHaveBeenCalled();
+  });
+
+  test("/api/event registers the handler promise synchronously", async () => {
+    const send = vi.fn().mockResolvedValue(undefined);
+    const env = { ...collectEnv(), EVENT_STREAM: { send } };
+    const request = new Request("https://example.com/api/event", {
+      method: "POST",
+      headers: { "content-type": "application/json", "user-agent": browserUserAgent },
+      body: JSON.stringify({
+        name: "pageview",
+        url: "https://example.com/",
+        domain: "example.com",
+      }),
+    });
+    const { c, waitUntilCalls } = fakeContext(request, env);
+    const { handlePlausibleEvent } = await import("../worker/routes/collect");
+    const response = handlePlausibleEvent(c);
+    expect(waitUntilCalls).toHaveLength(1);
+    const res = await response;
+    expect(res.status).toBe(202);
+    await expect(waitUntilCalls[0]).resolves.toBeInstanceOf(Response);
+    expect(send).toHaveBeenCalled();
   });
 });
