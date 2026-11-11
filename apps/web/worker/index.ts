@@ -5,15 +5,10 @@ import { SPA_CSP } from "./security-headers";
 import { authRateLimit } from "./middleware/rate-limit";
 import { createAuth } from "./auth";
 import { publicConfigRoutes } from "./routes/public-config";
-import {
-  handleCollect,
-  handlePlausibleEvent,
-  handlePlausibleEventMethodNotAllowed,
-  handleCache,
-} from "./routes/collect";
+import { handleCollect, handleCache } from "./routes/collect";
 import { handleHealth, handleReady } from "./routes/health";
 import { handleRealtimeRoute } from "./routes/realtime";
-import { handleTrackerScript, handlePlausibleScript } from "./routes/scripts";
+import { handleTrackerScript } from "./routes/scripts";
 import { handleFavicon } from "./routes/favicon";
 import { sitesApi } from "./routes/v1-sites";
 import { handleStatsQuery, v2MethodNotAllowed } from "./routes/v2-query";
@@ -35,9 +30,9 @@ app.use("*", async (c, next) => {
   if (id) c.header("X-Request-Id", id);
 });
 // Security headers + SPA CSP apply only to the auth/app surface. Analytics
-// endpoints (/collect, /api/event, /api/v1, /api/v2, tracker scripts, cache,
-// favicon, realtime) own their headers — tracker scripts must stay loadable
-// cross-origin and collect/event carry their own CORS contract.
+// endpoints (/collect, /api/v1, /api/v2, tracker scripts, cache, favicon,
+// realtime) own their headers — tracker scripts must stay loadable
+// cross-origin and collect carries its own CORS contract.
 const SECURED_PREFIXES = ["/api/auth/", "/api/public-config"];
 app.use("*", async (c, next) => {
   if (!SECURED_PREFIXES.some((p) => c.req.path.startsWith(p))) return next();
@@ -77,9 +72,6 @@ app.get("/realtime/:siteId", handleRealtimeRoute);
 // same for non-GET requests.
 app.all("/collect", handleCollect);
 
-app.on(["POST", "OPTIONS"], "/api/event", handlePlausibleEvent);
-app.all("/api/event", handlePlausibleEventMethodNotAllowed);
-
 // --- Plausible Sites API (v1) ----------------------------------------------
 app.route("/", sitesApi);
 
@@ -94,7 +86,6 @@ app.post("/api/v2/query", (c) =>
 app.all("/api/v2/query", v2MethodNotAllowed);
 
 // --- Tracker scripts --------------------------------------------------------
-app.get("/js/:script", (c) => handlePlausibleScript(c.req.raw, c.env, c.req.param("script")));
 app.get("/:script{[^/]+\\.js$}", (c) =>
   handleTrackerScript(c.req.raw, c.env, c.req.param("script")),
 );

@@ -33,7 +33,6 @@ describe("SitesRepository", () => {
     expect(bind).toHaveBeenCalledWith(
       "example.com",
       site.trackerId,
-      null,
       "Europe/London",
       JSON.stringify(site.trackerScriptConfiguration),
     );
@@ -122,12 +121,11 @@ describe("SitesRepository", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  test("partial update preserves plausible script id and tracker config", async () => {
+  test("partial update preserves tracker config", async () => {
     const existing = {
       domain: "example.com",
       tracker_id: "tracker-1",
       timezone: "Europe/Berlin",
-      plausible_script_id: "pa-abcdef1234567890",
       tracker_script_configuration: JSON.stringify({
         outbound_links: true,
         file_downloads: false,
@@ -137,38 +135,35 @@ describe("SitesRepository", () => {
     first.mockResolvedValue(existing);
 
     const site = await repository.update("example.com", {
-      plausibleScriptId: "pa-newscript123",
+      trackerScriptConfiguration: { file_downloads: true },
     });
 
-    expect(site?.plausibleScriptId).toBe("pa-newscript123");
     expect(site?.timezone).toBe("Europe/Berlin");
     expect(site?.trackerScriptConfiguration.outbound_links).toBe(true);
+    expect(site?.trackerScriptConfiguration.file_downloads).toBe(true);
     expect(bind).toHaveBeenCalledWith(
       "example.com",
       "Europe/Berlin",
       expect.stringContaining('"outbound_links":true'),
-      "pa-newscript123",
       expect.any(String),
       "example.com",
     );
   });
 
-  test("update without plausible_script_id keeps the stored value", async () => {
+  test("update without a timezone keeps the stored value", async () => {
     first.mockResolvedValue({
       domain: "example.com",
       tracker_id: "tracker-1",
       timezone: "Etc/UTC",
-      plausible_script_id: "pa-keepme1234",
       tracker_script_configuration: "{}",
       custom_properties: "[]",
     });
     const site = await repository.update("example.com", {});
-    expect(site?.plausibleScriptId).toBe("pa-keepme1234");
+    expect(site?.timezone).toBe("Etc/UTC");
     expect(bind).toHaveBeenCalledWith(
       "example.com",
       "Etc/UTC",
       expect.any(String),
-      "pa-keepme1234",
       expect.any(String),
       "example.com",
     );

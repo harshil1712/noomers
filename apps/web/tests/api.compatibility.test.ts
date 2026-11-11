@@ -15,29 +15,18 @@ describe("Plausible compatibility routes", () => {
     expect(await response.text()).toBe("ok");
   });
 
-  test("rejects GET requests to the event endpoint", async () => {
-    const response = await SELF.fetch("https://x/api/event");
-    expect(response.status).toBe(405);
-    expect(response.headers.get("Allow")).toBe("POST, OPTIONS");
-  });
-
-  test("routes official tracker payloads into analytics", async () => {
-    const response = await SELF.fetch("https://analytics.example/api/event", {
-      method: "POST",
-      headers: {
-        "content-type": "text/plain",
-        "user-agent": "Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+  test("routes /collect pageviews into analytics", async () => {
+    const response = await SELF.fetch(
+      "https://analytics.example/collect?sid=example.com&p=/&h=example.com&r=&ht=1",
+      {
+        headers: {
+          "user-agent": "Mozilla/5.0 AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+          origin: "https://example.com",
+        },
       },
-      body: JSON.stringify({
-        n: "pageview",
-        v: 34,
-        u: "https://example.com/",
-        d: "example.com",
-        r: null,
-      }),
-    });
+    );
 
-    expect(response.status).toBe(202);
+    expect(response.status).toBe(200);
     // the durable buffer actually recorded the event for realtime
     const ns = env.SITE_EVENTS!;
     const rt = await ns.get(ns.idFromName("example.com")).realtime();

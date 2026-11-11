@@ -111,4 +111,4 @@ Managed snapshot expiration on the Data Catalog (enabled in
 - Set `OWNER_ADMIN_EMAIL` before the public URL is live, or the first
   stranger to sign up becomes admin.
 - Optional: if a site sees collection abuse, add a Cloudflare WAF
-  rate-limiting rule on `/collect` and `/api/event` (not provisioned).
+  rate-limiting rule on `/collect` (not provisioned).

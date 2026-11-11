@@ -27,4 +27,4 @@ There are no cookies. Raw IP addresses and full user-agent strings are never per
 
 ## What's included
 
-The dashboard (single-owner, Better Auth admin) shows stats, timeseries, realtime visitors, goals, and breakdown cards. Collection works through `/collect` and the Plausible-compatible `/api/event`, plus the Sites and Stats APIs for automation — see the parity doc for the supported subset.
+The dashboard (single-owner, Better Auth admin) shows stats, timeseries, realtime visitors, goals, and breakdown cards. Collection works through `/collect`, plus the Plausible-compatible Sites and Stats APIs for automation — see the parity doc for the supported subset.

@@ -1,4 +1,9 @@
-import type { CollectRequestParams, EventProperties, UtmParams } from "./types";
+import type {
+    CollectRequestParams,
+    CustomEventOptions,
+    EventProperties,
+    UtmParams,
+} from "./types";
 import { queryParamStringify } from "./utils";
 
 const MAX_EVENT_PROPERTIES_LENGTH = 2048;
@@ -30,7 +35,7 @@ export function buildCollectRequestParams(
     referrer: string,
     utmParams: UtmParams = {},
     hitType?: string,
-    event?: { name: string; props?: EventProperties },
+    event?: CustomEventOptions,
     ip?: string,
 ): CollectRequestParams {
     const params: CollectRequestParams = {
@@ -48,6 +53,10 @@ export function buildCollectRequestParams(
         params.en = event.name;
         if (event.props && Object.keys(event.props).length > 0) {
             params.ep = serializeEventProperties(event.props);
+        }
+        if (event.revenue) {
+            params.ra = String(event.revenue.amount);
+            params.rc = event.revenue.currency.toUpperCase();
         }
     }
 

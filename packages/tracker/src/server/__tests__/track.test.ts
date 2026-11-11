@@ -401,5 +401,56 @@ describe("trackPageview", () => {
                 "Visitor Browser",
             );
         });
+
+        it("should forward revenue", async () => {
+            const { makeRequest } = await import("../request");
+            const {
+                getHostnameAndPath,
+                getReferrer,
+                isLocalhostAddress,
+                getUtmParamsFromUrl,
+                mergeUtmParams,
+            } = await import("../../shared/utils");
+            const { buildCollectRequestParams } = await import(
+                "../../shared/request"
+            );
+            const requestParams = { en: "Purchase" };
+
+            (getHostnameAndPath as any).mockReturnValue({
+                hostname: "example.com",
+                path: "/checkout",
+            });
+            (getReferrer as any).mockReturnValue("");
+            (isLocalhostAddress as any).mockReturnValue(false);
+            (getUtmParamsFromUrl as any).mockReturnValue({});
+            (mergeUtmParams as any).mockReturnValue({});
+            (buildCollectRequestParams as any).mockReturnValue(requestParams);
+
+            await trackEvent(client, "Purchase", {
+                url: "https://example.com/checkout",
+                revenue: { amount: "19.99", currency: "eur" },
+            });
+
+            expect(buildCollectRequestParams).toHaveBeenCalledWith(
+                "test-site",
+                "example.com",
+                "/checkout",
+                "",
+                {},
+                undefined,
+                {
+                    name: "Purchase",
+                    props: undefined,
+                    revenue: { amount: "19.99", currency: "eur" },
+                },
+                undefined,
+            );
+            expect(makeRequest).toHaveBeenCalledWith(
+                "https://example.com/collect",
+                requestParams,
+                1000,
+                undefined,
+            );
+        });
     });
 });

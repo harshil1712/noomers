@@ -106,6 +106,28 @@ describe("trackPageview", () => {
         );
     });
 
+    test("should track a custom event with revenue", async () => {
+        const client = new Client({
+            siteId: "test-site",
+            reporterUrl: "https://example.com/collect",
+            autoTrackPageviews: false,
+        });
+
+        await trackEvent(client, "Purchase", {
+            revenue: { amount: "19.99", currency: "eur" },
+        });
+
+        expect(makeRequestMock).toHaveBeenCalledWith(
+            "https://example.com/collect",
+            expect.objectContaining({
+                sid: "test-site",
+                en: "Purchase",
+                ra: "19.99",
+                rc: "EUR",
+            }),
+        );
+    });
+
     test("should exit early when host is empty and not in Electron", async () => {
         // Mock empty host (file:/// URI)
         Object.defineProperty(window, "location", {

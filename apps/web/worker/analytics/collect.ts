@@ -185,6 +185,7 @@ function getDeviceTypeFromDevice(device: IDevice): string {
 
 const MAX_EVENT_NAME_LENGTH = 64;
 const MAX_EVENT_PROPERTIES_LENGTH = 2048;
+const MAX_REVENUE_AMOUNT_LENGTH = 32;
 const MAX_COLLECT_BODY_BYTES = 32 * 1024;
 const MIN_ENGAGEMENT_TIME_MS = 1000;
 const MAX_ENGAGEMENT_TIME_MS = 30 * 24 * 60 * 60 * 1000;
@@ -496,13 +497,47 @@ function trackingPixelResponse({
   return new Response(TRACKING_PIXEL_BUFFER, { headers, status: 200 });
 }
 
+// Revenue is stored as the raw amount string plus an uppercase ISO-4217
+// currency — reporting only counts events whose currency matches the goal.
+function parseRevenue(params: Record<string, string>): {
+  amount?: string;
+  currency?: string;
+  error?: string;
+} {
+  const amount = params.ra;
+  const currency = params.rc;
+  if (amount === undefined && currency === undefined) return {};
+  if (
+    amount === undefined ||
+    currency === undefined ||
+    amount.trim() === "" ||
+    amount.length > MAX_REVENUE_AMOUNT_LENGTH ||
+    !Number.isFinite(Number(amount))
+  ) {
+    return { error: "Invalid revenue" };
+  }
+  const normalizedCurrency = currency.toUpperCase();
+  if (!/^[A-Z]{3}$/.test(normalizedCurrency)) {
+    return { error: "Invalid revenue" };
+  }
+  return { amount, currency: normalizedCurrency };
+}
+
 function parseEvent(params: Record<string, string>): {
   eventName?: string;
   eventProperties?: string;
+  revenueAmount?: string;
+  revenueCurrency?: string;
   error?: string;
 } {
   if (!Object.hasOwn(params, "en")) {
-    return Object.hasOwn(params, "ep") ? { error: "Event properties require an event name" } : {};
+    if (Object.hasOwn(params, "ep")) {
+      return { error: "Event properties require an event name" };
+    }
+    if (params.ra !== undefined || params.rc !== undefined) {
+      return { error: "Revenue requires an event name" };
+    }
+    return {};
   }
 
   const eventName = params.en.trim();
@@ -510,7 +545,16 @@ function parseEvent(params: Record<string, string>): {
     return { error: "Invalid event name" };
   }
 
-  if (!params.ep) return { eventName };
+  const revenue = parseRevenue(params);
+  if (revenue.error) return { error: revenue.error };
+
+  if (!params.ep) {
+    return {
+      eventName,
+      revenueAmount: revenue.amount,
+      revenueCurrency: revenue.currency,
+    };
+  }
   if (params.ep.length > MAX_EVENT_PROPERTIES_LENGTH) {
     return { error: "Event properties are too large" };
   }
@@ -527,7 +571,12 @@ function parseEvent(params: Record<string, string>): {
     ) {
       return { error: "Invalid event properties" };
     }
-    return { eventName, eventProperties: JSON.stringify(properties) };
+    return {
+      eventName,
+      eventProperties: JSON.stringify(properties),
+      revenueAmount: revenue.amount,
+      revenueCurrency: revenue.currency,
+    };
   } catch {
     return { error: "Invalid event properties" };
   }
@@ -556,7 +605,13 @@ function parseEngagement(
   // Native engagement events do not support a custom event name. A request
   // with custom event name "engagement" remains a custom event only when et
   // is absent and neither e nor sd is present.
-  if (params.en !== undefined || params.ep !== undefined || params.ht !== undefined) {
+  if (
+    params.en !== undefined ||
+    params.ep !== undefined ||
+    params.ht !== undefined ||
+    params.ra !== undefined ||
+    params.rc !== undefined
+  ) {
     return { error: "Invalid engagement parameters" };
   }
 
@@ -731,6 +786,8 @@ export async function collectRequestHandler(
       path: params.p,
       referrer: params.r,
       interactive: true,
+      revenueAmount: event.revenueAmount,
+      revenueCurrency: event.revenueCurrency,
       suppliedIp: trustedIp,
       utmSource: params.us,
       utmMedium: params.um,

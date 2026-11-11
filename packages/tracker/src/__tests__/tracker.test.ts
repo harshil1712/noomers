@@ -28,7 +28,7 @@ describe("resolveTrackerConfig", () => {
   });
 
   it("resolves /collect on the script origin for custom script names", () => {
-    const el = scriptEl("https://app.noomers.com/js/pa-abc123.js", { "data-site-id": "example.com" });
+    const el = scriptEl("https://app.noomers.com/custom-name.js", { "data-site-id": "example.com" });
     expect(resolveTrackerConfig(el)?.reporterUrl).toBe("https://app.noomers.com/collect");
   });
 
