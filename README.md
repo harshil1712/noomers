@@ -71,6 +71,8 @@ After deploy, `tracker.js` is served from `https://app.<your-domain>/tracker.js`
 
 Or use the Plausible-style route (`pa-*.js` per registered site) and server-side tracking via `@noomers/tracker`'s server entry.
 
+`tracker.js` records clicks on links to other hosts as `Outbound Link: Click` events with a `url` property (query string and fragment stripped); add `data-outbound="false"` to turn this off. Automated browsers (`navigator.webdriver`) are not tracked. To exclude your own visits, run `localStorage.noomers_ignore = "true"` in your browser console on your site.
+
 ## Local development
 
 ```bash

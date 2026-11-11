@@ -214,6 +214,80 @@ describe("trackPageview", () => {
         expect(makeRequestMock).toHaveBeenCalledTimes(1);
     });
 
+    describe("skip rules", () => {
+        afterEach(() => {
+            Reflect.deleteProperty(navigator, "webdriver");
+            localStorage.removeItem("noomers_ignore");
+        });
+
+        function setWebdriver() {
+            Object.defineProperty(navigator, "webdriver", {
+                configurable: true,
+                value: true,
+            });
+        }
+
+        test("skips pageviews and events in automated browsers", async () => {
+            setWebdriver();
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            await trackPageview(client);
+            await trackEvent(client, "Signup");
+
+            expect(makeRequestMock).not.toHaveBeenCalled();
+        });
+
+        test("tracks automated browsers when reportOnLocalhost is true", async () => {
+            setWebdriver();
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+                reportOnLocalhost: true,
+            });
+
+            await trackPageview(client);
+            await trackEvent(client, "Signup");
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(2);
+        });
+
+        test("skips when localStorage noomers_ignore is true", async () => {
+            localStorage.setItem("noomers_ignore", "true");
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+                reportOnLocalhost: true,
+            });
+
+            await trackPageview(client);
+            await trackEvent(client, "Signup");
+
+            expect(makeRequestMock).not.toHaveBeenCalled();
+        });
+
+        test("tracks when localStorage throws", async () => {
+            vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+                throw new Error("SecurityError");
+            });
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            await trackPageview(client);
+            await trackEvent(client, "Signup");
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(2);
+        });
+    });
+
     describe("localhost detection", () => {
         test.each([
             "localhost",

@@ -18,13 +18,14 @@ function init() {
     if (!config) {
         return;
     }
-    const { siteId, reportOnLocalhost, reporterUrl } = config;
+    const { siteId, reportOnLocalhost, reporterUrl, outboundLinks } = config;
 
     noomers.init({
         siteId,
         reportOnLocalhost,
         reporterUrl,
         autoTrackPageviews: true,
+        autoTrackOutboundLinks: outboundLinks,
     });
 }
 

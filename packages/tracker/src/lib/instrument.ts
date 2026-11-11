@@ -1,5 +1,5 @@
 import type { Client } from "./client";
-import { flushPendingPageview } from "./track";
+import { flushPendingPageview, trackEvent } from "./track";
 import {
     onEngagementHidden,
     onEngagementPagehide,
@@ -62,5 +62,41 @@ export function instrumentEngagementLifecycle(client: Client): () => void {
         document.removeEventListener("visibilitychange", onVisibilityChange);
         window.removeEventListener("pagehide", onPagehide);
         window.removeEventListener("pageshow", onPageshow);
+    };
+}
+
+export function instrumentOutboundLinks(client: Client): () => void {
+    const onClick = (event: MouseEvent) => {
+        if (event.type === "auxclick" && event.button !== 1) {
+            return;
+        }
+        const target = event.target as Element | null;
+        const anchor = target?.closest?.<HTMLAnchorElement>("a[href]");
+        if (!anchor) {
+            return;
+        }
+        let url: URL;
+        try {
+            url = new URL(anchor.href, location.href);
+        } catch {
+            return;
+        }
+        if (
+            (url.protocol !== "http:" && url.protocol !== "https:") ||
+            url.host === location.host
+        ) {
+            return;
+        }
+        trackEvent(client, "Outbound Link: Click", {
+            props: { url: url.origin + url.pathname },
+        }).catch(() => {});
+    };
+
+    document.addEventListener("click", onClick);
+    document.addEventListener("auxclick", onClick);
+
+    return () => {
+        document.removeEventListener("click", onClick);
+        document.removeEventListener("auxclick", onClick);
     };
 }

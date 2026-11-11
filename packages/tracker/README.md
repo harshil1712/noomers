@@ -47,3 +47,11 @@ noomers.init({
 // ... when a pageview happens
 noomers.trackPageview();
 ```
+
+### Track Outbound Links
+
+Set `autoTrackOutboundLinks` to `true` to record an `Outbound Link: Click` event with a `url` property (query string and fragment stripped) when a visitor clicks a link to another host. It is off by default in the npm package; the `tracker.js` script tag enables it unless you add `data-outbound="false"`.
+
+### Excluding Visits
+
+Automated browsers (`navigator.webdriver`) are skipped unless `reportOnLocalhost` is set. Set `localStorage.noomers_ignore = "true"` in a browser to exclude its visits.

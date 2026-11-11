@@ -4,7 +4,8 @@ export function resolveTrackerConfig(script: HTMLScriptElement | null) {
         (script?.hasAttribute("data-report-localhost") &&
             script?.getAttribute("data-report-localhost") !== "false") ||
         false;
+    const outboundLinks = script?.getAttribute("data-outbound") !== "false";
     const reporterUrl = script ? new URL("/collect", script.src).href : undefined;
     if (!siteId || !reporterUrl) return null;
-    return { siteId, reportOnLocalhost, reporterUrl };
+    return { siteId, reportOnLocalhost, reporterUrl, outboundLinks };
 }
