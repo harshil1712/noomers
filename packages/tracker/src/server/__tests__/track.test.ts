@@ -402,7 +402,7 @@ describe("trackPageview", () => {
             );
         });
 
-        it("should forward revenue and the non-interactive flag", async () => {
+        it("should forward revenue", async () => {
             const { makeRequest } = await import("../request");
             const {
                 getHostnameAndPath,
@@ -429,7 +429,6 @@ describe("trackPageview", () => {
             await trackEvent(client, "Purchase", {
                 url: "https://example.com/checkout",
                 revenue: { amount: "19.99", currency: "eur" },
-                interactive: false,
             });
 
             expect(buildCollectRequestParams).toHaveBeenCalledWith(
@@ -443,7 +442,6 @@ describe("trackPageview", () => {
                     name: "Purchase",
                     props: undefined,
                     revenue: { amount: "19.99", currency: "eur" },
-                    interactive: false,
                 },
                 undefined,
             );

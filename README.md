@@ -6,7 +6,7 @@ _noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.d
 
 ## What it does
 
-- **Lightweight tracker** — a single `tracker.js` (ESM or UMD) script tag collects pageviews, custom events (with optional revenue and non-interactive flags), scroll/engagement signals, and campaign parameters.
+- **Lightweight tracker** — a single `tracker.js` (ESM or UMD) script tag collects pageviews, custom events (with optional revenue), scroll/engagement signals, and campaign parameters.
 - **Privacy by construction** — no cookies, no raw IPs or full user-agents persisted; visitor IDs are site-scoped, hostname-scoped, salted, and rotate daily in UTC.
 - **Host-checked collection** — events are only counted when the Origin and page host match the site's registered domain or a subdomain. A non-browser client can still fake those headers; use the server tracker with `SERVER_EVENTS_TOKEN` for events that must be trustworthy. Collection is rate-limited per IP+site.
 - **Realtime** — a per-site `SiteEvents` Durable Object buffers canonical events and serves live realtime aggregates over WebSocket.

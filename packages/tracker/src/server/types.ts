@@ -25,5 +25,4 @@ export type ServerTrackPageviewOpts = {
 export type ServerTrackEventOpts = ServerTrackPageviewOpts & {
     props?: EventProperties;
     revenue?: EventRevenue;
-    interactive?: boolean;
 };

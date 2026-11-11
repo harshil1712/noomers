@@ -58,9 +58,6 @@ export function buildCollectRequestParams(
             params.ra = String(event.revenue.amount);
             params.rc = event.revenue.currency.toUpperCase();
         }
-        if (event.interactive === false) {
-            params.ni = "1";
-        }
     }
 
     if (ip) {

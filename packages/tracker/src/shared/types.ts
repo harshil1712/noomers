@@ -8,7 +8,6 @@ export type CollectRequestParams = {
     ep?: string; // JSON-encoded custom event properties
     ra?: string; // revenue amount; custom events only, requires rc
     rc?: string; // revenue currency (ISO-4217); custom events only, requires ra
-    ni?: string; // "1" marks a custom event non-interactive
     et?: string; // native event type; "engagement" for engagement events
     e?: string; // engagement time in milliseconds (delta, not cumulative)
     sd?: string; // scroll depth 0-100
@@ -28,7 +27,6 @@ export type CustomEventOptions = {
     name: string;
     props?: EventProperties;
     revenue?: EventRevenue;
-    interactive?: boolean;
 };
 
 export type UtmParams = {

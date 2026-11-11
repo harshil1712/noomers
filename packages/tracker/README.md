@@ -57,9 +57,6 @@ noomers.trackEvent("Signup", { props: { plan: "pro" } });
 noomers.trackEvent("Purchase", {
     revenue: { amount: "19.99", currency: "EUR" },
 });
-
-// Mark an event non-interactive so it doesn't affect visit metrics
-noomers.trackEvent("Heartbeat", { interactive: false });
 ```
 
 ### Track Outbound Links

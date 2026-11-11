@@ -99,7 +99,6 @@ Track a custom event. Accepts the same options as `trackPageview`, plus:
 
 - `props` (object, optional): Scalar event properties (strings, numbers, booleans)
 - `revenue` (object, optional): `{ amount: number | string, currency: string }` — recorded for revenue goals; the currency is uppercased
-- `interactive` (boolean, optional): Pass `false` to mark the event non-interactive so it doesn't affect visit metrics
 
 ```typescript
 await noomers.trackEvent("Purchase", {

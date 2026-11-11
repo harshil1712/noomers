@@ -106,7 +106,7 @@ describe("trackPageview", () => {
         );
     });
 
-    test("should track a custom event with revenue and non-interactive flag", async () => {
+    test("should track a custom event with revenue", async () => {
         const client = new Client({
             siteId: "test-site",
             reporterUrl: "https://example.com/collect",
@@ -115,7 +115,6 @@ describe("trackPageview", () => {
 
         await trackEvent(client, "Purchase", {
             revenue: { amount: "19.99", currency: "eur" },
-            interactive: false,
         });
 
         expect(makeRequestMock).toHaveBeenCalledWith(
@@ -125,7 +124,6 @@ describe("trackPageview", () => {
                 en: "Purchase",
                 ra: "19.99",
                 rc: "EUR",
-                ni: "1",
             }),
         );
     });

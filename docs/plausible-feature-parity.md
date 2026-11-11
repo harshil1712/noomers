@@ -51,7 +51,7 @@ P0 items block safe installation, correct core analytics, or complete deletion. 
 ### Supported
 
 - Pageviews, custom events, and engagement events through `/collect` (GET or POST).
-- Scalar event properties, revenue (`ra`/`rc`), the `ni` non-interactive flag, engagement time, and scroll depth.
+- Scalar event properties, revenue (`ra`/`rc`), engagement time, and scroll depth.
 - Bot dropping, URL normalization, the hostname allowlist, the `SERVER_EVENTS_TOKEN` trust path, and static health endpoint compatibility.
 - Browser and server noomers tracker modules with manual pageviews and custom events.
 

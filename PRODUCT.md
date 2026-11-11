@@ -15,7 +15,7 @@
 ## What it ships
 
 - Tracker: `tracker.js` loader + ESM/UMD bundles + server-side tracking package.
-- Collection: `/collect`, fail-closed on the D1 site registry, bot filtering, campaign/UTM + custom event properties, revenue and non-interactive custom events.
+- Collection: `/collect`, fail-closed on the D1 site registry, bot filtering, campaign/UTM + custom event properties, revenue on custom events.
 - Realtime: per-site SiteEvents Durable Object; `/realtime/:siteId` WebSocket into the dashboard.
 - History: Basin Pipeline → R2 → Iceberg, queried through Basin SQL; optional import table UNION.
 - APIs: Plausible Sites API (`/api/v1/*`), Stats API (`/api/v2/query`), goal/custom-prop management — deployment-wide Bearer tokens.

@@ -685,25 +685,6 @@ describe("collectRequestHandler", () => {
     expect(datapoint.revenue_currency).toBe("USD");
   });
 
-  test("marks a custom event non-interactive with ni=1", async () => {
-    const env = {
-      SITE_EVENTS: siteEventsNamespace,
-      VISITOR_SALT: "test-salt",
-    } as unknown as Env;
-    const request = generateRequestParams({});
-    const url = new URL(request.url);
-    url.searchParams.set("en", "Signup");
-    url.searchParams.set("ni", "1");
-    request.url = url.toString();
-
-    const response = await collectRequestHandler(request as any, env as Env);
-
-    expect(response.status).toBe(200);
-    const datapoint = (siteEventsStub.record as Mock).mock.calls[0][0];
-    expect(datapoint.event_type).toBe("custom");
-    expect(datapoint.interactive).toBe(false);
-  });
-
   test.each([
     ["revenue amount without a currency", { en: "Purchase", ra: "9.99" }],
     ["a currency without an amount", { en: "Purchase", rc: "USD" }],
@@ -711,9 +692,7 @@ describe("collectRequestHandler", () => {
     ["a non-finite amount", { en: "Purchase", ra: "abc", rc: "USD" }],
     ["an empty amount", { en: "Purchase", ra: "", rc: "USD" }],
     ["an oversized amount", { en: "Purchase", ra: "1".repeat(33), rc: "USD" }],
-    ["a non-1 ni value", { en: "Signup", ni: "2" }],
     ["revenue without an event name", { ra: "9.99", rc: "USD" }],
-    ["ni without an event name", { ni: "1" }],
   ])("rejects %s", async (_, eventParams) => {
     const env = {
       SITE_EVENTS: siteEventsNamespace,
@@ -730,10 +709,7 @@ describe("collectRequestHandler", () => {
     expect(siteEventsStub.record).not.toHaveBeenCalled();
   });
 
-  test.each([
-    ["revenue", { ra: "9.99", rc: "USD" }],
-    ["ni", { ni: "1" }],
-  ])("rejects %s on an engagement event", async (_, eventParams) => {
+  test("rejects revenue on an engagement event", async () => {
     const env = {
       SITE_EVENTS: siteEventsNamespace,
       VISITOR_SALT: "test-salt",
@@ -748,7 +724,8 @@ describe("collectRequestHandler", () => {
         r: "",
         et: "engagement",
         e: "5000",
-        ...eventParams,
+        ra: "9.99",
+        rc: "USD",
       }),
     });
 

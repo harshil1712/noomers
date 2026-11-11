@@ -528,7 +528,6 @@ function parseEvent(params: Record<string, string>): {
   eventProperties?: string;
   revenueAmount?: string;
   revenueCurrency?: string;
-  interactive?: boolean;
   error?: string;
 } {
   if (!Object.hasOwn(params, "en")) {
@@ -538,7 +537,7 @@ function parseEvent(params: Record<string, string>): {
     if (params.ra !== undefined || params.rc !== undefined) {
       return { error: "Revenue requires an event name" };
     }
-    return params.ni !== undefined ? { error: "Invalid event parameters" } : {};
+    return {};
   }
 
   const eventName = params.en.trim();
@@ -549,17 +548,11 @@ function parseEvent(params: Record<string, string>): {
   const revenue = parseRevenue(params);
   if (revenue.error) return { error: revenue.error };
 
-  if (params.ni !== undefined && params.ni !== "1") {
-    return { error: "Invalid event parameters" };
-  }
-  const interactive = params.ni === "1" ? false : undefined;
-
   if (!params.ep) {
     return {
       eventName,
       revenueAmount: revenue.amount,
       revenueCurrency: revenue.currency,
-      interactive,
     };
   }
   if (params.ep.length > MAX_EVENT_PROPERTIES_LENGTH) {
@@ -583,7 +576,6 @@ function parseEvent(params: Record<string, string>): {
       eventProperties: JSON.stringify(properties),
       revenueAmount: revenue.amount,
       revenueCurrency: revenue.currency,
-      interactive,
     };
   } catch {
     return { error: "Invalid event properties" };
@@ -618,8 +610,7 @@ function parseEngagement(
     params.ep !== undefined ||
     params.ht !== undefined ||
     params.ra !== undefined ||
-    params.rc !== undefined ||
-    params.ni !== undefined
+    params.rc !== undefined
   ) {
     return { error: "Invalid engagement parameters" };
   }
@@ -794,7 +785,7 @@ export async function collectRequestHandler(
       host: pageHost(params.h),
       path: params.p,
       referrer: params.r,
-      interactive: event.interactive !== false,
+      interactive: true,
       revenueAmount: event.revenueAmount,
       revenueCurrency: event.revenueCurrency,
       suppliedIp: trustedIp,

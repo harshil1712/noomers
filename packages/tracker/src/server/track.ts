@@ -148,7 +148,6 @@ export async function trackEvent(
             name: eventName,
             props: opts.props,
             revenue: opts.revenue,
-            interactive: opts.interactive,
         },
         opts.ip,
     );

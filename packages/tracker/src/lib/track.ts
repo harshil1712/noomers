@@ -19,7 +19,6 @@ export type TrackPageviewOpts = {
 export type TrackEventOpts = TrackPageviewOpts & {
     props?: EventProperties;
     revenue?: EventRevenue;
-    interactive?: boolean;
 };
 
 export function autoTrackPageviews(client: Client) {
@@ -198,7 +197,6 @@ export async function trackEvent(
             name: eventName,
             props: opts.props,
             revenue: opts.revenue,
-            interactive: opts.interactive,
         },
     );
 

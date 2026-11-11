@@ -67,7 +67,7 @@ describe("Shared Request Utils", () => {
             });
         });
 
-        it("should include revenue and the non-interactive flag on custom events", () => {
+        it("should include revenue on custom events", () => {
             const result = buildCollectRequestParams(
                 "test-site",
                 "example.com",
@@ -78,7 +78,6 @@ describe("Shared Request Utils", () => {
                 {
                     name: "Purchase",
                     revenue: { amount: 9.99, currency: "usd" },
-                    interactive: false,
                 },
             );
 
@@ -90,7 +89,6 @@ describe("Shared Request Utils", () => {
                 en: "Purchase",
                 ra: "9.99",
                 rc: "USD",
-                ni: "1",
             });
         });
 
