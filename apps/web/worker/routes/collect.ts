@@ -3,27 +3,30 @@ import { plausibleEventRequestHandler } from "../analytics/plausible";
 import { handleCacheHeaders } from "../analytics/collect";
 import type { Context } from "hono";
 
+// A client disconnect must not cancel ingest: register the whole handler
+// synchronously on entry — the inner awaits happen after registration.
+function surviveDisconnect(c: Context<{ Bindings: Env }>, response: Promise<Response>) {
+  c.executionCtx.waitUntil(response.catch(() => {}));
+  return response;
+}
+
 export type CacheLoaderBody = {
   ht: number;
 };
 
 /** Native tracker endpoint — own CORS/status behavior lives in collect.ts. */
 export function handleCollect(c: Context<{ Bindings: Env }>) {
-  return collectRequestHandler(
-    c.req.raw,
-    c.env,
-    c.executionCtx,
-    c.req.raw.cf as Record<string, string>,
+  return surviveDisconnect(
+    c,
+    collectRequestHandler(c.req.raw, c.env, c.req.raw.cf as Record<string, string>),
   );
 }
 
 /** Plausible-compatible /api/event — POST + OPTIONS handled internally. */
 export function handlePlausibleEvent(c: Context<{ Bindings: Env }>) {
-  return plausibleEventRequestHandler(
-    c.req.raw,
-    c.env,
-    c.executionCtx,
-    c.req.raw.cf as Record<string, string>,
+  return surviveDisconnect(
+    c,
+    plausibleEventRequestHandler(c.req.raw, c.env, c.req.raw.cf as Record<string, string>),
   );
 }
 
