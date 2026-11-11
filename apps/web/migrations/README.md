@@ -10,6 +10,8 @@ Hand-maintained SQL, applied by Alchemy on deploy (see `alchemy.run.ts`).
 - `0003_goal_currency.sql` — goal currency column.
 - `0004_drop_site_deletion_jobs.sql` — drops the deletion-jobs table; Iceberg
   erasure is now a manual command, not a worker-tracked job.
+- `0005_drop_plausible_script_id.sql` — drops the Plausible-compat script id
+  column and its index; noomers serves only `tracker.js`.
 
 Migrations are append-only: add the next numbered file and never edit or
 rename one that any deployment has applied. Nothing has been deployed yet,

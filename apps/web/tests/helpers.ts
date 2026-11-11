@@ -71,18 +71,17 @@ export async function verifiedSessionCookie(email: string) {
  * than going through the API under test. */
 export async function seedSite(
   domain: string,
-  opts: { timezone?: string; plausibleScriptId?: string | null; trackerConfig?: object } = {},
+  opts: { timezone?: string; trackerConfig?: object } = {},
 ) {
   await env.DB.prepare(
-    `INSERT INTO sites (domain, tracker_id, timezone, tracker_script_configuration, plausible_script_id)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO sites (domain, tracker_id, timezone, tracker_script_configuration)
+     VALUES (?, ?, ?, ?)`,
   )
     .bind(
       domain,
       crypto.randomUUID(),
       opts.timezone ?? "Etc/UTC",
       JSON.stringify(opts.trackerConfig ?? {}),
-      opts.plausibleScriptId ?? null,
     )
     .run();
 }

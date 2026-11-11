@@ -144,7 +144,11 @@ export async function trackEvent(
         referrer,
         mergeUtmParams(urlUtmParams, optsUtmParams),
         undefined,
-        { name: eventName, props: opts.props },
+        {
+            name: eventName,
+            props: opts.props,
+            revenue: opts.revenue,
+        },
         opts.ip,
     );
 

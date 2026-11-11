@@ -67,6 +67,31 @@ describe("Shared Request Utils", () => {
             });
         });
 
+        it("should include revenue on custom events", () => {
+            const result = buildCollectRequestParams(
+                "test-site",
+                "example.com",
+                "/checkout",
+                "",
+                {},
+                undefined,
+                {
+                    name: "Purchase",
+                    revenue: { amount: 9.99, currency: "usd" },
+                },
+            );
+
+            expect(result).toEqual({
+                p: "/checkout",
+                h: "example.com",
+                r: "",
+                sid: "test-site",
+                en: "Purchase",
+                ra: "9.99",
+                rc: "USD",
+            });
+        });
+
         it("should reject invalid or oversized event properties", () => {
             expect(() =>
                 buildCollectRequestParams(

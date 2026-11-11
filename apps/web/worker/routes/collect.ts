@@ -1,6 +1,4 @@
-import { collectRequestHandler } from "../analytics/collect";
-import { plausibleEventRequestHandler } from "../analytics/plausible";
-import { handleCacheHeaders } from "../analytics/collect";
+import { collectRequestHandler, handleCacheHeaders } from "../analytics/collect";
 import type { Context } from "hono";
 
 // A client disconnect must not cancel ingest: register the whole handler
@@ -20,21 +18,6 @@ export function handleCollect(c: Context<{ Bindings: Env }>) {
     c,
     collectRequestHandler(c.req.raw, c.env, c.req.raw.cf as Record<string, string>),
   );
-}
-
-/** Plausible-compatible /api/event — POST + OPTIONS handled internally. */
-export function handlePlausibleEvent(c: Context<{ Bindings: Env }>) {
-  return surviveDisconnect(
-    c,
-    plausibleEventRequestHandler(c.req.raw, c.env, c.req.raw.cf as Record<string, string>),
-  );
-}
-
-export function handlePlausibleEventMethodNotAllowed() {
-  return new Response("Method Not Allowed", {
-    status: 405,
-    headers: { Allow: "POST, OPTIONS" },
-  });
 }
 
 /**

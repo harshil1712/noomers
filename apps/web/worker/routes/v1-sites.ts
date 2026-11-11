@@ -3,7 +3,6 @@ import type { Context } from "hono";
 import { requireAPIKey } from "../api/auth";
 import {
   SitesRepository,
-  validatePlausibleScriptId,
   siteResponse,
   type TrackerScriptConfiguration,
 } from "../sites/repository";
@@ -72,16 +71,13 @@ export async function createSite(c: C) {
       domain?: string;
       timezone?: string;
       tracker_script_configuration?: Partial<TrackerScriptConfiguration>;
-      plausible_script_id?: string | null;
       team_id?: string;
     };
     validateTeamId(input.team_id);
-    const plausibleScriptId = validatePlausibleScriptId(input.plausible_script_id);
     const site = await new SitesRepository(c.env.DB).create({
       domain: input.domain || "",
       timezone: input.timezone,
       trackerScriptConfiguration: input.tracker_script_configuration,
-      plausibleScriptId,
     });
     return Response.json(siteResponse(site));
   } catch (error) {
@@ -124,13 +120,11 @@ export async function mutateSite(c: C) {
       domain?: string;
       timezone?: string;
       tracker_script_configuration?: Partial<TrackerScriptConfiguration>;
-      plausible_script_id?: string | null;
     };
     const site = await repository.update(c.req.param("site_id") || "", {
       domain: input.domain,
       timezone: input.timezone,
       trackerScriptConfiguration: input.tracker_script_configuration,
-      plausibleScriptId: validatePlausibleScriptId(input.plausible_script_id),
     });
     return site ? Response.json(siteResponse(site)) : notFound();
   } catch (error) {
