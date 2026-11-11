@@ -15,7 +15,16 @@ describe("resolveTrackerConfig", () => {
       siteId: "example.com",
       reportOnLocalhost: false,
       reporterUrl: "https://app.noomers.com/collect",
+      outboundLinks: true,
     });
+  });
+
+  it("disables outbound link tracking with data-outbound=false", () => {
+    const el = scriptEl("https://app.noomers.com/tracker.js", {
+      "data-site-id": "example.com",
+      "data-outbound": "false",
+    });
+    expect(resolveTrackerConfig(el)?.outboundLinks).toBe(false);
   });
 
   it("resolves /collect on the script origin for custom script names", () => {

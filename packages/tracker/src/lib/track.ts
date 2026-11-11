@@ -30,6 +30,25 @@ export function autoTrackPageviews(client: Client) {
     return cleanupFn;
 }
 
+function isIgnoredByStorage(): boolean {
+    try {
+        return localStorage.getItem("noomers_ignore") === "true";
+    } catch {
+        return false;
+    }
+}
+
+function shouldSkip(client: Client): boolean {
+    if (
+        !client.reportOnLocalhost &&
+        (isLocalhostAddress(window.location.hostname) ||
+            navigator.webdriver === true)
+    ) {
+        return true;
+    }
+    return isIgnoredByStorage();
+}
+
 function getCanonicalUrl() {
     const canonical = document.querySelector(
         'link[rel="canonical"][href]',
@@ -81,10 +100,7 @@ export async function trackPageview(
     const canonical = getCanonicalUrl();
     const location = canonical ?? window.location;
 
-    if (
-        !client.reportOnLocalhost &&
-        isLocalhostAddress(window.location.hostname)
-    ) {
+    if (shouldSkip(client)) {
         return;
     }
 
@@ -159,10 +175,7 @@ export async function trackEvent(
         throw new Error("Event name must be between 1 and 64 characters.");
     }
 
-    if (
-        !client.reportOnLocalhost &&
-        isLocalhostAddress(window.location.hostname)
-    ) {
+    if (shouldSkip(client)) {
         return;
     }
 

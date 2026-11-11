@@ -213,4 +213,100 @@ describe("api", () => {
             expect(fetchCalls).toHaveLength(1);
         });
     });
+
+    describe("autoTrackOutboundLinks", () => {
+        afterEach(() => {
+            document.body.innerHTML = "";
+        });
+
+        function initOutbound(autoTrackOutboundLinks?: boolean) {
+            noomers.init({
+                siteId: "test-id",
+                reportOnLocalhost: true,
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+                autoTrackOutboundLinks,
+            });
+        }
+
+        function link(href: string) {
+            const anchor = document.createElement("a");
+            anchor.href = href;
+            anchor.innerHTML = "<span>go</span>";
+            anchor.addEventListener("click", (event) => event.preventDefault());
+            document.body.appendChild(anchor);
+            return anchor;
+        }
+
+        function sentEvents() {
+            return fetchCalls.map(
+                ([, init]) => new URLSearchParams(String(init?.body)),
+            );
+        }
+
+        test("tracks external link clicks without query or fragment", () => {
+            initOutbound(true);
+
+            link("https://other.example/path/page?secret=1#top").click();
+
+            const events = sentEvents();
+            expect(events).toHaveLength(1);
+            expect(events[0].get("en")).toBe("Outbound Link: Click");
+            expect(events[0].get("ep")).toBe(
+                JSON.stringify({ url: "https://other.example/path/page" }),
+            );
+        });
+
+        test("ignores same-host and non-http links", () => {
+            initOutbound(true);
+
+            link(`${location.origin}/internal`).click();
+            link("mailto:hi@example.com").click();
+
+            expect(fetchCalls).toHaveLength(0);
+        });
+
+        test("tracks clicks on elements inside the link", () => {
+            initOutbound(true);
+
+            link("https://other.example/")
+                .querySelector("span")
+                ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+            expect(sentEvents()[0]?.get("en")).toBe("Outbound Link: Click");
+        });
+
+        test("tracks middle-button auxclick only", () => {
+            initOutbound(true);
+            const anchor = link("https://other.example/");
+
+            anchor.dispatchEvent(
+                new MouseEvent("auxclick", { bubbles: true, button: 2 }),
+            );
+            expect(fetchCalls).toHaveLength(0);
+
+            anchor.dispatchEvent(
+                new MouseEvent("auxclick", { bubbles: true, button: 1 }),
+            );
+            expect(sentEvents()[0]?.get("en")).toBe("Outbound Link: Click");
+        });
+
+        test("is off unless enabled", () => {
+            initOutbound();
+
+            link("https://other.example/").click();
+
+            expect(fetchCalls).toHaveLength(0);
+        });
+
+        test("stops tracking after cleanup", () => {
+            initOutbound(true);
+            noomers.cleanup();
+            fetchCalls = [];
+
+            link("https://other.example/").click();
+
+            expect(fetchCalls).toHaveLength(0);
+        });
+    });
 });
