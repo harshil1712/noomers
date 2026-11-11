@@ -346,26 +346,4 @@ describe("waitUntil registration at route entry", () => {
     await expect(waitUntilCalls[0]).resolves.toBeDefined();
     expect(siteEventsRecord).not.toHaveBeenCalled();
   });
-
-  test("/api/event registers the handler promise synchronously", async () => {
-    const send = vi.fn().mockResolvedValue(undefined);
-    const env = { ...collectEnv(), EVENT_STREAM: { send } };
-    const request = new Request("https://example.com/api/event", {
-      method: "POST",
-      headers: { "content-type": "application/json", "user-agent": browserUserAgent },
-      body: JSON.stringify({
-        name: "pageview",
-        url: "https://example.com/",
-        domain: "example.com",
-      }),
-    });
-    const { c, waitUntilCalls } = fakeContext(request, env);
-    const { handlePlausibleEvent } = await import("../worker/routes/collect");
-    const response = handlePlausibleEvent(c);
-    expect(waitUntilCalls).toHaveLength(1);
-    const res = await response;
-    expect(res.status).toBe(202);
-    await expect(waitUntilCalls[0]).resolves.toBeInstanceOf(Response);
-    expect(send).toHaveBeenCalled();
-  });
 });

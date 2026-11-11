@@ -13,7 +13,6 @@ export interface TrackerScriptConfiguration {
 export interface Site {
   domain: string;
   trackerId: string;
-  plausibleScriptId?: string | null;
   timezone: string;
   customProperties: string[];
   trackerScriptConfiguration: TrackerScriptConfiguration;
@@ -22,7 +21,6 @@ export interface Site {
 interface SiteRow {
   domain: string;
   tracker_id: string;
-  plausible_script_id?: string | null;
   timezone: string;
   custom_properties?: string;
   tracker_script_configuration: string;
@@ -102,42 +100,19 @@ function toSite(row: SiteRow): Site {
   return {
     domain: row.domain,
     trackerId: row.tracker_id,
-    plausibleScriptId: row.plausible_script_id ?? null,
     timezone: row.timezone,
     customProperties,
     trackerScriptConfiguration: mergeTrackerConfiguration(DEFAULT_TRACKER_CONFIGURATION, stored),
   };
 }
 
-export const PLAUSIBLE_SCRIPT_ID_PATTERN = /^pa-[A-Za-z0-9_-]{8,64}$/;
-
-export function validatePlausibleScriptId(value: string | null | undefined): string | null {
-  if (value === undefined || value === null || value === "") return null;
-  if (!PLAUSIBLE_SCRIPT_ID_PATTERN.test(value)) {
-    throw new Error("plausible_script_id must match pa-[A-Za-z0-9_-]{8,64}");
-  }
-  return value;
-}
-
 export class SitesRepository {
   constructor(private database: D1Database) {}
-
-  async getByPlausibleScriptId(scriptId: string): Promise<Site | null> {
-    const row = await this.database
-      .prepare(
-        `SELECT domain, tracker_id, plausible_script_id, timezone,
-                        tracker_script_configuration, '[]' AS custom_properties
-                 FROM sites WHERE plausible_script_id = ?`,
-      )
-      .bind(scriptId)
-      .first<SiteRow>();
-    return row ? toSite(row) : null;
-  }
 
   async get(domain: string): Promise<Site | null> {
     const row = await this.database
       .prepare(
-        `SELECT domain, tracker_id, plausible_script_id, timezone, tracker_script_configuration,
+        `SELECT domain, tracker_id, timezone, tracker_script_configuration,
                     COALESCE((
                         SELECT json_group_array(property) FROM (
                             SELECT property FROM custom_properties
@@ -183,7 +158,7 @@ export class SitesRepository {
     const operator = input.before ? "<" : ">";
     const direction = input.before ? "DESC" : "ASC";
     const statement = this.database.prepare(
-      `SELECT domain, tracker_id, plausible_script_id, timezone, tracker_script_configuration,
+      `SELECT domain, tracker_id, timezone, tracker_script_configuration,
                 COALESCE((
                     SELECT json_group_array(property) FROM (
                         SELECT property FROM custom_properties
@@ -221,13 +196,11 @@ export class SitesRepository {
   async create(input: {
     domain: string;
     timezone?: string;
-    plausibleScriptId?: string | null;
     trackerScriptConfiguration?: Partial<TrackerScriptConfiguration>;
   }): Promise<Site> {
     const site: Site = {
       domain: normalizeDomain(input.domain),
       trackerId: crypto.randomUUID(),
-      plausibleScriptId: input.plausibleScriptId ?? null,
       timezone: normalizeTimezone(input.timezone),
       customProperties: [],
       trackerScriptConfiguration: mergeTrackerConfiguration(
@@ -244,13 +217,12 @@ export class SitesRepository {
     }
     await this.database
       .prepare(
-        `INSERT INTO sites (domain, tracker_id, plausible_script_id, timezone, tracker_script_configuration)
-                 VALUES (?, ?, ?, ?, ?)`,
+        `INSERT INTO sites (domain, tracker_id, timezone, tracker_script_configuration)
+                 VALUES (?, ?, ?, ?)`,
       )
       .bind(
         site.domain,
         site.trackerId,
-        site.plausibleScriptId ?? null,
         site.timezone,
         JSON.stringify(site.trackerScriptConfiguration),
       )
@@ -264,7 +236,6 @@ export class SitesRepository {
       domain?: string;
       timezone?: string;
       trackerScriptConfiguration?: Partial<TrackerScriptConfiguration>;
-      plausibleScriptId?: string | null;
     },
   ): Promise<Site | null> {
     const current = await this.get(currentDomain);
@@ -277,8 +248,6 @@ export class SitesRepository {
       trackerId: current.trackerId,
       timezone: input.timezone ? normalizeTimezone(input.timezone) : current.timezone,
       customProperties: current.customProperties,
-      plausibleScriptId:
-        input.plausibleScriptId === undefined ? current.plausibleScriptId : input.plausibleScriptId,
       trackerScriptConfiguration: mergeTrackerConfiguration(
         current.trackerScriptConfiguration,
         input.trackerScriptConfiguration,
@@ -288,14 +257,13 @@ export class SitesRepository {
       this.database
         .prepare(
           `UPDATE sites SET domain = ?, timezone = ?,
-                     tracker_script_configuration = ?, plausible_script_id = ?, updated_at = ?
+                     tracker_script_configuration = ?, updated_at = ?
                      WHERE domain = ?`,
         )
         .bind(
           next.domain,
           next.timezone,
           JSON.stringify(next.trackerScriptConfiguration),
-          next.plausibleScriptId ?? null,
           new Date().toISOString(),
           current.domain,
         ),
@@ -333,6 +301,5 @@ export function siteResponse(site: Site) {
       id: site.trackerId,
       ...site.trackerScriptConfiguration,
     },
-    plausible_script_id: site.plausibleScriptId ?? null,
   };
 }

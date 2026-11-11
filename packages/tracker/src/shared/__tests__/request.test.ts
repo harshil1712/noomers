@@ -67,6 +67,33 @@ describe("Shared Request Utils", () => {
             });
         });
 
+        it("should include revenue and the non-interactive flag on custom events", () => {
+            const result = buildCollectRequestParams(
+                "test-site",
+                "example.com",
+                "/checkout",
+                "",
+                {},
+                undefined,
+                {
+                    name: "Purchase",
+                    revenue: { amount: 9.99, currency: "usd" },
+                    interactive: false,
+                },
+            );
+
+            expect(result).toEqual({
+                p: "/checkout",
+                h: "example.com",
+                r: "",
+                sid: "test-site",
+                en: "Purchase",
+                ra: "9.99",
+                rc: "USD",
+                ni: "1",
+            });
+        });
+
         it("should reject invalid or oversized event properties", () => {
             expect(() =>
                 buildCollectRequestParams(

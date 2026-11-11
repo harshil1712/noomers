@@ -6,6 +6,9 @@ export type CollectRequestParams = {
     ht?: string; // hit type
     en?: string; // custom event name; absent for pageviews
     ep?: string; // JSON-encoded custom event properties
+    ra?: string; // revenue amount; custom events only, requires rc
+    rc?: string; // revenue currency (ISO-4217); custom events only, requires ra
+    ni?: string; // "1" marks a custom event non-interactive
     et?: string; // native event type; "engagement" for engagement events
     e?: string; // engagement time in milliseconds (delta, not cumulative)
     sd?: string; // scroll depth 0-100
@@ -15,6 +18,18 @@ export type CollectRequestParams = {
 
 export type EventProperty = string | number | boolean;
 export type EventProperties = Record<string, EventProperty>;
+
+export type EventRevenue = {
+    amount: number | string;
+    currency: string;
+};
+
+export type CustomEventOptions = {
+    name: string;
+    props?: EventProperties;
+    revenue?: EventRevenue;
+    interactive?: boolean;
+};
 
 export type UtmParams = {
     us?: string; // utm_source

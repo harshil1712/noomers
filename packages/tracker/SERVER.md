@@ -93,6 +93,21 @@ Track a pageview event.
 
 **Note:** UTM parameters in the URL will be automatically extracted. Explicitly passed UTM parameters will override URL parameters.
 
+### `trackEvent(name, options)`
+
+Track a custom event. Accepts the same options as `trackPageview`, plus:
+
+- `props` (object, optional): Scalar event properties (strings, numbers, booleans)
+- `revenue` (object, optional): `{ amount: number | string, currency: string }` — recorded for revenue goals; the currency is uppercased
+- `interactive` (boolean, optional): Pass `false` to mark the event non-interactive so it doesn't affect visit metrics
+
+```typescript
+await noomers.trackEvent("Purchase", {
+    url: "https://example.com/checkout",
+    revenue: { amount: "19.99", currency: "EUR" },
+});
+```
+
 ### Other Functions
 
 - `isInitialized()`: Returns whether the tracker is initialized

@@ -53,16 +53,16 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 ### Worker (`apps/web/worker`)
 
 - `worker/index.ts` — Hono entry; exports the `SiteEvents` Durable Object class.
-- `worker/analytics/` — collect, Plausible Events API, Stats API (`/api/v2/query`), Basin SQL (`r2-sql.ts`), bot filtering, tracker template.
+- `worker/analytics/` — collect, Stats API (`/api/v2/query`), Basin SQL (`r2-sql.ts`), bot filtering.
 - `worker/sites/`, `goals/`, `custom-properties/` — D1 repositories (**raw SQL**, documented exception to the Drizzle rule, same as Basin SQL).
-- `worker/routes/` — Hono handlers: health/readiness, collect, Plausible events, `/api/v1/sites*`, `/api/v2/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
+- `worker/routes/` — Hono handlers: health/readiness, collect, `/api/v1/sites*`, `/api/v2/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
 - `worker/realtime.ts` — `/realtime/:siteId` WebSocket; requires a Better Auth session with `role === "admin"`.
 - `worker/site-events.ts` — per-site DO: keeps canonical events for the realtime window, serves realtime aggregates.
 - `apps/web/migrations/` — ordered D1 migrations; `0001_init`/`0002_auth` are the baseline.
 
 ### Event data flow
 
-1. Native `/collect` or Plausible-compatible `/api/event` receives an event.
+1. Native `/collect` receives an event.
 2. D1 verifies that the site is active. Unknown, deleted, or unavailable registry states fail closed.
 3. The Origin header (when present) and the page host must fall inside the site's registered domain or a subdomain, or the event is silently dropped; `SERVER_EVENTS_TOKEN` callers bypass this check. Requests can fake both headers — this blocks cross-site pollution, not determined attackers.
 4. The collector normalizes URL, geography, user agent, campaign, event, and property fields.

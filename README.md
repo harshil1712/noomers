@@ -6,18 +6,18 @@ _noomers is sponsored by [Modem, your dev-team's auto-triage PM](https://modem.d
 
 ## What it does
 
-- **Lightweight tracker** — a single `tracker.js` (ESM or UMD) script tag, plus Plausible-compatible `pa-*.js` script routes, collects pageviews, custom events, scroll/engagement signals, and campaign parameters.
+- **Lightweight tracker** — a single `tracker.js` (ESM or UMD) script tag collects pageviews, custom events (with optional revenue and non-interactive flags), scroll/engagement signals, and campaign parameters.
 - **Privacy by construction** — no cookies, no raw IPs or full user-agents persisted; visitor IDs are site-scoped, hostname-scoped, salted, and rotate daily in UTC.
 - **Host-checked collection** — events are only counted when the Origin and page host match the site's registered domain or a subdomain. A non-browser client can still fake those headers; use the server tracker with `SERVER_EVENTS_TOKEN` for events that must be trustworthy. Collection is rate-limited per IP+site.
 - **Realtime** — a per-site `SiteEvents` Durable Object buffers canonical events and serves live realtime aggregates over WebSocket.
 - **Full history** — events go straight to [Cloudflare Basin](https://developers.cloudflare.com/basin/) (Pipelines → R2 → Iceberg → Basin SQL), so there is no fixed retention limit.
 - **Dashboard** — a Better Auth–gated SPA at `app.<domain>` (single-owner; `OWNER_ADMIN_EMAIL`, or the first verified account if unset) with stats, timeseries, realtime, goals, and breakdown cards.
-- **Plausible-compatible APIs** — a subset of Plausible's Events, Sites, and Stats APIs. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline — **not** full parity.
+- **Plausible-compatible APIs** — a subset of Plausible's Sites and Stats APIs, plus a data-shape-compatible event model and importer. See [Plausible feature parity](docs/plausible-feature-parity.md) for the supported baseline — **not** full parity.
 
 ## Architecture
 
 ```
-site visitor ──GET /collect or POST /api/event──▶ apps/web worker (Hono)
+site visitor ──GET/POST /collect──▶ apps/web worker (Hono)
                                                │  - D1 site registry check (fail closed)
                                                │  - normalize + salt visitor id
                                                ▼
@@ -28,7 +28,7 @@ site visitor ──GET /collect or POST /api/event──▶ apps/web worker (Hon
                           Basin SQL  ←── /api/v2/query + /api/dashboard/*
 ```
 
-`apps/web` serves the SPA and every worker route (`/api/*`, `/collect`, `/js/*`, `/:script`, `/realtime/:siteId`, `/favicon`, `/cache`). `apps/site` is a static Astro site on the apex. `packages/tracker` builds the loader/module/server tracker bundles. `packages/brand` holds shared logo/tokens/fonts. `alchemy.run.ts` owns all infrastructure.
+`apps/web` serves the SPA and every worker route (`/api/*`, `/collect`, `/:script`, `/realtime/:siteId`, `/favicon`, `/cache`). `apps/site` is a static Astro site on the apex. `packages/tracker` builds the loader/module/server tracker bundles. `packages/brand` holds shared logo/tokens/fonts. `alchemy.run.ts` owns all infrastructure.
 
 ## Getting started (self-host)
 
@@ -69,7 +69,7 @@ After deploy, `tracker.js` is served from `https://app.<your-domain>/tracker.js`
 <script defer src="https://app.<your-domain>/tracker.js" data-site-id="example.com"></script>
 ```
 
-Or use the Plausible-style route (`pa-*.js` per registered site) and server-side tracking via `@noomers/tracker`'s server entry.
+Server-side tracking (including trusted IPs via `SERVER_EVENTS_TOKEN`) is available through `@noomers/tracker`'s server entry.
 
 `tracker.js` records clicks on links to other hosts as `Outbound Link: Click` events with a `url` property (query string and fragment stripped); add `data-outbound="false"` to turn this off. Automated browsers (`navigator.webdriver`) are not tracked. To exclude your own visits, run `localStorage.noomers_ignore = "true"` in your browser console on your site.
 

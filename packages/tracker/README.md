@@ -48,6 +48,20 @@ noomers.init({
 noomers.trackPageview();
 ```
 
+### Track Custom Events
+
+```typescript
+noomers.trackEvent("Signup", { props: { plan: "pro" } });
+
+// With revenue (stored for revenue goals; currency is uppercased)
+noomers.trackEvent("Purchase", {
+    revenue: { amount: "19.99", currency: "EUR" },
+});
+
+// Mark an event non-interactive so it doesn't affect visit metrics
+noomers.trackEvent("Heartbeat", { interactive: false });
+```
+
 ### Track Outbound Links
 
 Set `autoTrackOutboundLinks` to `true` to record an `Outbound Link: Click` event with a `url` property (query string and fragment stripped) when a visitor clicks a link to another host. It is off by default in the npm package; the `tracker.js` script tag enables it unless you add `data-outbound="false"`.

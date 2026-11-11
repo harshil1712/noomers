@@ -80,12 +80,12 @@ Last reviewed: 2026-11-05.
 
 ### 6. Tracker parity
 
-| Feature                              | Status  | Notes                                                                                            |
-| ------------------------------------ | ------- | ------------------------------------------------------------------------------------------------ |
-| Configuration-driven tracker         | Partial | Stored tracker settings do not yet alter the served `tracker.js`/`pa-*.js` behavior or URL.      |
-| Outbound links, downloads, forms     | Planned | Automatic instrumentation with compatible event/property names.                                  |
-| Tagged events and automatic 404s     | Planned | CSS-class/data-attribute conventions and 404 detection.                                          |
-| Official-tracker compatibility suite | Ready   | Run captured browser payloads from current official tracker versions against `/api/event` in CI. |
+| Feature                              | Status  | Notes                                                                                     |
+| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------- |
+| Configuration-driven tracker         | Partial | Stored tracker settings do not yet alter the served `tracker.js` behavior or URL.         |
+| Outbound links, downloads, forms     | Planned | Automatic instrumentation with compatible event/property names.                           |
+| Tagged events and automatic 404s     | Planned | CSS-class/data-attribute conventions and 404 detection.                                   |
+| Official-tracker compatibility suite | Dropped | noomers does not accept Plausible's Events API — one tracker, one `/collect` ingest path. |
 
 ### 7. Product workflows and integrations
 

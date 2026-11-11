@@ -216,7 +216,6 @@ export const Web = Cloudflare.Website.Vite(
           "/api/*",
           "/collect",
           "/realtime/*",
-          "/js/*",
           // Cloudflare `*` crosses `/`, so "/*.js" would also swallow
           // /assets/*.js (the SPA bundle) — exclude it; the Hono
           // catch-all below still falls back to assets if it slips.
@@ -237,7 +236,7 @@ export const Web = Cloudflare.Website.Vite(
           namespaceId: 1002,
           simple: { limit: 60, period: 60 },
         }),
-        // Per-IP throttle on /collect and /api/event — namespace 1001.
+        // Per-IP throttle on /collect — namespace 1001.
         COLLECT_RATE_LIMIT: Cloudflare.RateLimit("COLLECT_RATE_LIMIT", {
           namespaceId: 1001,
           simple: { limit: 100, period: 60 },
@@ -254,8 +253,8 @@ export const Web = Cloudflare.Website.Vite(
         OAUTH_PROXY_SECRET: Config.Redacted("OAUTH_PROXY_SECRET").pipe(Config.withDefault("")),
 
         // --- noomers analytics core --------------------------------------
-        // Daily-rotating visitor-id salt; required for /collect and
-        // /api/event — the collector refuses traffic without it.
+        // Daily-rotating visitor-id salt; required for /collect — the
+        // collector refuses traffic without it.
         VISITOR_SALT: visitorSalt.text,
         // Bearer tokens for the Plausible-compat APIs.
         SITES_API_TOKEN: Config.Redacted("SITES_API_TOKEN").pipe(Config.withDefault("")),

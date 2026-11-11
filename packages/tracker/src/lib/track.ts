@@ -9,7 +9,7 @@ import {
     isLocalhostAddress,
 } from "../shared/utils";
 import { buildCollectRequestParams } from "../shared/request";
-import type { EventProperties } from "../shared/types";
+import type { EventProperties, EventRevenue } from "../shared/types";
 
 export type TrackPageviewOpts = {
     url?: string;
@@ -18,6 +18,8 @@ export type TrackPageviewOpts = {
 
 export type TrackEventOpts = TrackPageviewOpts & {
     props?: EventProperties;
+    revenue?: EventRevenue;
+    interactive?: boolean;
 };
 
 export function autoTrackPageviews(client: Client) {
@@ -192,7 +194,12 @@ export async function trackEvent(
         referrer,
         utmParams,
         undefined,
-        { name: eventName, props: opts.props },
+        {
+            name: eventName,
+            props: opts.props,
+            revenue: opts.revenue,
+            interactive: opts.interactive,
+        },
     );
 
     makeRequest(client.reporterUrl, requestParams);

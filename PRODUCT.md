@@ -4,7 +4,7 @@
 
 - **Name:** noomers (`noomers.com`, app on `app.noomers.com`)
 - **What it is:** a privacy-first, self-hosted web analytics platform for Cloudflare. Users deploy it to their own Cloudflare account, drop a script tag on their site, and get realtime + full-history analytics without handing visitor data to a third party.
-- **What it also is:** a Plausible-compatible API surface — a subset of the Events, Sites, and Stats APIs (see `docs/plausible-feature-parity.md`; never claim full parity).
+- **What it also is:** a Plausible-compatible API surface — a subset of the Sites and Stats APIs (see `docs/plausible-feature-parity.md`; never claim full parity).
 
 ## Audience
 
@@ -14,8 +14,8 @@
 
 ## What it ships
 
-- Tracker: `tracker.js` loader + ESM/UMD bundles + server-side tracking package; Plausible `pa-*.js` script routes.
-- Collection: `/collect` (native) + `/api/event` (Plausible Events API), fail-closed on the D1 site registry, bot filtering, campaign/UTM + custom event properties.
+- Tracker: `tracker.js` loader + ESM/UMD bundles + server-side tracking package.
+- Collection: `/collect`, fail-closed on the D1 site registry, bot filtering, campaign/UTM + custom event properties, revenue and non-interactive custom events.
 - Realtime: per-site SiteEvents Durable Object; `/realtime/:siteId` WebSocket into the dashboard.
 - History: Basin Pipeline → R2 → Iceberg, queried through Basin SQL; optional import table UNION.
 - APIs: Plausible Sites API (`/api/v1/*`), Stats API (`/api/v2/query`), goal/custom-prop management — deployment-wide Bearer tokens.
