@@ -771,13 +771,19 @@ describe("visit:entry_page / visit:exit_page", () => {
     });
   });
 
-  test("unsupported visit:referrer → 400", async () => {
-    const res = await action({
-      request: request(visitQuery({ dimensions: ["visit:referrer"] })),
-      context: context(),
-    } as never);
-    expect(res.status).toBe(400);
-  });
+  test.each(["visit:region", "visit:city", "visit:channel", "visit:country_name"])(
+    "unsupported visit dimension %s → 400",
+    async (dimension) => {
+      const res = await action({
+        request: request(visitQuery({ dimensions: [dimension] })),
+        context: context(),
+      } as never);
+      expect(res.status).toBe(400);
+      await expect(res.json()).resolves.toMatchObject({
+        error: expect.stringContaining("At most one supported dimension"),
+      });
+    },
+  );
 
   test("event:name with session metrics → 400", async () => {
     const res = await action({
@@ -820,6 +826,138 @@ describe("visit:entry_page / visit:exit_page", () => {
         pagination: { limit: 10, offset: 5 },
       }),
     );
+  });
+});
+
+describe("visit dimensions", () => {
+  const visitQuery = (extra: Record<string, unknown> = {}) => ({
+    site_id: "example.com",
+    metrics: ["visitors", "bounce_rate"],
+    dimensions: ["visit:source"],
+    date_range: ["2026-08-01", "2026-08-02"],
+    ...extra,
+  });
+  const sessions = (rows: unknown[] = []) => ({
+    getSessionMetrics: vi.fn(),
+    getSessionBreakdown: vi.fn().mockResolvedValue({ rows }),
+    getBasicMetrics: vi.fn(),
+  });
+
+  test.each([
+    ["visit:entry_page", "visit:entry_page"],
+    ["visit:exit_page", "visit:exit_page"],
+    ["visit:source", "visit:source"],
+    ["visit:referrer", "visit:referrer"],
+    ["visit:utm_source", "visit:utm_source"],
+    ["visit:utm_medium", "visit:utm_medium"],
+    ["visit:utm_campaign", "visit:utm_campaign"],
+    ["visit:utm_term", "visit:utm_term"],
+    ["visit:utm_content", "visit:utm_content"],
+    ["visit:country", "visit:country"],
+    ["visit:region_name", "visit:region"],
+    ["visit:city_name", "visit:city"],
+    ["visit:browser", "visit:browser"],
+    ["visit:browser_version", "visit:browser_version"],
+    ["visit:os", "visit:os"],
+    ["visit:os_version", "visit:os_version"],
+    ["visit:device", "visit:device_type"],
+  ] as const)("%s queries session breakdown as %s", async (publicDimension, internalDimension) => {
+    const api = sessions();
+    const res = await action({
+      request: request(visitQuery({ dimensions: [publicDimension] })),
+      context: context({ sessionAnalytics: api }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(api.getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      internalDimension,
+      undefined,
+      expect.any(Object),
+    );
+    const body = await res.json();
+    expect(body.query.dimensions).toEqual([publicDimension]);
+  });
+
+  test.each([
+    ["visit:source", "Direct / None"],
+    ["visit:referrer", "Direct / None"],
+    ["visit:utm_source", "(not set)"],
+    ["visit:browser", "(not set)"],
+    ["visit:os", "(not set)"],
+    ["visit:device", "(not set)"],
+    ["visit:country", ""],
+  ] as const)("%s maps an empty value to %s", async (dimension, label) => {
+    const api = sessions([{ dimension: "", visitors: 1, bounces: 0, visits: 1 }]);
+    const res = await action({
+      request: request(visitQuery({ dimensions: [dimension] })),
+      context: context({ sessionAnalytics: api }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results[0].dimensions).toEqual([label]);
+  });
+
+  test.each([
+    ["desktop", "Desktop"],
+    ["mobile", "Mobile"],
+    ["tablet", "Tablet"],
+    ["console", "Console"],
+  ] as const)("visit:device maps %s to %s", async (value, label) => {
+    const api = sessions([{ dimension: value, visitors: 1, bounces: 0, visits: 1 }]);
+    const res = await action({
+      request: request(visitQuery({ dimensions: ["visit:device"] })),
+      context: context({ sessionAnalytics: api }),
+    } as never);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results[0].dimensions).toEqual([label]);
+  });
+
+  test("events metric with a visit dimension → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ dimensions: ["visit:os"], metrics: ["visitors", "events"] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("events is not supported with visit:os"),
+    });
+  });
+
+  test("visit dimension in filters → 400", async () => {
+    const res = await action({
+      request: request(visitQuery({ filters: [["is", "visit:browser", ["Chrome"]]] })),
+      context: context(),
+    } as never);
+    expect(res.status).toBe(400);
+  });
+
+  test("order_by on a visit dimension echoes the public name", async () => {
+    const api = sessions();
+    const res = await action({
+      request: request(
+        visitQuery({
+          dimensions: ["visit:os"],
+          order_by: [["visit:os", "asc"]],
+        }),
+      ),
+      context: context({ sessionAnalytics: api }),
+    } as never);
+    expect(res.status).toBe(200);
+    expect(api.getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "visit:os",
+      undefined,
+      expect.objectContaining({ orderBy: [{ field: "dimension", direction: "asc" }] }),
+    );
+    const body = await res.json();
+    expect(body.query.order_by).toEqual([["visit:os", "asc"]]);
   });
 });
 

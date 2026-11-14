@@ -999,6 +999,20 @@ describe("entry/exit page dimensions", () => {
     expect(query).toContain("SELECT visitor_id, session_number, exit_page AS dimension");
   });
 
+  test.each([
+    ["visit:os", "operating_system"],
+    ["visit:os_version", "operating_system_version"],
+    ["visit:region", "region"],
+    ["visit:city", "city"],
+  ] as const)("%s selects %s from the session's first pageview", async (dimension, column) => {
+    const query = await captured(dimension);
+    expect(query).toContain(`${column} AS dimension_value`);
+    expect(query).toContain(
+      "FIRST_VALUE(dimension_value ORDER BY event_ts, event_id) FILTER (WHERE event_type = 'pageview') AS entry_page",
+    );
+    expect(query).toContain("SELECT visitor_id, session_number, entry_page AS dimension");
+  });
+
   test("non-exit dimension contains no exit_page", async () => {
     const query = await captured("visit:country");
     expect(query).not.toContain("exit_page");

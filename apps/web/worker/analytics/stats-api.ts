@@ -40,8 +40,59 @@ const SCALAR_DIMENSIONS = {
 const TIME_DIMENSIONS = ["time", "time:hour", "time:day", "time:week", "time:month"] as const;
 type ScalarDimension = keyof typeof SCALAR_DIMENSIONS;
 type TimeDimension = (typeof TIME_DIMENSIONS)[number];
-const VISIT_DIMENSIONS = ["visit:entry_page", "visit:exit_page"] as const;
-type VisitDimension = (typeof VISIT_DIMENSIONS)[number];
+// Public Stats API visit dimensions → internal SessionDimension passed to
+// getSessionBreakdown. Plausible's visit:region / visit:city /
+// visit:country_name / visit:channel stay unsupported: they resolve to
+// ISO-3166-2 codes / GeoNames ids / channel groups we do not store.
+const VISIT_DIMENSIONS = {
+  "visit:entry_page": "visit:entry_page",
+  "visit:exit_page": "visit:exit_page",
+  "visit:source": "visit:source",
+  "visit:referrer": "visit:referrer",
+  "visit:utm_source": "visit:utm_source",
+  "visit:utm_medium": "visit:utm_medium",
+  "visit:utm_campaign": "visit:utm_campaign",
+  "visit:utm_term": "visit:utm_term",
+  "visit:utm_content": "visit:utm_content",
+  "visit:country": "visit:country",
+  "visit:region_name": "visit:region",
+  "visit:city_name": "visit:city",
+  "visit:browser": "visit:browser",
+  "visit:browser_version": "visit:browser_version",
+  "visit:os": "visit:os",
+  "visit:os_version": "visit:os_version",
+  "visit:device": "visit:device_type",
+} as const satisfies Record<string, SessionDimension>;
+type VisitDimension = keyof typeof VISIT_DIMENSIONS;
+const NOT_SET_VISIT_DIMENSIONS = new Set<VisitDimension>([
+  "visit:utm_source",
+  "visit:utm_medium",
+  "visit:utm_campaign",
+  "visit:utm_term",
+  "visit:utm_content",
+  "visit:browser",
+  "visit:browser_version",
+  "visit:os",
+  "visit:os_version",
+]);
+const DEVICE_TYPE_LABELS: Record<string, string> = {
+  desktop: "Desktop",
+  mobile: "Mobile",
+  tablet: "Tablet",
+};
+
+// Plausible-style labels for empty/raw visit dimension values, applied in the
+// Stats API response layer only.
+function formatVisitDimensionValue(dimension: VisitDimension, value: string): string {
+  if (dimension === "visit:device") {
+    if (value === "") return "(not set)";
+    return DEVICE_TYPE_LABELS[value] ?? value.charAt(0).toUpperCase() + value.slice(1);
+  }
+  if (value !== "") return value;
+  if (dimension === "visit:source" || dimension === "visit:referrer") return "Direct / None";
+  if (NOT_SET_VISIT_DIMENSIONS.has(dimension)) return "(not set)";
+  return value;
+}
 type Dimension = ScalarDimension | TimeDimension | VisitDimension | "event:goal";
 type FilterOperator = "is" | "is_not" | "contains" | "contains_not";
 type StatsFilter = [FilterOperator, ScalarDimension, string[]];
@@ -210,7 +261,7 @@ function parseQuery(
         typeof dimension !== "string" ||
         (!Object.hasOwn(SCALAR_DIMENSIONS, dimension) &&
           !TIME_DIMENSIONS.includes(dimension as TimeDimension) &&
-          !VISIT_DIMENSIONS.includes(dimension as VisitDimension) &&
+          !Object.hasOwn(VISIT_DIMENSIONS, dimension) &&
           dimension !== "event:goal" &&
           !/^event:props:[A-Za-z0-9_.-]{1,64}$/.test(dimension)),
     )
@@ -651,7 +702,7 @@ export async function executeStatsQuery(
     throw new StatsAPIError("conversion_rate requires an event:goal filter or dimension");
   }
   const visitDimension =
-    query.dimensions[0] === "visit:entry_page" || query.dimensions[0] === "visit:exit_page";
+    query.dimensions[0] !== undefined && Object.hasOwn(VISIT_DIMENSIONS, query.dimensions[0]);
   const needsSessions =
     visitDimension ||
     query.metrics.some((metric) => !["visitors", "pageviews", "events"].includes(metric));
@@ -679,7 +730,9 @@ export async function executeStatsQuery(
   const resolvedDimension =
     dimension && TIME_DIMENSIONS.includes(dimension as TimeDimension)
       ? resolveTimeDimension(dimension as TimeDimension, query.start, query.end)
-      : dimension;
+      : dimension && Object.hasOwn(VISIT_DIMENSIONS, dimension)
+        ? VISIT_DIMENSIONS[dimension as VisitDimension]
+        : dimension;
   const timeBuckets =
     sessions && resolvedDimension?.startsWith("time:")
       ? getTimeBuckets(
@@ -786,7 +839,13 @@ export async function executeStatsQuery(
     const rowSessionMetrics =
       "sessionMetrics" in row ? (row.sessionMetrics as SessionMetrics) : sessionMetrics;
     return {
-      dimensions: query.dimensions.length ? [row.dimension || ""] : [],
+      dimensions: query.dimensions.length
+        ? [
+            visitDimension
+              ? formatVisitDimensionValue(dimension as VisitDimension, row.dimension || "")
+              : row.dimension || "",
+          ]
+        : [],
       metrics: query.metrics.map((metric) => {
         if (REVENUE_METRICS.includes(metric as (typeof REVENUE_METRICS)[number])) {
           return null;

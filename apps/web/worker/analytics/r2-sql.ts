@@ -33,7 +33,11 @@ export type SessionDimension =
   | "visit:utm_term"
   | "visit:utm_content"
   | "visit:country"
+  | "visit:region"
+  | "visit:city"
   | "visit:browser"
+  | "visit:os"
+  | "visit:os_version"
   | "visit:browser_version"
   | "visit:device_type"
   | "visit:device_model"
@@ -64,7 +68,11 @@ const VISIT_DIMENSIONS: Partial<Record<SessionDimension, string>> = {
   "visit:utm_term": "utm_term",
   "visit:utm_content": "utm_content",
   "visit:country": "country",
+  "visit:region": "region",
+  "visit:city": "city",
   "visit:browser": "browser",
+  "visit:os": "operating_system",
+  "visit:os_version": "operating_system_version",
   "visit:browser_version": "browser_version",
   "visit:device_type": "device_type",
   "visit:device_model": "device_model",
