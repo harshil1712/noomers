@@ -1377,3 +1377,39 @@ describe("session-attributed visitors", () => {
     expect(query).toContain("interval_events.visitors");
   });
 });
+
+describe("engagement events do not count as visitors", () => {
+  test("event-based visitors in time breakdowns exclude engagement events", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ success: true, result: { rows: [] } }), { status: 200 }),
+      );
+    await new R2SQLAPI(
+      "account",
+      "bucket",
+      "token",
+      "analytics.events",
+      fetcher as typeof fetch,
+    ).getSessionBreakdown(
+      "example.com",
+      new Date("2026-11-14T23:00:00.000Z"),
+      new Date("2026-11-15T23:00:00.000Z"),
+      {},
+      "time:day",
+      [
+        {
+          label: "2026-11-15",
+          start: new Date("2026-11-14T23:00:00.000Z"),
+          end: new Date("2026-11-15T23:00:00.000Z"),
+        },
+      ],
+    );
+    const query = JSON.parse(String((fetcher.mock.calls[0][1] as RequestInit).body))
+      .query as string;
+    expect(query).toContain(
+      "COUNT(DISTINCT CASE WHEN visitor_id <> '' AND event_type <> 'engagement' THEN visitor_id END) AS visitors",
+    );
+    expect(query).toContain("event_metrics.visitors");
+  });
+});

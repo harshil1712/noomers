@@ -628,7 +628,7 @@ export class R2SQLAPI {
     const aggregateSelect = `
             SELECT
                 ${dimensionExpression ? `${dimensionExpression} AS dimension,` : ""}
-                COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) AS visitors,
+                COUNT(DISTINCT CASE WHEN visitor_id <> '' AND event_type <> 'engagement' THEN visitor_id END) AS visitors,
                 SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS views,
                 SUM(CASE WHEN event_type <> 'engagement' THEN 1 ELSE 0 END) AS events
             FROM events
@@ -984,7 +984,7 @@ export class R2SQLAPI {
                         ${eventDimensionExpression} AS dimension,
                         SUM(CASE WHEN event_type = 'pageview' THEN 1 ELSE 0 END) AS views,
                         SUM(CASE WHEN event_type <> 'engagement' THEN 1 ELSE 0 END) AS events,
-                        COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) AS visitors
+                        COUNT(DISTINCT CASE WHEN visitor_id <> '' AND event_type <> 'engagement' THEN visitor_id END) AS visitors
                     FROM all_events
                     WHERE event_ts >= TRY_CAST(${start} AS TIMESTAMP)
                         AND event_ts < TRY_CAST(${end} AS TIMESTAMP)
