@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { secretsEqual } from "../lib/secrets";
+import { requireAPIKey } from "../api/auth";
 import { executeStatsQuery, StatsAPIError } from "../analytics/stats-api";
 import type { R2SQLAPI } from "../analytics/r2-sql";
 import { SitesRepository } from "../sites/repository";
@@ -26,11 +26,8 @@ export async function handleStatsQuery(
   if (contentLength > 64 * 1024) {
     return Response.json({ error: "Request body is too large" }, { status: 413 });
   }
-  const token = env.STATS_API_TOKEN;
-  const authorization = request.headers.get("Authorization");
-  if (!token || !authorization || !(await secretsEqual(authorization, `Bearer ${token}`))) {
-    return Response.json({ error: "Invalid API key" }, { status: 401 });
-  }
+  const unauthorized = await requireAPIKey(request, env, "stats");
+  if (unauthorized) return unauthorized;
   try {
     const body = await request.text();
     if (new TextEncoder().encode(body).byteLength > 64 * 1024) {

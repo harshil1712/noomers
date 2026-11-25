@@ -26,7 +26,7 @@ noomers currently has:
 - A Better Auth–gated, single-owner dashboard (session user with `role === "admin"`; `OWNER_ADMIN_EMAIL`, else the first verified account, bootstraps the admin) with summary, time-series, page, referrer, event, goal, property, browser, country, device, and UTM reports, plus a realtime tab served by the SiteEvents Durable Object over WebSocket.
 - Canonical event storage through Basin Pipelines (formerly Cloudflare Pipelines), Basin Catalog (formerly R2 Data Catalog), and Basin SQL, all provisioned by `alchemy.run.ts`.
 - A D1 site registry, permanent deletion tombstones, and per-site SiteEvents Durable Objects (purged on delete).
-- Deployment-wide bearer tokens for the Plausible APIs (`SITES_API_TOKEN`, `STATS_API_TOKEN`) and an optional first-party server tracker token (`SERVER_EVENTS_TOKEN`).
+- Dashboard-managed API keys for the Plausible APIs (Settings → API keys; Stats scope for `/api/v2/query`, Sites scope for `/api/v1` and `/api/v2`), with deployment-wide env-token fallback (`SITES_API_TOKEN`, `STATS_API_TOKEN`) and an optional first-party server tracker token (`SERVER_EVENTS_TOKEN`).
 - A historical-import path: `scripts/plausible-import/` loads a self-hosted Plausible `events_v2` export into a second Iceberg table that `R2_SQL_IMPORT_TABLE` merges into every query.
 - A token-gated `/api/health/ready` readiness endpoint that checks D1 and Basin SQL reachability.
 
@@ -364,7 +364,7 @@ All infrastructure is provisioned by `alchemy.run.ts` (Alchemy v2): the D1 datab
 | Initial site creation               | Supported | Admins add sites from the dashboard's add-site dialog, which then shows the tracker snippet; `POST /api/v1/sites` remains available for automation. Unvalidated live.               |
 | Basin Pipeline/Catalog provisioning | Supported | Stream, sink, pipeline, catalog, bucket, and both API tokens are created by `alchemy.run.ts`; unvalidated until a real deploy runs.                                                 |
 | Basin SQL credential provisioning   | Supported | A least-privilege read token is minted as an account API token by `alchemy.run.ts`; unvalidated until a real deploy runs.                                                           |
-| Stats/Sites API token configuration | Partial   | `SITES_API_TOKEN` and `STATS_API_TOKEN` are operator-provided secrets read from env; there is no assisted setup or rotation flow.                                                   |
+| Stats/Sites API token configuration | Partial   | Dashboard-managed keys (create/list/revoke, Stats or Sites scope, last-used tracking) with `SITES_API_TOKEN`/`STATS_API_TOKEN` env fallback; no per-site scoping or per-user keys.  |
 | Pipeline binding metadata           | Supported | The runtime `EVENT_STREAM` binding is provisioned and bound by `alchemy.run.ts`.                                                                                                    |
 | Dependency-aware health checks      | Supported | `/api/health/ready` (token-gated) checks D1 and Basin SQL reachability; `/api/health` stays a static compatibility response. Unvalidated live.                                      |
 | Pipeline retry/dead-letter handling | Missing   | `EVENT_STREAM.send` failures fail the request (500) and the tracker does not retry — the event is lost; there is no dead-letter destination or operator alert on sustained failure. |

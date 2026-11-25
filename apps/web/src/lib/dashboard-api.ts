@@ -48,6 +48,16 @@ export interface Goal {
   averageRevenue: number | null;
 }
 
+export interface ApiKey {
+  id: string;
+  name: string;
+  scope: "stats" | "sites";
+  prefix: string;
+  created_at: number;
+  last_used_at: number | null;
+  revoked_at: number | null;
+}
+
 export class DashboardApiError extends Error {
   constructor(
     message: string,
@@ -132,6 +142,11 @@ export const dashboardApi = {
     get<BreakdownResponse>(`${DASH}/props`, params(q, { event, key })),
   breakdown: (card: BreakdownCard, q: DashboardQuery) =>
     get<BreakdownResponse>(`${DASH}/${card}`, params(q)),
+  apiKeys: () => get<{ api_keys: ApiKey[] }>(`${DASH}/api-keys`, {}),
+  createApiKey: (name: string, scope: ApiKey["scope"]) =>
+    post<ApiKey & { key: string }>(`${DASH}/api-keys`, { name, scope }),
+  revokeApiKey: (id: string) =>
+    request<{ revoked: boolean }>(`${DASH}/api-keys/${encodeURIComponent(id)}`, "DELETE"),
 };
 
 export type BreakdownCard =

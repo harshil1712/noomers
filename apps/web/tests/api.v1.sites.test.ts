@@ -24,9 +24,9 @@ describe("Plausible Sites API", () => {
     await seedSite("example.com", { timezone: "Europe/London" });
   });
 
-  test("authenticates with the dedicated Sites API token", async () => {
+  test("authenticates with the Stats API token too", async () => {
     const response = await request("/api/v1/sites", "GET", undefined, "stats-secret");
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
   });
 
   test("lists sites with pagination metadata", async () => {

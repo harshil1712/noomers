@@ -50,8 +50,8 @@ site visitor ──GET/POST /collect──▶ apps/web worker (Hono)
 | ------------------------------------------------ | ----------------------------------------------------------------- |
 | `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Deploy (needs Account API Tokens: Edit)                           |
 | `OWNER_ADMIN_EMAIL`                              | Optional — first admin; if unset, first verified account is admin |
-| `SITES_API_TOKEN`                                | Bearer for `/api/v1/*` (site management)                          |
-| `STATS_API_TOKEN`                                | Bearer for `/api/v2/query` (and /api/v1 fallback)                 |
+| `SITES_API_TOKEN`                                | Optional fallback bearer for `/api/v1/*` (site management)        |
+| `STATS_API_TOKEN`                                | Optional fallback bearer for `/api/v2/query` (and `/api/v1`)      |
 | `R2_SQL_TABLE`                                   | Query table (`noomers.events`)                                    |
 | `R2_SQL_IMPORT_TABLE`                            | Optional imported-history table (see `scripts/plausible-import/`) |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`      | Optional Google OAuth                                             |
@@ -60,6 +60,8 @@ site visitor ──GET/POST /collect──▶ apps/web worker (Hono)
 | `SERVER_EVENTS_TOKEN`                            | Optional first-party server tracker token                         |
 
 `BETTER_AUTH_SECRET`, `VISITOR_SALT`, the Basin SQL/Catalog tokens, `CF_ACCOUNT_ID`, and `R2_SQL_BUCKET` are minted or derived by `alchemy.run.ts` — they are not hand-managed secrets.
+
+The Plausible APIs authenticate with `Authorization: Bearer <key>`. Manage keys in the dashboard at **Settings → API keys**: a Stats key authorizes `/api/v2/query`, a Sites key authorizes `/api/v1` and `/api/v2`. `SITES_API_TOKEN`/`STATS_API_TOKEN` remain as optional env-token fallbacks (`STATS_API_TOKEN` works on `/api/v1` too).
 
 ## Using the tracker
 

@@ -2,7 +2,7 @@ import { requireAPIKey } from "./api/auth";
 import { SitesRepository } from "./sites/repository";
 
 export async function handleReadiness(request: Request, env: Env): Promise<Response> {
-  const unauthorized = await requireAPIKey(request, env);
+  const unauthorized = await requireAPIKey(request, env, "sites");
   if (unauthorized) return unauthorized;
 
   const checks: Record<string, { ok: boolean; detail?: string }> = {};
