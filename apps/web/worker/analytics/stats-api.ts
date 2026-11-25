@@ -745,13 +745,6 @@ export async function executeStatsQuery(
   if (needsSessions && timeBuckets && timeBuckets.length > 500) {
     throw new StatsAPIError("R2 SQL session time dimensions support at most 500 buckets");
   }
-  // Mirror Plausible: when no event-only metric or event dimension is
-  // requested, attribute visitors to the same sessions counted as visits so
-  // visits >= visitors holds per range and bucket.
-  const sessionVisitors =
-    needsSessions &&
-    (dimension === undefined || resolvedDimension?.startsWith("time:") === true) &&
-    !query.metrics.some((metric) => metric === "pageviews" || metric === "events");
   const sessionMetrics =
     needsSessions && !dimension
       ? await sessions!.getSessionMetrics(
@@ -759,7 +752,6 @@ export async function executeStatsQuery(
           query.start,
           query.end,
           toR2Filters(query.filters),
-          { sessionVisitors },
         )
       : undefined;
   const sessionBreakdown =
@@ -771,7 +763,7 @@ export async function executeStatsQuery(
           toR2Filters(query.filters),
           resolvedDimension as SessionDimension,
           timeBuckets,
-          { ...r2BreakdownOptions(query), sessionVisitors },
+          r2BreakdownOptions(query),
         )
       : undefined;
   let basicResult: {

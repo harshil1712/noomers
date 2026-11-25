@@ -116,8 +116,6 @@ export interface R2BreakdownOptions {
   orderBy?: R2OrderClause[];
   pagination?: R2Pagination;
   count?: boolean;
-  /** Count `visitors` as the distinct visitors of the same sessions counted as `visits`. */
-  sessionVisitors?: boolean;
 }
 
 type R2SQLResponse<Row> = {
@@ -427,7 +425,6 @@ export class R2SQLAPI {
     startDate: Date,
     endDate: Date,
     filters: SearchFilters | R2StatsFilter[] = {},
-    options: Pick<R2BreakdownOptions, "sessionVisitors"> = {},
   ): Promise<SessionMetrics> {
     const lookbackDate = new Date(
       Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()),
@@ -524,7 +521,6 @@ export class R2SQLAPI {
             interval_sessions AS (
                 SELECT
                     COUNT(*) AS visits,
-                    COUNT(DISTINCT visitor_id) AS visitors,
                     SUM(CASE WHEN interactive_events <= 1 THEN 1 ELSE 0 END) AS bounces,
                     CASE
                         WHEN SUM(duration_seconds) > 0
@@ -540,7 +536,7 @@ export class R2SQLAPI {
             SELECT
                 interval_events.views,
                 interval_events.events,
-                ${options.sessionVisitors ? "interval_sessions.visitors" : "interval_events.visitors"},
+                interval_events.visitors,
                 interval_sessions.visits,
                 interval_sessions.bounces,
                 interval_sessions.average_visit_duration
@@ -996,7 +992,6 @@ export class R2SQLAPI {
                 SELECT
                     session_dimensions.dimension,
                     COUNT(*) AS visits,
-                    COUNT(DISTINCT sessions.visitor_id) AS visitors,
                     SUM(CASE WHEN sessions.interactive_events <= 1 THEN 1 ELSE 0 END) AS bounces,
                     CASE WHEN SUM(sessions.duration_seconds) > 0
                         THEN SUM(sessions.duration_seconds) / COUNT(*)
@@ -1016,11 +1011,7 @@ export class R2SQLAPI {
                 event_metrics.dimension,
                 event_metrics.views,
                 event_metrics.events,
-                ${
-                  options.sessionVisitors
-                    ? "COALESCE(session_metrics.visitors, 0) AS visitors"
-                    : "event_metrics.visitors"
-                },
+                event_metrics.visitors,
                 COALESCE(session_metrics.visits, 0) AS visits,
                 COALESCE(session_metrics.bounces, 0) AS bounces,
                 session_metrics.average_visit_duration
