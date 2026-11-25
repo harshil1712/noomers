@@ -90,12 +90,13 @@ function post<T>(path: string, body: Record<string, string>) {
 async function get<T>(
   path: string,
   params: Record<string, string | number | undefined>,
+  signal?: AbortSignal,
 ): Promise<T> {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== "") query.set(key, String(value));
   }
-  const res = await fetch(`${path}?${query.toString()}`);
+  const res = await fetch(`${path}?${query.toString()}`, { signal });
   if (!res.ok) throw new DashboardApiError(`${path} failed: ${res.status}`, res.status);
   return res.json() as Promise<T>;
 }
@@ -136,13 +137,16 @@ export const dashboardApi = {
     ),
   deleteSite: (domain: string) =>
     request<{ deleted: boolean }>(`${DASH}/sites/${encodeURIComponent(domain)}`, "DELETE"),
-  stats: (q: DashboardQuery) => get<StatsResponse>(`${DASH}/stats`, params(q)),
-  timeseries: (q: DashboardQuery) => get<TimeseriesResponse>(`${DASH}/timeseries`, params(q)),
-  goals: (q: DashboardQuery) => get<{ goals: Goal[] }>(`${DASH}/goals`, params(q)),
+  stats: (q: DashboardQuery, signal?: AbortSignal) =>
+    get<StatsResponse>(`${DASH}/stats`, params(q), signal),
+  timeseries: (q: DashboardQuery, signal?: AbortSignal) =>
+    get<TimeseriesResponse>(`${DASH}/timeseries`, params(q), signal),
+  goals: (q: DashboardQuery, signal?: AbortSignal) =>
+    get<{ goals: Goal[] }>(`${DASH}/goals`, params(q), signal),
   props: (q: DashboardQuery, event: string, key: string) =>
     get<BreakdownResponse>(`${DASH}/props`, params(q, { event, key })),
-  breakdown: (card: BreakdownCard, q: DashboardQuery) =>
-    get<BreakdownResponse>(`${DASH}/${card}`, params(q)),
+  breakdown: (card: BreakdownCard, q: DashboardQuery, signal?: AbortSignal) =>
+    get<BreakdownResponse>(`${DASH}/${card}`, params(q), signal),
   apiKeys: () => get<{ api_keys: ApiKey[] }>(`${DASH}/api-keys`, {}),
   createApiKey: (name: string, scope: ApiKey["scope"]) =>
     post<ApiKey & { key: string }>(`${DASH}/api-keys`, { name, scope }),

@@ -1,24 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { memo, useCallback, useEffect, useState } from "react";
-import * as echarts from "echarts/core";
-import { LineChart } from "echarts/charts";
-import { GridComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
-import { z } from "zod";
-import {
-  Banner,
-  Button,
-  Empty,
-  Grid,
-  LinkButton,
-  Select,
-  Surface,
-  Text,
-  Chart,
-} from "@cloudflare/kumo";
+import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { z } from "zod/mini";
+import { Banner, Button, Empty, Grid, LinkButton, Select, Surface, Text } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe, WarningCircle } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
-import { themeColor } from "../../lib/use-is-dark";
 import { useIsDark } from "../../lib/use-is-dark";
 import { dashboardApi, type StatsResponse } from "../../lib/dashboard-api";
 import { DeltaBadge } from "../../components/dashboard/delta-badge";
@@ -27,7 +12,9 @@ import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 
-echarts.use([LineChart, GridComponent, CanvasRenderer]);
+const SiteTrend = lazy(() =>
+  import("../../components/dashboard/analytics-charts").then((m) => ({ default: m.SiteTrend })),
+);
 
 const OVERVIEW_INTERVALS = [
   { value: "24h", label: "Last 24 hours" },
@@ -36,11 +23,11 @@ const OVERVIEW_INTERVALS = [
   { value: "30d", label: "Last 30 days" },
 ];
 
-const searchSchema = z.object({ interval: z.string().optional() });
+const searchSchema = z.object({ interval: z.optional(z.string()) });
 
 export const Route = createFileRoute("/_authed/")({
-  validateSearch: (s: z.input<typeof searchSchema>) =>
-    searchSchema.safeParse(s).success ? searchSchema.parse(s) : {},
+  validateSearch: (search: z.input<typeof searchSchema>) =>
+    searchSchema.safeParse(search).data ?? {},
   component: SitesOverview,
 });
 
@@ -66,40 +53,61 @@ const SiteCard = memo(function SiteCard({
   );
   const [failed, setFailed] = useState(false);
   const [missingIcon, setMissingIcon] = useState(false);
+  const header = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(false);
   useEffect(() => {
-    let current = true;
+    const element = header.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setNearViewport(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  useEffect(() => {
+    if (!nearViewport) return;
+    const controller = new AbortController();
     const query = { site, interval, filters: {} };
     setData(null);
     setFailed(false);
-    void Promise.all([dashboardApi.stats(query), dashboardApi.timeseries(query)]).then(
+    void Promise.all([
+      dashboardApi.stats(query, controller.signal),
+      dashboardApi.timeseries(query, controller.signal),
+    ]).then(
       ([stats, trend]) => {
-        if (current)
+        if (!controller.signal.aborted)
           setData({
             stats,
             points: trend.chartData.map((row) => [Date.parse(row.date), row.visitors]),
           });
       },
       () => {
-        if (current) {
+        if (!controller.signal.aborted) {
           setFailed(true);
           onError(site);
         }
       },
     );
     return () => {
-      current = false;
+      controller.abort();
     };
-  }, [site, interval, attempt, onError]);
+  }, [site, interval, attempt, onError, nearViewport]);
 
-  const color = themeColor("--color-kumo-brand");
   return (
     <Surface as="article" className="relative flex min-w-0 flex-col gap-4 rounded-xl p-4">
-      <div className="flex items-center gap-2">
+      <div ref={header} className="flex items-center gap-2">
         {missingIcon ? (
           <Globe size={16} aria-hidden="true" className="shrink-0 text-kumo-subtle" />
         ) : (
           <img
             src={`/favicon?url=https://${site}`}
+            loading="lazy"
             width={16}
             height={16}
             alt=""
@@ -168,26 +176,9 @@ const SiteCard = memo(function SiteCard({
             </div>
           </dl>
           <div aria-hidden="true" className="pointer-events-none min-w-0">
-            <Chart
-              echarts={echarts}
-              height={48}
-              options={{
-                animation: false,
-                grid: { left: 0, right: 0, top: 2, bottom: 1 },
-                xAxis: { type: "time", show: false },
-                yAxis: { type: "value", show: false, min: "dataMin" },
-                series: [
-                  {
-                    type: "line",
-                    data: data.points,
-                    showSymbol: false,
-                    silent: true,
-                    lineStyle: { width: 1.5, color },
-                    areaStyle: { color, opacity: isDark ? 0.18 : 0.12 },
-                  },
-                ],
-              }}
-            />
+            <Suspense fallback={<div className="h-12" />}>
+              <SiteTrend points={data.points} isDark={isDark} />
+            </Suspense>
           </div>
         </>
       ) : (

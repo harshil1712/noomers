@@ -1,10 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import * as echarts from "echarts/core";
-import { LineChart } from "echarts/charts";
-import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
-import { z } from "zod";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { z } from "zod/mini";
 import {
   Badge,
   Banner,
@@ -20,7 +16,6 @@ import {
   Table,
   Tabs,
   Text,
-  TimeseriesChart,
   Tooltip,
 } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
@@ -39,7 +34,11 @@ import {
   type TimeseriesResponse,
 } from "../../lib/dashboard-api";
 
-echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+const DashboardTrend = lazy(() =>
+  import("../../components/dashboard/analytics-charts").then((m) => ({
+    default: m.DashboardTrend,
+  })),
+);
 
 const INTERVALS = [
   { value: "24h", label: "Last 24 hours" },
@@ -135,7 +134,7 @@ interface SearchParams {
 
 const searchSchema = z.object(
   Object.fromEntries(
-    ["site", "interval", "tab", ...FILTER_KEYS].map((key) => [key, z.string().optional()]),
+    ["site", "interval", "tab", ...FILTER_KEYS].map((key) => [key, z.optional(z.string())]),
   ),
 );
 
@@ -533,25 +532,25 @@ function KpiStrip({
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setError(false);
     setData(null);
     dashboardApi
-      .stats(query)
+      .stats(query, controller.signal)
       .then((d) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setData(d);
           onError?.("stats", false);
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setError(true);
           onError?.("stats", true);
         }
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [query.site, query.interval, query.filters, query.nonce, attempt]);
 
@@ -705,24 +704,24 @@ function TimeseriesPanel({
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setError(false);
     setRows(null);
     dashboardApi
-      .timeseries(query)
+      .timeseries(query, controller.signal)
       .then((res) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         onError?.("timeseries", false);
         setRows(res.chartData);
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setError(true);
           onError?.("timeseries", true);
         }
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [query.site, query.interval, query.filters, query.nonce, attempt]);
 
@@ -768,13 +767,9 @@ function TimeseriesPanel({
             </div>
             <span className="mono-label">{timezone}</span>
           </div>
-          <TimeseriesChart
-            echarts={echarts}
-            isDarkMode={isDark}
-            data={data}
-            height={300}
-            yAxisMinInterval={1}
-          />
+          <Suspense fallback={<div className="skeleton h-[300px] rounded-lg" />}>
+            <DashboardTrend data={data} isDark={isDark} />
+          </Suspense>
         </>
       )}
     </Surface>
@@ -859,15 +854,15 @@ function BreakdownTable({
 
   useEffect(() => setPage(1), [realCard, query.site, query.interval, query.filters]);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setError(false);
     setData(null);
     const finish = (fn: () => void) => {
-      if (!cancelled) fn();
+      if (!controller.signal.aborted) fn();
     };
     if (isGoals) {
       dashboardApi
-        .goals(query)
+        .goals(query, controller.signal)
         .then((r) =>
           finish(() => {
             setData({
@@ -903,7 +898,7 @@ function BreakdownTable({
         );
     } else {
       dashboardApi
-        .breakdown(realCard, { ...query, page })
+        .breakdown(realCard, { ...query, page }, controller.signal)
         .then((d) =>
           finish(() => {
             setData(d);
@@ -918,7 +913,7 @@ function BreakdownTable({
         );
     }
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce, attempt]);
 
