@@ -9,6 +9,7 @@ const TABLES = [
   "sites",
   "site_tombstones",
   "custom_properties",
+  "api_keys",
   "user",
   "session",
   "account",

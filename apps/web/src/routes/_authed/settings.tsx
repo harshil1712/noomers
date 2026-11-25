@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useId, useState, type FormEvent, useRef } from "react";
-import { Button, Input, Loader, Text } from "@cloudflare/kumo";
+import { Badge, Banner, Button, Input, Loader, Select, Text } from "@cloudflare/kumo";
+import { Copy, Plus } from "@phosphor-icons/react";
 import { authClient, useSession } from "../../lib/auth-client";
 
 /** Settings card over Kumo LayerCard: title/description/body in Primary,
@@ -40,7 +41,7 @@ import { PageHeader } from "../../components/page-header";
 import { LayerCard, SensitiveInput } from "@cloudflare/kumo";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
-import { dashboardApi } from "../../lib/dashboard-api";
+import { dashboardApi, DashboardApiError, type ApiKey } from "../../lib/dashboard-api";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { TimezonePicker } from "../../components/dashboard/add-site-dialog";
 
@@ -83,6 +84,7 @@ function Settings() {
           <PasswordSection hasPassword={hasPassword} />
           <SessionsSection />
           <SitesSettings />
+          <ApiKeysSection />
           <DeleteAccountSection hasPassword={hasPassword} />
         </>
       )}
@@ -411,6 +413,183 @@ function SitesSettings() {
             </li>
           ))}
         </ul>
+      )}
+    </SettingsSection>
+  );
+}
+
+/** Long unbroken key names would overflow labels, dialog titles and toasts. */
+const shortName = (name: string) => (name.length > 24 ? `${name.slice(0, 23)}…` : name);
+
+function ApiKeysSection() {
+  const [keys, setKeys] = useState<ApiKey[] | null>(null);
+  const [forbidden, setForbidden] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [scope, setScope] = useState<ApiKey["scope"]>("stats");
+  const [creating, setCreating] = useState(false);
+  const [reveal, setReveal] = useState<{ name: string; key: string } | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await dashboardApi.apiKeys();
+        if (!cancelled) setKeys(r.api_keys);
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof DashboardApiError && e.status === 403) setForbidden(true);
+        else setError("Couldn't load API keys.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [nonce]);
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const created = await dashboardApi.createApiKey(name.trim(), scope);
+      setReveal({ name: created.name, key: created.key });
+      setName("");
+      setScope("stats");
+      setNonce((n) => n + 1);
+      toast.success("API key created", shortName(created.name));
+    } catch (err) {
+      toast.error("Couldn't create the API key", err instanceof Error ? err.message : undefined);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const revoke = async (key: ApiKey) => {
+    try {
+      await dashboardApi.revokeApiKey(key.id);
+      setNonce((n) => n + 1);
+      toast.success("API key revoked", shortName(key.name));
+    } catch (err) {
+      toast.error("Couldn't revoke the API key", err instanceof Error ? err.message : undefined);
+      return false;
+    }
+  };
+
+  const copy = async (key: string) => {
+    try {
+      await navigator.clipboard.writeText(key);
+      toast.success("API key copied");
+    } catch {
+      toast.error("Couldn't copy the key", "Select it and copy it manually.");
+    }
+  };
+
+  return (
+    <SettingsSection
+      title="API keys"
+      description="Read-only keys can query your analytics. Full-access keys can also manage sites, goals and custom properties."
+    >
+      {reveal && (
+        <>
+          <Banner
+            variant="alert"
+            title="Copy this key now. You won't be able to see it again."
+            className="mb-4"
+          />
+          <div className="mb-4 flex items-end gap-2">
+            <div className="min-w-0 grow">
+              <SensitiveInput
+                label={`Key for ${shortName(reveal.name)}`}
+                value={reveal.key}
+                readOnly
+              />
+            </div>
+            <Button
+              variant="secondary"
+              aria-label="Copy API key"
+              onClick={() => void copy(reveal.key)}
+            >
+              <Copy size={16} />
+            </Button>
+            <Button variant="primary" onClick={() => setReveal(null)}>
+              Done
+            </Button>
+          </div>
+        </>
+      )}
+      {error && !forbidden && <FormError message={error} attempt={0} />}
+      {forbidden ? (
+        <Text variant="secondary" size="sm">
+          Only the owner account can manage API keys.
+        </Text>
+      ) : error ? null : keys === null ? (
+        <Loader size="sm" aria-label="Loading API keys" />
+      ) : (
+        <>
+          {keys.length === 0 ? (
+            <Text variant="secondary" size="sm">
+              No API keys yet.
+            </Text>
+          ) : (
+            <ul className="flex flex-col gap-4">
+              {keys.map((key) => (
+                <li
+                  key={key.id}
+                  className="flex flex-wrap items-center gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
+                >
+                  <Text truncate>{key.name}</Text>
+                  <Badge variant={key.scope === "sites" ? "primary" : "secondary"}>
+                    {key.scope === "sites" ? "Full access" : "Read-only"}
+                  </Badge>
+                  <code className="text-sm text-kumo-subtle">{key.prefix}…</code>
+                  <Text variant="secondary" size="sm">
+                    Created {new Date(key.created_at).toLocaleDateString()}
+                  </Text>
+                  <Text variant="secondary" size="sm">
+                    Last used{" "}
+                    {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : "Never"}
+                  </Text>
+                  {key.revoked_at ? (
+                    <Badge variant="neutral">Revoked</Badge>
+                  ) : (
+                    <ConfirmDialog
+                      title={`Revoke ${shortName(key.name)}?`}
+                      description="Integrations using this key stop working immediately. This can't be undone."
+                      confirmLabel="Revoke key"
+                      variant="destructive"
+                      onConfirm={() => revoke(key)}
+                      trigger={
+                        <Button variant="secondary-destructive" size="sm">
+                          Revoke
+                        </Button>
+                      }
+                    />
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <form onSubmit={(e) => void submit(e)} className="mt-4 flex flex-wrap items-end gap-3">
+            <Input
+              label="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={64}
+              required
+              placeholder="e.g. Grafana"
+            />
+            <Select
+              label="Access"
+              value={scope}
+              onValueChange={(v) => setScope(v ?? "stats")}
+              items={{ stats: "Read-only", sites: "Full access" }}
+            />
+            <Button variant="primary" type="submit" loading={creating} disabled={!name.trim()}>
+              <Plus size={16} /> Create key
+            </Button>
+          </form>
+        </>
       )}
     </SettingsSection>
   );

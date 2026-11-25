@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vite-plus/test";
-import { handleStatsQuery, v2MethodNotAllowed } from "../worker/routes/v2-query";
+import { handleStatsQuery, queryMethodNotAllowed } from "../worker/routes/stats-query";
 
 // Harness shim: keeps the { request, context } call shape while the Hono
 // handler takes (request, env, sessionAnalytics) directly.
@@ -14,11 +14,11 @@ async function action(args: {
 }
 
 function loader() {
-  return v2MethodNotAllowed();
+  return queryMethodNotAllowed();
 }
 
 function request(body: unknown, token = "stats-secret") {
-  return new Request("https://analytics.example/api/v2/query", {
+  return new Request("https://analytics.example/api/v1/query", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -74,7 +74,7 @@ function context(
   };
 }
 
-describe("Plausible Stats API v2", () => {
+describe("Plausible-compatible Stats API", () => {
   afterEach(() => vi.useRealTimers());
 
   test("rejects GET and invalid API keys", async () => {
