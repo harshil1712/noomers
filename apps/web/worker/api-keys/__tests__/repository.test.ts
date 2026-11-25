@@ -62,7 +62,6 @@ describe("ApiKeysRepository", () => {
     expect(await repo.findActiveByHash(hash)).toMatchObject({
       id: apiKey.id,
       scope: "stats",
-      last_used_at: null,
     });
     await repo.revoke(apiKey.id);
     expect(await repo.findActiveByHash(hash)).toBeNull();

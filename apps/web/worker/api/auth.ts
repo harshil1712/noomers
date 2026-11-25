@@ -1,8 +1,6 @@
 import { secretsEqual } from "../lib/secrets";
 import { ApiKeysRepository, hashApiKey, type ApiKeyScope } from "../api-keys/repository";
 
-const TOUCH_THROTTLE_MS = 60_000;
-
 function invalidKey() {
   return Response.json({ error: "Invalid API key" }, { status: 401 });
 }
@@ -34,9 +32,7 @@ export async function requireAPIKey(
     const repository = new ApiKeysRepository(env.DB);
     const row = await repository.findActiveByHash(await hashApiKey(token));
     if (row && (row.scope === "sites" || row.scope === scope)) {
-      if (row.last_used_at === null || row.last_used_at <= Date.now() - TOUCH_THROTTLE_MS) {
-        await repository.touch(row.id);
-      }
+      await repository.touch(row.id);
       return null;
     }
   }

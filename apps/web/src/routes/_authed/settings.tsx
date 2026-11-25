@@ -487,28 +487,28 @@ function ApiKeysSection() {
       description="Stats keys work for /api/v2/query. Sites keys work for /api/v1 and /api/v2."
     >
       {reveal && (
-        <Banner
-          variant="alert"
-          title="Copy this key now. You won't be able to see it again."
-          className="mb-4"
-        />
-      )}
-      {reveal && (
-        <div className="mb-4 flex items-end gap-2">
-          <div className="grow">
-            <SensitiveInput label={`Key for ${reveal.name}`} value={reveal.key} readOnly />
+        <>
+          <Banner
+            variant="alert"
+            title="Copy this key now. You won't be able to see it again."
+            className="mb-4"
+          />
+          <div className="mb-4 flex items-end gap-2">
+            <div className="grow">
+              <SensitiveInput label={`Key for ${reveal.name}`} value={reveal.key} readOnly />
+            </div>
+            <Button
+              variant="secondary"
+              aria-label="Copy API key"
+              onClick={() => void copy(reveal.key)}
+            >
+              <Copy size={16} />
+            </Button>
+            <Button variant="primary" onClick={() => setReveal(null)}>
+              Done
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            aria-label="Copy API key"
-            onClick={() => void copy(reveal.key)}
-          >
-            <Copy size={16} />
-          </Button>
-          <Button variant="primary" onClick={() => setReveal(null)}>
-            Done
-          </Button>
-        </div>
+        </>
       )}
       {error && !forbidden && <FormError message={error} attempt={0} />}
       {forbidden ? (

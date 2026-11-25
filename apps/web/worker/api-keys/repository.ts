@@ -79,15 +79,14 @@ export class ApiKeysRepository {
     return true;
   }
 
-  async findActiveByHash(
-    hash: string,
-  ): Promise<{ id: string; scope: ApiKeyScope; last_used_at: number | null } | null> {
-    const row = await this.db
-      .select({ id: apiKeys.id, scope: apiKeys.scope, lastUsedAt: apiKeys.lastUsedAt })
-      .from(apiKeys)
-      .where(and(eq(apiKeys.keyHash, hash), isNull(apiKeys.revokedAt)))
-      .get();
-    return row ? { id: row.id, scope: row.scope, last_used_at: row.lastUsedAt } : null;
+  async findActiveByHash(hash: string): Promise<{ id: string; scope: ApiKeyScope } | null> {
+    return (
+      (await this.db
+        .select({ id: apiKeys.id, scope: apiKeys.scope })
+        .from(apiKeys)
+        .where(and(eq(apiKeys.keyHash, hash), isNull(apiKeys.revokedAt)))
+        .get()) ?? null
+    );
   }
 
   /** Updates last_used_at at most once per minute. */
