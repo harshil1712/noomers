@@ -1,15 +1,12 @@
-import { Button, DropdownMenu, useSidebar } from "@cloudflare/kumo";
-import { CaretDown, Gear, SignOut } from "@phosphor-icons/react";
-import { useNavigate } from "@tanstack/react-router";
+import { Button, DropdownMenu } from "@cloudflare/kumo";
+import { CaretDown, SignOut } from "@phosphor-icons/react";
 import { signOut } from "../lib/auth-client";
 import { authErrorMessage } from "../lib/auth-errors";
 import { toast } from "../lib/toast";
 
-/** Header account menu: who's signed in, Settings, Sign out. */
-export function UserMenu({ user }: { user: { email: string; name?: string | null } }) {
-  const navigate = useNavigate();
-  const { setOpenMobile } = useSidebar();
-  const initial = (user.name?.trim() || user.email || "?")[0].toUpperCase();
+export function UserMenu({ user }: { user: { name?: string | null } }) {
+  const displayName = user.name?.trim() || "Account";
+  const initial = displayName[0].toUpperCase();
 
   const handleSignOut = async () => {
     const r = await signOut();
@@ -27,7 +24,7 @@ export function UserMenu({ user }: { user: { email: string; name?: string | null
         render={
           <Button
             variant="ghost"
-            aria-label="Account menu"
+            aria-label={`Account menu for ${displayName}`}
             className="w-full min-w-0 justify-start gap-2 pr-2 pl-1"
           >
             <span
@@ -36,30 +33,16 @@ export function UserMenu({ user }: { user: { email: string; name?: string | null
             >
               {initial}
             </span>
-            <span className="min-w-0 flex-1 truncate text-left text-sm">{user.email}</span>
+            <span className="min-w-0 flex-1 truncate text-left text-sm">{displayName}</span>
             <CaretDown size={12} aria-hidden className="shrink-0" />
           </Button>
         }
       />
       <DropdownMenu.Content align="end">
         <DropdownMenu.Group>
-          <DropdownMenu.Label>
-            <span className="block truncate font-medium text-kumo-default">
-              {user.name || user.email}
-            </span>
-            {user.name && <span className="block truncate text-kumo-subtle">{user.email}</span>}
-          </DropdownMenu.Label>
+          <DropdownMenu.Label>{displayName}</DropdownMenu.Label>
         </DropdownMenu.Group>
         <DropdownMenu.Separator />
-        <DropdownMenu.Item
-          icon={Gear}
-          onClick={() => {
-            setOpenMobile(false);
-            void navigate({ to: "/settings" });
-          }}
-        >
-          Account settings
-        </DropdownMenu.Item>
         <DropdownMenu.Item icon={SignOut} onClick={() => void handleSignOut()}>
           Sign out
         </DropdownMenu.Item>
