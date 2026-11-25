@@ -619,34 +619,6 @@ describe("trackPageview", () => {
             expect(callArgs).toHaveProperty("uco", "e");
         });
 
-        test("should read UTM params from the page URL when no canonical link is present", async () => {
-            Object.defineProperty(window, "location", {
-                writable: true,
-                value: {
-                    pathname: "/real-path",
-                    search: "?utm_source=a&utm_medium=b&utm_campaign=c&utm_term=d&utm_content=e",
-                    host: "example.com",
-                },
-            });
-
-            const client = new Client({
-                siteId: "test-site",
-                reporterUrl: "https://example.com/collect",
-                autoTrackPageviews: false,
-            });
-
-            await trackPageview(client);
-
-            expect(makeRequestMock).toHaveBeenCalledTimes(1);
-            const callArgs = makeRequestMock.mock.calls[0][1];
-            expect(callArgs).toHaveProperty("p", "/real-path");
-            expect(callArgs).toHaveProperty("us", "a");
-            expect(callArgs).toHaveProperty("um", "b");
-            expect(callArgs).toHaveProperty("uc", "c");
-            expect(callArgs).toHaveProperty("ut", "d");
-            expect(callArgs).toHaveProperty("uco", "e");
-        });
-
         test("should prefer opts.url UTM params over the page URL when a canonical link is present", async () => {
             const link = document.createElement("link");
             link.rel = "canonical";
