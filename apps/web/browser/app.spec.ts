@@ -33,6 +33,39 @@ async function serveApp(page: Page, signedIn: boolean) {
             ],
           },
         });
+      case "paths":
+        return route.fulfill({
+          json: {
+            page: 1,
+            hasNextPage: false,
+            countsByProperty: [
+              ["/guides/self-hosted-analytics", 17, 29],
+              ["/pricing", 8, 11],
+            ],
+          },
+        });
+      case "country":
+        return route.fulfill({
+          json: {
+            page: 1,
+            hasNextPage: false,
+            countsByProperty: [
+              [["US", "United States"], 12, 15],
+              [["IN", "India"], 9, 11],
+            ],
+          },
+        });
+      case "referrer":
+        return route.fulfill({
+          json: {
+            page: 1,
+            hasNextPage: false,
+            countsByProperty: [
+              ["", 12, 13],
+              ["news.ycombinator.com", 9, 10],
+            ],
+          },
+        });
       case "goals":
         return route.fulfill({ json: { goals: [] } });
       case "api-keys":
@@ -205,6 +238,13 @@ for (const width of [390, 1280])
           path,
         ).toBeLessThanOrEqual(1);
         await page.screenshot({ path: info.outputPath(`${index}.png`), animations: "disabled" });
+        if (path.endsWith("site=example.org")) {
+          const pages = page
+            .getByRole("table")
+            .filter({ hasText: "/guides/self-hosted-analytics" });
+          await pages.scrollIntoViewIfNeeded();
+          await pages.screenshot({ path: info.outputPath("pages.png") });
+        }
       }
       expect(errors).toEqual([]);
     });
@@ -255,4 +295,40 @@ test("settings validates credentials and creates and revokes a key", async ({ pa
   await page.getByRole("button", { name: "Revoke", exact: true }).click();
   await page.getByRole("button", { name: "Revoke key", exact: true }).click();
   await expect(page.getByText("Revoked", { exact: true })).toBeVisible();
+});
+
+test("an owner can find a lower-ranked page, filter the dashboard and return", async ({ page }) => {
+  await serveApp(page, true);
+  const paths = Array.from({ length: 13 }, (_, i) => [`/guides/article-${i + 1}`, 40 - i, 60 - i]);
+  await page.route(
+    (url) => url.pathname === "/api/dashboard/paths",
+    (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      const pageNumber = Number(query.get("page") || 1);
+      const filtered = paths.filter((row) => !query.get("path") || row[0] === query.get("path"));
+      return route.fulfill({
+        json: {
+          countsByProperty: filtered.slice((pageNumber - 1) * 10, pageNumber * 10),
+          page: pageNumber,
+          hasNextPage: filtered.length > pageNumber * 10,
+        },
+      });
+    },
+  );
+  await page.goto("/");
+  await page.getByRole("main").getByRole("link", { name: domain, exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Reporting period" })).toContainText(
+    "Last 24 hours",
+  );
+  const table = page.getByRole("table").filter({ hasText: "/guides/article-" });
+  await expect(table.getByText("/guides/article-10", { exact: true })).toBeVisible();
+  await expect(table.getByRole("columnheader", { name: "Pageviews" })).toBeVisible();
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(table.getByText("/guides/article-13")).toBeVisible();
+  await page.getByRole("button", { name: "Previous page" }).click();
+  await table.getByRole("button", { name: "/guides/article-10", exact: true }).press("Enter");
+  await expect(page).toHaveURL(/path=%2Fguides%2Farticle-10/i);
+  await expect(table.getByRole("row")).toHaveCount(2);
+  await page.getByRole("button", { name: "Remove path filter" }).click();
+  await expect(table.getByRole("row")).toHaveCount(11);
 });

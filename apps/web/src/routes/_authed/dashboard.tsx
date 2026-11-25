@@ -42,6 +42,7 @@ import {
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 const INTERVALS = [
+  { value: "24h", label: "Last 24 hours" },
   { value: "day", label: "Today" },
   { value: "7d", label: "Last 7 days" },
   { value: "30d", label: "Last 30 days" },
@@ -450,6 +451,7 @@ function OverviewTab({
 
 /* ---------- KPI strip ---------- */
 const INTERVAL_LABEL = {
+  "24h": "previous 24 hours",
   day: "previous day",
   "7d": "previous 7 days",
   "30d": "previous 30 days",
@@ -844,6 +846,7 @@ function BreakdownTable({
                 Math.round(g.conversionRate),
               ]),
               page: 1,
+              hasNextPage: false,
             });
             setGoalRevenue(
               Object.fromEntries(
@@ -930,16 +933,34 @@ function BreakdownTable({
     );
   }
   const rows = data.countsByProperty;
+  const pagination = !isGoals && (page > 1 || data.hasNextPage) && (
+    <div className="mt-3 flex justify-end">
+      <Pagination
+        controls="simple"
+        page={page}
+        setPage={setPage}
+        perPage={10}
+        hasNextPage={data.hasNextPage}
+      />
+    </div>
+  );
   if (rows.length === 0) {
     return (
       <>
         {dimSelect}
         <EmptyRows site={site} card={card} />
+        {pagination}
       </>
     );
   }
-  const shown = rows.slice(0, 8);
-  const max = Math.max(...shown.map((r) => r[1]), 1);
+  const secondaryMetric = isGoals
+    ? "Conv. rate"
+    : realCard === "events"
+      ? null
+      : realCard === "paths"
+        ? "Pageviews"
+        : "Visits";
+  const max = Math.max(...rows.map((r) => r[1]), 1);
   const label = (first: string | [string, string]) => (Array.isArray(first) ? first[1] : first);
   const value = (first: string | [string, string]) => (Array.isArray(first) ? first[0] : first);
 
@@ -962,29 +983,23 @@ function BreakdownTable({
                 <span className="mono-label">Revenue</span>
               </Table.Head>
             )}
-            <Table.Head className="w-14 text-right">
-              <span className="mono-label">%</span>
-            </Table.Head>
+            {secondaryMetric && (
+              <Table.Head className="w-20 text-right">
+                <span className="mono-label">{secondaryMetric}</span>
+              </Table.Head>
+            )}
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {shown.map((row, index) => {
-            const pct = isGoals && row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
+          {rows.map((row, index) => {
             const rowLabel = label(row[0]);
             const emptyDirect = realCard === "referrer" && rowLabel === "";
-            const filterable = Boolean(realFilter) && !emptyDirect;
+            const filterKey = emptyDirect ? undefined : realFilter;
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}
-                {...(filterable ? { tabIndex: 0, role: "button" } : {})}
-                className={`group/row relative ${filterable ? "cursor-pointer" : ""} [&>*]:bg-transparent hover:[&>*]:bg-kumo-tint/30`}
-                onClick={() => filterable && onFilter({ [realFilter!]: value(row[0]) })}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && filterable) {
-                    e.preventDefault();
-                    onFilter({ [realFilter!]: value(row[0]) });
-                  }
-                }}
+                className={`relative [&>*]:bg-transparent ${filterKey ? "cursor-pointer hover:[&>*]:bg-kumo-tint/30" : ""}`}
+                onClick={filterKey ? () => onFilter({ [filterKey]: value(row[0]) }) : undefined}
               >
                 <Table.Cell className="relative">
                   <span
@@ -992,11 +1007,22 @@ function BreakdownTable({
                     className="absolute inset-y-0 left-0 rounded bg-kumo-tint"
                     style={{ width: `${(row[1] / max) * 100}%` }}
                   />
-                  <span className="relative max-w-full truncate">
-                    {realCard === "referrer" && label(row[0]) === ""
-                      ? "Direct / None"
-                      : label(row[0])}
-                  </span>
+                  {filterKey ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="relative h-auto max-w-full justify-start px-1 py-1 text-left"
+                      title={rowLabel}
+                    >
+                      <span className="line-clamp-2 whitespace-normal wrap-anywhere">
+                        {rowLabel}
+                      </span>
+                    </Button>
+                  ) : (
+                    <span className="relative block truncate" title={rowLabel}>
+                      {emptyDirect ? "Direct / None" : rowLabel}
+                    </span>
+                  )}
                 </Table.Cell>
                 <Table.Cell className="relative tabular-nums text-right">
                   {new Intl.NumberFormat("en", {
@@ -1008,23 +1034,21 @@ function BreakdownTable({
                     {goalRevenue[label(row[0])] ?? "-"}
                   </Table.Cell>
                 )}
-                <Table.Cell className="relative tabular-nums text-right">{pct}%</Table.Cell>
+                {secondaryMetric && (
+                  <Table.Cell className="relative tabular-nums text-right">
+                    {row[2] === undefined
+                      ? "—"
+                      : isGoals
+                        ? `${row[2]}%`
+                        : row[2].toLocaleString("en")}
+                  </Table.Cell>
+                )}
               </Table.Row>
             );
           })}
         </Table.Body>
       </Table>
-      {!isGoals && rows.length >= 8 && (
-        <div className="mt-3 flex justify-end">
-          <Pagination
-            controls="simple"
-            page={page}
-            setPage={setPage}
-            perPage={10}
-            hasNextPage={rows.length >= 10}
-          />
-        </div>
-      )}
+      {pagination}
     </div>
   );
 }

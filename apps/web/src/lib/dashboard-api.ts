@@ -3,6 +3,7 @@ export type CountRow =
   | [string | [string, string], number];
 
 export interface BreakdownResponse {
+  hasNextPage: boolean;
   countsByProperty: CountRow[];
   page: number;
 }

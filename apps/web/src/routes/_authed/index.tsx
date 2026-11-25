@@ -110,7 +110,7 @@ const SiteCard = memo(function SiteCard({
         <h2 className="min-w-0 flex-1">
           <Link
             to="/dashboard"
-            search={{ site }}
+            search={{ site, interval }}
             className="block truncate font-medium hover:underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-kumo-brand"
           >
             {site}
