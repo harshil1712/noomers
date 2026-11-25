@@ -15,7 +15,11 @@ import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
 import { dashboardApi, DashboardApiError, type ApiKey } from "../../lib/dashboard-api";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
-import { AddSiteDialog, TimezonePicker } from "../../components/dashboard/add-site-dialog";
+import {
+  AddSiteDialog,
+  displayZone,
+  TimezonePicker,
+} from "../../components/dashboard/add-site-dialog";
 
 const sections = [
   { value: "account", label: "Account" },
@@ -398,7 +402,9 @@ function SitesSettings() {
                 size="sm"
                 loading={busy === site.domain}
                 disabled={
-                  busy !== null || (timezones[site.domain] ?? site.timezone) === site.timezone
+                  busy !== null ||
+                  displayZone(timezones[site.domain] ?? site.timezone) ===
+                    displayZone(site.timezone)
                 }
                 onClick={() => void saveTimezone(site.domain)}
               >

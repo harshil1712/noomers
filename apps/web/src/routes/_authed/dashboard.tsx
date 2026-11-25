@@ -1,3 +1,4 @@
+import { ReportingPeriod, reportingPeriod } from "../../components/dashboard/reporting-period";
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { z } from "zod/mini";
@@ -39,16 +40,6 @@ const DashboardTrend = lazy(() =>
     default: m.DashboardTrend,
   })),
 );
-
-const INTERVALS = [
-  { value: "24h", label: "Last 24 hours" },
-  { value: "day", label: "Today" },
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-  { value: "month", label: "Month to date" },
-  { value: "6mo", label: "Last 6 months" },
-  { value: "12mo", label: "Last 12 months" },
-];
 
 const FILTER_LABELS = {
   path: "Path",
@@ -197,7 +188,7 @@ function Dashboard() {
     }
   }, [sites, site, navigate]);
 
-  const interval = search.interval || "7d";
+  const interval = reportingPeriod(search.interval, "7d");
   const timezone = siteList?.find((s) => s.domain === (search.site ?? ""))?.timezone ?? "UTC";
   const tab = search.tab === "realtime" ? "realtime" : "overview";
   useDocumentTitle(
@@ -288,21 +279,7 @@ function Dashboard() {
               onValueChange={(v) => setSearch({ tab: v as string })}
             />
             {tab !== "realtime" && (
-              <Select
-                label="Reporting period"
-                hideLabel
-                value={interval}
-                onValueChange={(v) => {
-                  if (v !== undefined && v !== null) setSearch({ interval: v as string });
-                }}
-                renderValue={(v) => INTERVALS.find((i) => i.value === v)?.label ?? v}
-              >
-                {INTERVALS.map((option) => (
-                  <Select.Option key={option.value} value={option.value}>
-                    {option.label}
-                  </Select.Option>
-                ))}
-              </Select>
+              <ReportingPeriod value={interval} onChange={(interval) => setSearch({ interval })} />
             )}
             <Dialog.Root>
               <Dialog.Trigger render={<Button variant="secondary">Tracking code</Button>} />
