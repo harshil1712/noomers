@@ -1,52 +1,37 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useId, useState, type FormEvent, useRef } from "react";
-import { Badge, Banner, Button, Input, Loader, Select, Text } from "@cloudflare/kumo";
+import { Badge, Banner, Button, Input, Loader, Select, Tabs, Text } from "@cloudflare/kumo";
 import { Copy, Plus } from "@phosphor-icons/react";
 import { authClient, useSession } from "../../lib/auth-client";
 
-/** Settings card over Kumo LayerCard: title/description/body in Primary,
-   optional actions row in Secondary. */
-function SettingsSection({
-  title,
-  description,
-  children,
-  footer,
-}: {
-  title: string;
-  description?: import("react").ReactNode;
-  children?: import("react").ReactNode;
-  footer?: import("react").ReactNode;
-}) {
-  return (
-    <LayerCard>
-      <LayerCard.Primary>
-        <Text variant="heading3" as="h2">
-          {title}
-        </Text>
-        {description && (
-          <Text variant="secondary" size="sm">
-            {description}
-          </Text>
-        )}
-        {children}
-      </LayerCard.Primary>
-      {footer && <LayerCard.Secondary>{footer}</LayerCard.Secondary>}
-    </LayerCard>
-  );
-}
+import { SettingsSection } from "../../components/settings-section";
 import { authErrorMessage, type AuthErrorLike } from "../../lib/auth-errors";
 import { toast } from "../../lib/toast";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { PageHeader } from "../../components/page-header";
 import { PasswordInput } from "../../components/password-input";
-import { LayerCard, SensitiveInput } from "@cloudflare/kumo";
+import { SensitiveInput } from "@cloudflare/kumo";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
 import { dashboardApi, DashboardApiError, type ApiKey } from "../../lib/dashboard-api";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
-import { TimezonePicker } from "../../components/dashboard/add-site-dialog";
+import { AddSiteDialog, TimezonePicker } from "../../components/dashboard/add-site-dialog";
 
-export const Route = createFileRoute("/_authed/settings")({ component: Settings });
+const sections = [
+  { value: "account", label: "Account" },
+  { value: "sites", label: "Sites" },
+  { value: "keys", label: "API keys" },
+] as const;
+interface SettingsSearch {
+  section?: "sites" | "keys";
+}
+
+export const Route = createFileRoute("/_authed/settings")({
+  validateSearch: (search: { section?: string }): SettingsSearch => ({
+    section: search.section === "sites" || search.section === "keys" ? search.section : undefined,
+  }),
+  component: Settings,
+});
 
 /** Whether this user signs in with a password (vs. Google only). null = loading. */
 function useHasPassword(): boolean | null {
@@ -67,29 +52,45 @@ function useHasPassword(): boolean | null {
 
 function Settings() {
   useDocumentTitle("Settings");
+  const { section = "account" } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  return (
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
+      <PageHeader title="Settings" />
+      <Tabs
+        variant="underline"
+        tabs={[...sections]}
+        selectedValue={section}
+        onValueChange={(value) =>
+          void navigate({
+            search: { section: value === "sites" || value === "keys" ? value : undefined },
+          })
+        }
+      />
+      {section === "sites" ? (
+        <SitesSettings />
+      ) : section === "keys" ? (
+        <ApiKeysSection />
+      ) : (
+        <AccountSettings />
+      )}
+    </div>
+  );
+}
+
+function AccountSettings() {
   const { data } = useSession();
   const hasPassword = useHasPassword();
   const user = data?.user;
-
+  if (!user || hasPassword === null)
+    return <Loader size="base" aria-label="Loading account settings" />;
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <PageHeader crumbs={[{ label: "Sites", to: "/" }, { label: "Settings" }]} title="Settings" />
-      {!user || hasPassword === null ? (
-        <div className="flex justify-center py-12">
-          <Loader size="base" aria-label="Loading settings" />
-        </div>
-      ) : (
-        <>
-          {/* key: re-seed the form if the signed-in user changes */}
-          <ProfileSection key={user.id} name={user.name} email={user.email} />
-          <PasswordSection hasPassword={hasPassword} />
-          <SessionsSection />
-          <SitesSettings />
-          <ApiKeysSection />
-          <DeleteAccountSection hasPassword={hasPassword} />
-        </>
-      )}
-    </div>
+    <>
+      <ProfileSection key={user.id} name={user.name} email={user.email} />
+      <PasswordSection hasPassword={hasPassword} />
+      <SessionsSection />
+      <DeleteAccountSection hasPassword={hasPassword} />
+    </>
   );
 }
 
@@ -119,7 +120,7 @@ function ProfileSection({ name: savedName, email }: { name: string; email: strin
           loading={saving}
           disabled={unchanged || !name.trim()}
         >
-          Save
+          Save name
         </Button>
       }
     >
@@ -238,7 +239,7 @@ function SessionsSection() {
   return (
     <SettingsSection
       title="Sessions"
-      description="Signed in somewhere you don't recognise? Sign out everywhere except this device."
+      description="Sign out of all your other sessions. This session stays active."
       footer={
         <ConfirmDialog
           title="Sign out other sessions?"
@@ -279,7 +280,7 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
       footer={
         <ConfirmDialog
           title="Delete your account?"
-          description="Your account, sessions and sign-in methods are deleted immediately. This can't be undone."
+          description="This permanently removes your login and sessions. Registered sites and their analytics stay in this installation."
           confirmLabel="Delete account"
           variant="destructive"
           onConfirm={remove}
@@ -313,21 +314,23 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
 }
 
 function SitesSettings() {
-  const navigate = useNavigate();
   const { sites, error: loadError, forbidden } = useSharedSites();
   const [timezones, setTimezones] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
-  useEffect(() => {
-    if (sites) setTimezones(Object.fromEntries(sites.map((d) => [d.domain, d.timezone])));
-  }, [sites]);
-
   const saveTimezone = async (domain: string) => {
+    const timezone = timezones[domain];
     setBusy(domain);
     try {
-      await dashboardApi.updateSite(domain, timezones[domain]);
-      void refreshSites();
+      await dashboardApi.updateSite(domain, timezone);
+      await refreshSites();
+      setTimezones((drafts) => {
+        if (drafts[domain] !== timezone) return drafts;
+        const next = { ...drafts };
+        delete next[domain];
+        return next;
+      });
       toast.success("Timezone saved", domain);
     } catch (e) {
       toast.error("Couldn't save timezone", e instanceof Error ? e.message : domain);
@@ -341,11 +344,6 @@ function SitesSettings() {
       await dashboardApi.deleteSite(domain);
       toast.success(`${domain} deleted`, "Collection has stopped.");
       void refreshSites();
-      const remaining = (sites ?? []).filter((s) => s.domain !== domain);
-      const active = new URLSearchParams(location.search).get("site");
-      if (active === domain || remaining.length === 0) {
-        void navigate({ to: "/dashboard", search: { site: remaining[0]?.domain } });
-      }
     } catch (e) {
       toast.error("Couldn't delete the site", e instanceof Error ? e.message : domain);
       return false;
@@ -355,7 +353,8 @@ function SitesSettings() {
   return (
     <SettingsSection
       title="Sites"
-      description="Manage your tracked sites. Deleting a site is permanent."
+      description="The reporting timezone determines when each day starts in a site’s analytics."
+      footer={sites && !forbidden ? <AddSiteDialog /> : undefined}
     >
       {forbidden ? (
         <Text variant="secondary" size="sm">
@@ -382,12 +381,14 @@ function SitesSettings() {
           {sites.map((site) => (
             <li
               key={site.domain}
-              className="flex flex-wrap items-center gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
+              className="flex min-w-0 flex-wrap items-end gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
             >
-              <Text>{site.domain}</Text>
-              <div className="w-56">
+              <h3 className="w-full break-all text-sm font-semibold text-kumo-default">
+                {site.domain}
+              </h3>
+              <div className="w-full sm:w-56">
                 <TimezonePicker
-                  label={`Reporting timezone for ${site.domain}`}
+                  label="Reporting timezone"
                   value={timezones[site.domain] ?? site.timezone}
                   onChange={(tz) => setTimezones((t) => ({ ...t, [site.domain]: tz }))}
                 />
@@ -396,10 +397,12 @@ function SitesSettings() {
                 variant="secondary"
                 size="sm"
                 loading={busy === site.domain}
-                disabled={timezones[site.domain] === site.timezone}
+                disabled={
+                  busy !== null || (timezones[site.domain] ?? site.timezone) === site.timezone
+                }
                 onClick={() => void saveTimezone(site.domain)}
               >
-                Save
+                Save timezone
               </Button>
               <ConfirmDialog
                 title={`Delete ${site.domain}?`}
@@ -413,7 +416,7 @@ function SitesSettings() {
                 onConfirm={() => deleteSite(site.domain)}
                 trigger={
                   <Button variant="secondary-destructive" size="sm">
-                    Delete
+                    Delete site
                   </Button>
                 }
               >
@@ -532,12 +535,27 @@ function ApiKeysSection() {
           </div>
         </>
       )}
-      {error && !forbidden && <FormError message={error} attempt={0} />}
       {forbidden ? (
         <Text variant="secondary" size="sm">
           Only the owner account can manage API keys.
         </Text>
-      ) : error ? null : keys === null ? (
+      ) : error ? (
+        <Banner
+          variant="error"
+          title={error}
+          action={
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setError(null);
+                setNonce((n) => n + 1);
+              }}
+            >
+              Retry
+            </Button>
+          }
+        />
+      ) : keys === null ? (
         <Loader size="sm" aria-label="Loading API keys" />
       ) : (
         <>
@@ -550,7 +568,7 @@ function ApiKeysSection() {
               {keys.map((key) => (
                 <li
                   key={key.id}
-                  className="flex flex-wrap items-center gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
+                  className="flex min-w-0 flex-wrap items-end gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
                 >
                   <Text truncate>{key.name}</Text>
                   <Badge variant={key.scope === "sites" ? "primary" : "secondary"}>

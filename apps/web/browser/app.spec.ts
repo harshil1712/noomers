@@ -124,12 +124,13 @@ test("settings can recover a failed site list in place", async ({ page }) => {
         ? route.fulfill({ status: 503, json: { error: "Unavailable" } })
         : route.fulfill({ json: sites }),
   );
-  await page.goto("/settings");
+  await page.goto("/settings?section=sites");
   await expect(page.getByText("Couldn’t load your sites")).toBeVisible();
   unavailable = false;
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByText("Couldn’t load your sites")).toHaveCount(0);
-  await expect(page.getByText("Reporting timezone for example.org")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "example.org", exact: true })).toBeVisible();
+  await page.getByRole("tab", { name: "Account" }).click();
   await page.getByRole("button", { name: "Sign out other sessions" }).click();
   await expect(page.getByRole("alertdialog")).toBeVisible();
   await page.keyboard.press("Escape");
@@ -219,6 +220,8 @@ for (const width of [390, 1280])
         ["/check-email?email=owner%40example.org", "Check your email"],
         ["/", "Sites"],
         ["/settings", "Settings"],
+        ["/settings?section=sites", "Settings"],
+        ["/settings?section=keys", "Settings"],
         ["/dashboard?site=example.org", domain],
         ["/dashboard?site=example.org&tab=realtime", domain],
       ];
@@ -229,7 +232,12 @@ for (const width of [390, 1280])
         await expect(
           page.getByRole("heading", { level: 1, name: title, exact: true }),
         ).toBeVisible();
-        if (path === "/settings") await expect(page.getByText("No API keys yet.")).toBeVisible();
+        if (path === "/settings")
+          await expect(page.getByLabel("Current password", { exact: false }).first()).toBeVisible();
+        if (path === "/settings?section=sites")
+          await expect(page.getByRole("button", { name: "Save timezone" })).toBeVisible();
+        if (path === "/settings?section=keys")
+          await expect(page.getByText("No API keys yet.")).toBeVisible();
         if (path === "/" || path.endsWith("site=example.org"))
           await expect(page.locator("canvas").first()).toBeVisible();
         await expect(page.locator("html")).toHaveAttribute("data-mode", mode);
@@ -288,6 +296,7 @@ test("settings validates credentials and creates and revokes a key", async ({ pa
   await page.getByRole("button", { name: "Change password" }).click();
   await expect(current).toBeFocused();
   await expect(page.getByText("That password isn't right.")).toBeVisible();
+  await page.getByRole("tab", { name: "API keys" }).click();
   await page.getByPlaceholder("e.g. Grafana").fill("Reporting");
   await page.getByRole("button", { name: "Create key" }).click();
   await expect(page.getByRole("button", { name: "Copy API key" })).toBeVisible();
@@ -331,4 +340,106 @@ test("an owner can find a lower-ranked page, filter the dashboard and return", a
   await expect(table.getByRole("row")).toHaveCount(2);
   await page.getByRole("button", { name: "Remove path filter" }).click();
   await expect(table.getByRole("row")).toHaveCount(11);
+});
+
+test("an owner can find Settings, save one site's timezone and keep another edit", async ({
+  page,
+}) => {
+  await serveApp(page, true);
+  const details = [
+    { domain, timezone: "America/New_York" },
+    { domain: "docs.example.org", timezone: "Europe/London" },
+  ];
+  await page.route(
+    (url) => url.pathname === "/api/dashboard/sites",
+    (route) => route.fulfill({ json: { sites: details.map((s) => s.domain), details } }),
+  );
+  await page.route("**/api/dashboard/sites/example.org", (route) => {
+    const { timezone } = route.request().postDataJSON();
+    details[0].timezone = timezone;
+    return route.fulfill({ json: details[0] });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("tab", { name: "Sites", exact: true }).click();
+  const row = (domain: string) =>
+    page
+      .getByRole("main")
+      .getByRole("listitem")
+      .filter({ has: page.getByText(domain, { exact: true }) });
+  async function change(domain: string, zone: string) {
+    await row(domain).getByRole("combobox").click();
+    await page.getByPlaceholder("Search timezones").fill(zone);
+    await page.getByRole("option", { name: zone, exact: true }).click();
+  }
+  await change("docs.example.org", "Asia/Tokyo");
+  await change(domain, "UTC");
+  await row(domain).getByRole("button", { name: "Save timezone" }).click();
+  await expect(row(domain).getByRole("button", { name: "Save timezone" })).toBeDisabled();
+  await expect(row("docs.example.org").getByRole("combobox")).toContainText("Asia/Tokyo");
+  await expect(
+    row("docs.example.org").getByRole("button", { name: "Save timezone" }),
+  ).toBeEnabled();
+  await page.reload();
+  await expect(row(domain).getByRole("combobox")).toContainText("UTC");
+  await row(domain).getByRole("button", { name: "Delete site" }).click();
+  const confirm = page.getByRole("alertdialog");
+  await expect(confirm.getByRole("button", { name: "Delete site" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(row(domain)).toBeVisible();
+});
+
+test("a disconnected realtime feed does not pass its last count off as live", async ({ page }) => {
+  await serveApp(page, true);
+  let close = () => {};
+  await page.routeWebSocket("**/realtime/*", (socket) => {
+    socket.send(
+      JSON.stringify({
+        currentVisitors: 12,
+        visitors30m: 19,
+        pageviews30m: 28,
+        topPages: [],
+        topReferrers: [],
+        topCountries: [],
+      }),
+    );
+    close = () => socket.close();
+  });
+  await page.goto("/dashboard?site=example.org&tab=realtime");
+  await expect(page.getByRole("heading", { name: "12", exact: true })).toBeVisible();
+  close();
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "12", exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await expect(page.getByText("Offline", { exact: true })).toBeVisible();
+});
+
+test("an owner can use mobile navigation and return to the sites overview", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await serveApp(page, true);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.goBack();
+  await expect(page.getByRole("heading", { name: "Sites", exact: true })).toBeVisible();
+});
+
+test("quick navigation explains empty results and closes after choosing a page", async ({
+  page,
+}) => {
+  await serveApp(page, true);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Sites", exact: true })).toBeVisible();
+  await page.keyboard.press("Control+k");
+  const search = page.getByPlaceholder("Switch site or jump to a page…");
+  await search.fill("unmatched-site");
+  await expect(page.getByText("No matching sites or pages.")).toBeVisible();
+  await search.fill("Settings");
+  await page.getByRole("option", { name: "Settings" }).click();
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await expect(search).toBeHidden();
+  await page.keyboard.press("Control+k");
+  await expect(search).toHaveValue("");
 });

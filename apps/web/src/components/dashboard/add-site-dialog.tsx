@@ -6,7 +6,7 @@ import { dashboardApi, DashboardApiError } from "../../lib/dashboard-api";
 import { refreshSites } from "../../lib/use-sites";
 import { TrackerSnippetBlock } from "./tracker-snippet-block";
 
-const TIMEZONES = Intl.supportedValuesOf("timeZone");
+const TIMEZONES = ["UTC", ...Intl.supportedValuesOf("timeZone").filter((zone) => zone !== "UTC")];
 
 export function TimezonePicker({
   value,
@@ -23,7 +23,7 @@ export function TimezonePicker({
     <Combobox
       value={value}
       onValueChange={(v) => onChange((v as string) || value)}
-      items={TIMEZONES}
+      items={value && !TIMEZONES.includes(value) ? [value, ...TIMEZONES] : TIMEZONES}
       label={label}
       description={description}
     >
@@ -44,7 +44,13 @@ export function TimezonePicker({
 }
 
 /** "Add site" dialog — registers a site, then shows its tracker snippet. */
-export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
+export function AddSiteDialog({
+  trigger,
+  onOpenDashboard,
+}: {
+  trigger?: ReactElement;
+  onOpenDashboard?: () => void;
+}) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [domain, setDomain] = useState("");
@@ -119,6 +125,7 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
                 variant="primary"
                 onClick={() => {
                   reset(false);
+                  onOpenDashboard?.();
                   void navigate({ to: "/dashboard", search: { site: added.domain } });
                 }}
               >

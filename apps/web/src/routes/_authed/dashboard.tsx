@@ -156,8 +156,12 @@ function useRealtime(siteId: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/realtime/${siteId}`);
     ws.onopen = () => setStatus("live");
-    ws.onclose = () => setStatus("offline");
-    ws.onerror = () => setStatus("offline");
+    const disconnect = () => {
+      setStats(null);
+      setStatus("offline");
+    };
+    ws.onclose = disconnect;
+    ws.onerror = disconnect;
     ws.onmessage = (event) => {
       try {
         setStats(JSON.parse(event.data as string) as RealtimeStats);
@@ -165,7 +169,13 @@ function useRealtime(siteId: string) {
         // ignore malformed frames
       }
     };
-    return () => ws.close();
+    return () => {
+      ws.onopen = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.onmessage = null;
+      ws.close();
+    };
   }, [siteId]);
   return { stats, status };
 }
@@ -556,7 +566,7 @@ function KpiStrip({
       value:
         realtime.stats?.currentVisitors !== undefined
           ? fmt.format(realtime.stats.currentVisitors)
-          : "0",
+          : "—",
       live: true,
     },
     {
@@ -615,7 +625,9 @@ function KpiStrip({
             <>
               <span className="mono-label">{t.label}</span>
               <div className="mt-1 flex items-center gap-2">
-                {t.live && <span className="live-dot" aria-hidden="true" title={realtime.status} />}
+                {t.live && realtime.status === "live" && (
+                  <span className="live-dot" aria-hidden="true" title={realtime.status} />
+                )}
                 <span className="whitespace-nowrap tabular-nums">
                   <Text variant="heading1" as="h2">
                     {t.value}
@@ -623,9 +635,9 @@ function KpiStrip({
                 </span>
               </div>
               <div className="mt-1 min-h-6">
-                {t.live && realtime.status === "connecting" ? (
+                {t.live && realtime.status !== "live" ? (
                   <Text variant="secondary" size="sm">
-                    Connecting…
+                    {realtime.status === "offline" ? "Offline" : "Connecting…"}
                   </Text>
                 ) : (
                   t.delta
@@ -1061,7 +1073,7 @@ function RealtimeTab({ realtime }: { realtime: ReturnType<typeof useRealtime> })
     <div className="flex flex-col gap-5">
       <Surface className="rounded-xl p-6">
         <div className="flex items-center gap-3">
-          <span className="live-dot" aria-hidden="true" />
+          {status === "live" && <span className="live-dot" aria-hidden="true" />}
           <Text variant="secondary" size="sm">
             {status === "live" ? "Live" : status === "connecting" ? "Connecting…" : "Offline"}
           </Text>
