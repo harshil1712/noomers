@@ -488,7 +488,7 @@ function ApiKeysSection() {
   return (
     <SettingsSection
       title="API keys"
-      description="Stats keys work for /api/v2/query. Sites keys work for /api/v1 and /api/v2."
+      description="Read-only keys can query your analytics. Full-access keys can also manage sites, goals and custom properties."
     >
       {reveal && (
         <>
@@ -540,7 +540,7 @@ function ApiKeysSection() {
                 >
                   <Text truncate>{key.name}</Text>
                   <Badge variant={key.scope === "sites" ? "primary" : "secondary"}>
-                    {key.scope === "sites" ? "Sites" : "Stats"}
+                    {key.scope === "sites" ? "Full access" : "Read-only"}
                   </Badge>
                   <code className="text-sm text-kumo-subtle">{key.prefix}…</code>
                   <Text variant="secondary" size="sm">
@@ -580,10 +580,10 @@ function ApiKeysSection() {
               placeholder="e.g. Grafana"
             />
             <Select
-              label="Scope"
+              label="Access"
               value={scope}
               onValueChange={(v) => setScope(v ?? "stats")}
-              items={{ stats: "Stats", sites: "Sites" }}
+              items={{ stats: "Read-only", sites: "Full access" }}
             />
             <Button variant="primary" type="submit" loading={creating} disabled={!name.trim()}>
               <Plus size={16} /> Create key

@@ -8,8 +8,9 @@ function invalidKey() {
 /**
  * Bearer-token gate for the Plausible-compatible APIs.
  *
- * `scope "stats"` gates /api/v2/query; `scope "sites"` gates /api/v1/*. A
- * dashboard-managed `nmr_` key with scope "sites" also satisfies "stats".
+ * `scope "stats"` (Read-only in the UI) gates /api/v2/query; `scope "sites"`
+ * (Full access) gates /api/v1/*. A dashboard-managed `nmr_` key with scope
+ * "sites" also satisfies "stats".
  * Environment tokens remain as fallback: SITES_API_TOKEN only covers "sites",
  * STATS_API_TOKEN covers both (it predates the split).
  */

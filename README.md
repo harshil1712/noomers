@@ -61,7 +61,7 @@ site visitor ──GET/POST /collect──▶ apps/web worker (Hono)
 
 `BETTER_AUTH_SECRET`, `VISITOR_SALT`, the Basin SQL/Catalog tokens, `CF_ACCOUNT_ID`, and `R2_SQL_BUCKET` are minted or derived by `alchemy.run.ts` — they are not hand-managed secrets.
 
-The Plausible APIs authenticate with `Authorization: Bearer <key>`. Manage keys in the dashboard at **Settings → API keys**: a Stats key authorizes `/api/v2/query`, a Sites key authorizes `/api/v1` and `/api/v2`. `SITES_API_TOKEN`/`STATS_API_TOKEN` remain as optional env-token fallbacks (`STATS_API_TOKEN` works on `/api/v1` too).
+The Plausible APIs authenticate with `Authorization: Bearer <key>`. Manage keys in the dashboard at **Settings → API keys**: a Read-only key authorizes `/api/v2/query`, a Full-access key authorizes `/api/v1` and `/api/v2`. `SITES_API_TOKEN`/`STATS_API_TOKEN` remain as optional env-token fallbacks (`STATS_API_TOKEN` works on `/api/v1` too).
 
 ## Using the tracker
 
