@@ -115,7 +115,9 @@ export async function trackPageview(
 
     const { hostname, path } = getHostnameAndPath(url, true);
     const referrer = getBrowserReferrer(hostname, opts.referrer || "");
-    const utmParams = getUtmParamsFromBrowserUrl(url);
+    const utmParams = getUtmParamsFromBrowserUrl(
+        opts.url || window.location.search,
+    );
 
     // Start (or reset) the engagement context for this pageview. If the path
     // changed from a previous context, the previous page's delta is flushed
@@ -185,7 +187,9 @@ export async function trackEvent(
     const url = opts.url || location.pathname + location.search || "/";
     const { hostname, path } = getHostnameAndPath(url, true);
     const referrer = getBrowserReferrer(hostname, opts.referrer || "");
-    const utmParams = getUtmParamsFromBrowserUrl(url);
+    const utmParams = getUtmParamsFromBrowserUrl(
+        opts.url || window.location.search,
+    );
     const requestParams = buildCollectRequestParams(
         client.siteId,
         hostname,
