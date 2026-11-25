@@ -310,7 +310,7 @@ function SitesOverview() {
         <Empty
           icon={<Globe size={24} />}
           title="Add your first site"
-          description="Register a domain, then add the tracking snippet to your site's <head>. Visitors appear here within seconds of their first pageview."
+          description="Register a domain, then add the tracking snippet to your site's <head>. Open Realtime on the site dashboard to see incoming visits."
           contents={<AddSiteDialog />}
         />
       ) : (

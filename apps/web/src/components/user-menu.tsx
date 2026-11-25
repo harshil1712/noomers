@@ -58,7 +58,7 @@ export function UserMenu({ user }: { user: { email: string; name?: string | null
             void navigate({ to: "/settings" });
           }}
         >
-          Settings
+          Account settings
         </DropdownMenu.Item>
         <DropdownMenu.Item icon={SignOut} onClick={() => void handleSignOut()}>
           Sign out

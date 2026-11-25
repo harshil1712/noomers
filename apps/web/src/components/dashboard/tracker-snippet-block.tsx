@@ -5,11 +5,14 @@ import { toast } from "../../lib/toast";
 
 export function TrackerSnippetBlock({ domain }: { domain: string }) {
   const snippet = trackerSnippet(domain);
-  const copy = () =>
-    navigator.clipboard.writeText(snippet).then(
-      () => toast.success("Snippet copied"),
-      () => toast.error("Couldn't copy", "Select the snippet and copy it manually."),
-    );
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(snippet);
+      toast.success("Snippet copied");
+    } catch {
+      toast.error("Couldn't copy", "Select the snippet and copy it manually.");
+    }
+  };
   return (
     <div className="flex flex-col gap-2">
       <pre className="whitespace-pre-wrap break-all rounded-md bg-kumo-tint p-3 font-mono text-xs leading-relaxed">

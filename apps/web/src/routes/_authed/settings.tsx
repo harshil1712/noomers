@@ -51,8 +51,8 @@ function useHasPassword(): boolean | null {
 }
 
 function Settings() {
-  useDocumentTitle("Settings");
   const { section = "account" } = Route.useSearch();
+  useDocumentTitle(`${sections.find((item) => item.value === section)?.label} · Settings`);
   const navigate = Route.useNavigate();
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 sm:p-6">
@@ -602,25 +602,27 @@ function ApiKeysSection() {
               ))}
             </ul>
           )}
-          <form onSubmit={(e) => void submit(e)} className="mt-4 flex flex-wrap items-end gap-3">
-            <Input
-              label="Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              maxLength={64}
-              required
-              placeholder="e.g. Grafana"
-            />
-            <Select
-              label="Access"
-              value={scope}
-              onValueChange={(v) => setScope(v ?? "stats")}
-              items={{ stats: "Read-only", sites: "Full access" }}
-            />
-            <Button variant="primary" type="submit" loading={creating} disabled={!name.trim()}>
-              <Plus size={16} /> Create key
-            </Button>
-          </form>
+          {!reveal && (
+            <form onSubmit={(e) => void submit(e)} className="mt-4 flex flex-wrap items-end gap-3">
+              <Input
+                label="Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={64}
+                required
+                placeholder="e.g. Grafana"
+              />
+              <Select
+                label="Access"
+                value={scope}
+                onValueChange={(v) => setScope(v ?? "stats")}
+                items={{ stats: "Read-only", sites: "Full access" }}
+              />
+              <Button variant="primary" type="submit" loading={creating} disabled={!name.trim()}>
+                <Plus size={16} /> Create key
+              </Button>
+            </form>
+          )}
         </>
       )}
     </SettingsSection>

@@ -51,21 +51,22 @@ const INTERVALS = [
   { value: "12mo", label: "Last 12 months" },
 ];
 
-const FILTER_KEYS = [
-  "path",
-  "name",
-  "referrer",
-  "deviceType",
-  "country",
-  "browserName",
-  "browserVersion",
-  "utmSource",
-  "utmMedium",
-  "utmCampaign",
-  "utmTerm",
-  "utmContent",
-] as const;
-type FilterKey = (typeof FILTER_KEYS)[number];
+const FILTER_LABELS = {
+  path: "Path",
+  name: "Event",
+  referrer: "Referrer",
+  deviceType: "Device",
+  country: "Country",
+  browserName: "Browser",
+  browserVersion: "Browser version",
+  utmSource: "UTM source",
+  utmMedium: "UTM medium",
+  utmCampaign: "UTM campaign",
+  utmTerm: "UTM term",
+  utmContent: "UTM content",
+};
+type FilterKey = keyof typeof FILTER_LABELS;
+const FILTER_KEYS = Object.keys(FILTER_LABELS) as FilterKey[];
 
 const CAMPAIGN_DIMS: { card: BreakdownCard; label: string; filter: FilterKey }[] = [
   { card: "utm-source", label: "UTM source", filter: "utmSource" },
@@ -182,7 +183,6 @@ function useRealtime(siteId: string) {
 
 /* ---------- dashboard ---------- */
 function Dashboard() {
-  useDocumentTitle("Dashboard");
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
@@ -201,6 +201,9 @@ function Dashboard() {
   const interval = search.interval || "7d";
   const timezone = siteList?.find((s) => s.domain === (search.site ?? ""))?.timezone ?? "UTC";
   const tab = search.tab === "realtime" ? "realtime" : "overview";
+  useDocumentTitle(
+    site ? `${site} · ${tab === "realtime" ? "Realtime" : "Overview"}` : "Dashboard",
+  );
   const filters = useMemo(() => {
     const out: Record<string, string> = {};
     for (const key of FILTER_KEYS) {
@@ -221,6 +224,7 @@ function Dashboard() {
 
   const reportError = (key: string, failed: boolean) => {
     setFailures((prev) => {
+      if (prev.has(key) === failed) return prev;
       const next = new Set(prev);
       if (failed) next.add(key);
       else next.delete(key);
@@ -234,10 +238,20 @@ function Dashboard() {
   };
 
   const query: DashboardQuery = { site, interval, filters, nonce };
-  const realtime = useRealtime(site);
+  const registered = sites?.includes(site);
+  const realtime = useRealtime(registered ? site : "");
+  if (site && sites && !sitesError && !registered) {
+    return (
+      <Empty
+        title="Site not found"
+        description="This domain is no longer in your list of tracked sites."
+        contents={<Button onClick={() => void navigate({ to: "/" })}>All sites</Button>}
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-5 p-6">
+    <div className="flex flex-col gap-5 p-4 sm:p-6">
       {/* page header */}
       <div className="flex flex-col gap-3">
         <Breadcrumbs size="sm">
@@ -246,8 +260,8 @@ function Dashboard() {
           <Breadcrumbs.Current>{site || "Dashboard"}</Breadcrumbs.Current>
         </Breadcrumbs>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Text variant="heading1" as="h1">
+          <div className="flex min-w-0 max-w-full items-center gap-2">
+            <Text variant="heading1" as="h1" DANGEROUS_className="min-w-0 break-all">
               {site || "Dashboard"}
             </Text>
             {site && (
@@ -321,19 +335,19 @@ function Dashboard() {
         </div>
       </div>
 
-      {Object.keys(filters).length > 0 && (
+      {tab === "overview" && Object.keys(filters).length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          {Object.entries(filters).map(([key, value]) => (
+          {FILTER_KEYS.filter((key) => filters[key]).map((key) => (
             <Badge key={key} variant="primary">
-              {key}: {value}
+              {FILTER_LABELS[key]}: {filters[key]}
               <Tooltip
-                content={`Remove ${key} filter`}
+                content={`Remove ${FILTER_LABELS[key].toLowerCase()} filter`}
                 render={
                   <Button
                     variant="ghost"
                     size="xs"
                     icon={<X size={12} />}
-                    aria-label={`Remove ${key} filter`}
+                    aria-label={`Remove ${FILTER_LABELS[key].toLowerCase()} filter`}
                     onClick={() => setSearch({ [key]: undefined })}
                   />
                 }
@@ -351,7 +365,7 @@ function Dashboard() {
           variant="error"
           icon={<Globe weight="fill" />}
           title="Historical data is unavailable"
-          description="Basin SQL didn't respond. Realtime still works."
+          description="Try loading the reports again."
           action={
             <Button variant="secondary" onClick={retryHistorical}>
               Retry
@@ -374,7 +388,7 @@ function Dashboard() {
             <Button onClick={() => void refreshSites()}>Retry</Button>
           </div>
         </Surface>
-      ) : sites === null && !site ? (
+      ) : sites === null ? (
         <DashboardSkeleton />
       ) : sites !== null && sites.length === 0 ? (
         <Empty
@@ -517,9 +531,11 @@ function KpiStrip({
 }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof dashboardApi.stats>> | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     setError(false);
+    setData(null);
     dashboardApi
       .stats(query)
       .then((d) => {
@@ -537,7 +553,7 @@ function KpiStrip({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.filters, query.nonce]);
+  }, [query.site, query.interval, query.filters, query.nonce, attempt]);
 
   const fmt = Intl.NumberFormat("en", { notation: "compact" });
   const duration = (s: number) => {
@@ -549,7 +565,7 @@ function KpiStrip({
     return quiet ? (
       <div className="h-24 rounded-xl bg-kumo-recessed" aria-hidden="true" />
     ) : (
-      <PanelError message="Stats didn't load — Basin SQL didn't respond." />
+      <PanelError message="Couldn’t load the summary." onRetry={() => setAttempt((n) => n + 1)} />
     );
   }
 
@@ -687,6 +703,7 @@ function TimeseriesPanel({
 }) {
   const [rows, setRows] = useState<TimeseriesResponse["chartData"] | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     setError(false);
@@ -707,7 +724,7 @@ function TimeseriesPanel({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.filters, query.nonce]);
+  }, [query.site, query.interval, query.filters, query.nonce, attempt]);
 
   const brand = themeColor("--color-kumo-brand");
   const secondary = themeColor("--color-kumo-series-2");
@@ -730,7 +747,7 @@ function TimeseriesPanel({
         quiet ? (
           <div className="h-[300px] rounded-lg bg-kumo-recessed" aria-hidden="true" />
         ) : (
-          <PanelError message="Chart didn't load — Basin SQL didn't respond." />
+          <PanelError message="Couldn’t load the chart." onRetry={() => setAttempt((n) => n + 1)} />
         )
       ) : !data ? (
         <div className="skeleton h-[300px] rounded-lg" />
@@ -835,6 +852,7 @@ function BreakdownTable({
   const [page, setPage] = useState(1);
   const [data, setData] = useState<BreakdownResponse | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const isGoals = card === "goals";
   const [goalRevenue, setGoalRevenue] = useState<Record<string, string>>({});
   const hasRevenue = isGoals && Object.values(goalRevenue).some((v) => v !== "-");
@@ -843,6 +861,7 @@ function BreakdownTable({
   useEffect(() => {
     let cancelled = false;
     setError(false);
+    setData(null);
     const finish = (fn: () => void) => {
       if (!cancelled) fn();
     };
@@ -901,11 +920,13 @@ function BreakdownTable({
     return () => {
       cancelled = true;
     };
-  }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce]);
+  }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce, attempt]);
 
   const dimSelect = isCampaigns ? (
     <div className="mb-1 mt-3">
       <Select
+        label="Campaign dimension"
+        hideLabel
         value={dim.card}
         onValueChange={(v) => {
           const next = CAMPAIGN_DIMS.find((d) => d.card === v);
@@ -928,7 +949,7 @@ function BreakdownTable({
     ) : (
       <>
         {dimSelect}
-        <PanelError message="Couldn't load — Basin SQL may be unconfigured." />
+        <PanelError message="Couldn’t load this report." onRetry={() => setAttempt((n) => n + 1)} />
       </>
     );
   }
@@ -1206,14 +1227,14 @@ function MutedRows() {
   );
 }
 
-function PanelError({ message }: { message: string }) {
+function PanelError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="py-6 text-center">
       <Text variant="secondary" size="sm">
         {message}
       </Text>
       <div className="mt-2">
-        <Button variant="ghost" size="sm" onClick={() => location.reload()}>
+        <Button variant="ghost" size="sm" onClick={onRetry}>
           Retry
         </Button>
       </div>

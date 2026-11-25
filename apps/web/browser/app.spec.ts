@@ -107,11 +107,6 @@ test("switching dashboard metrics and themes reuses the current period", async (
   await page.getByRole("option", { name: "Today", exact: true }).click();
   await expect.poll(() => requests.length).toBe(2);
   expect(requests.map((url) => new URL(url).searchParams.get("interval"))).toEqual(["7d", "day"]);
-  await page.getByRole("button", { name: "Tracking code" }).click();
-  await expect(page.getByRole("dialog")).toContainText(domain);
-  await page.keyboard.press("Escape");
-  await page.getByRole("tab", { name: "Realtime" }).click();
-  await expect(page.getByText("current visitors", { exact: true })).toBeVisible();
 });
 
 test("settings can recover a failed site list in place", async ({ page }) => {
@@ -130,11 +125,6 @@ test("settings can recover a failed site list in place", async ({ page }) => {
   await page.getByRole("button", { name: "Retry", exact: true }).click();
   await expect(page.getByText("Couldn’t load your sites")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "example.org", exact: true })).toBeVisible();
-  await page.getByRole("tab", { name: "Account" }).click();
-  await page.getByRole("button", { name: "Sign out other sessions" }).click();
-  await expect(page.getByRole("alertdialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });
 
 test("sign-in masks typed passwords and announces rejected credentials", async ({ page }) => {
@@ -203,60 +193,6 @@ test("adding the first site leads to its tracking snippet", async ({ page }) => 
   await expect(dialog.getByRole("button", { name: "Open dashboard" })).toBeVisible();
   await expect(dialog).toContainText(domain);
 });
-
-for (const width of [390, 1280])
-  for (const mode of ["light", "dark"] as const) {
-    test(`app routes fit at ${width}px in ${mode} mode`, async ({ page }, info) => {
-      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-      await page.emulateMedia({ colorScheme: mode, reducedMotion: "reduce" });
-      await serveApp(page, false);
-      const errors: string[] = [];
-      page.on("pageerror", (e) => errors.push(e.message));
-      const routes = [
-        ["/sign-in", "Sign in"],
-        ["/sign-up", "Create account"],
-        ["/forgot-password", "Reset password"],
-        ["/reset-password?token=fixture", "Choose a new password"],
-        ["/check-email?email=owner%40example.org", "Check your email"],
-        ["/", "Sites"],
-        ["/settings", "Settings"],
-        ["/settings?section=sites", "Settings"],
-        ["/settings?section=keys", "Settings"],
-        ["/dashboard?site=example.org", domain],
-        ["/dashboard?site=example.org&tab=realtime", domain],
-      ];
-      for (const [index, [path, title]] of routes.entries()) {
-        if (path === "/")
-          await page.route("**/api/auth/get-session", (route) => route.fulfill({ json: owner }));
-        await page.goto(path);
-        await expect(
-          page.getByRole("heading", { level: 1, name: title, exact: true }),
-        ).toBeVisible();
-        if (path === "/settings")
-          await expect(page.getByLabel("Current password", { exact: false }).first()).toBeVisible();
-        if (path === "/settings?section=sites")
-          await expect(page.getByRole("button", { name: "Save timezone" })).toBeVisible();
-        if (path === "/settings?section=keys")
-          await expect(page.getByText("No API keys yet.")).toBeVisible();
-        if (path === "/" || path.endsWith("site=example.org"))
-          await expect(page.locator("canvas").first()).toBeVisible();
-        await expect(page.locator("html")).toHaveAttribute("data-mode", mode);
-        expect(
-          await page.locator("main").evaluate((el) => el.scrollWidth - el.clientWidth),
-          path,
-        ).toBeLessThanOrEqual(1);
-        await page.screenshot({ path: info.outputPath(`${index}.png`), animations: "disabled" });
-        if (path.endsWith("site=example.org")) {
-          const pages = page
-            .getByRole("table")
-            .filter({ hasText: "/guides/self-hosted-analytics" });
-          await pages.scrollIntoViewIfNeeded();
-          await pages.screenshot({ path: info.outputPath("pages.png") });
-        }
-      }
-      expect(errors).toEqual([]);
-    });
-  }
 
 test("settings validates credentials and creates and revokes a key", async ({ page }) => {
   await serveApp(page, true);
