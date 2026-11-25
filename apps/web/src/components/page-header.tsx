@@ -40,7 +40,11 @@ export function PageHeader({
             </Text>
           )}
         </div>
-        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+        {actions && (
+          <div className="w-full flex items-center justify-between gap-2 sm:ml-auto sm:w-auto">
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );

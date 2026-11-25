@@ -1,12 +1,21 @@
-import { useState, type FormEvent, type ReactElement } from "react";
+import { useMemo, useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button, Combobox, Dialog, Input } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
 import { dashboardApi, DashboardApiError } from "../../lib/dashboard-api";
-import { refreshSites } from "../../lib/use-sites";
+import { refreshSites, useSites } from "../../lib/use-sites";
 import { TrackerSnippetBlock } from "./tracker-snippet-block";
 
-const TIMEZONES = ["UTC", ...Intl.supportedValuesOf("timeZone").filter((zone) => zone !== "UTC")];
+const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+const standardZones = Intl.supportedValuesOf("timeZone");
+
+export function displayZone(zone: string) {
+  return ["Etc/UTC", "Etc/GMT", "GMT"].includes(zone) ? "UTC" : zone;
+}
+
+function zoneLabel(zone: string) {
+  return zone.replaceAll("_", " ");
+}
 
 export function TimezonePicker({
   value,
@@ -19,11 +28,22 @@ export function TimezonePicker({
   label?: string;
   description?: string;
 }) {
+  const { sites } = useSites();
+  const zones = useMemo(() => {
+    const all = new Set([
+      ...standardZones,
+      displayZone(browserZone),
+      ...(sites ?? []).map((site) => displayZone(site.timezone)),
+    ]);
+    all.delete("UTC");
+    return ["UTC", ...Array.from(all).sort()];
+  }, [sites]);
   return (
     <Combobox
-      value={value}
+      value={displayZone(value)}
       onValueChange={(v) => onChange((v as string) || value)}
-      items={value && !TIMEZONES.includes(value) ? [value, ...TIMEZONES] : TIMEZONES}
+      items={zones}
+      itemToStringLabel={zoneLabel}
       label={label}
       description={description}
     >
@@ -34,7 +54,7 @@ export function TimezonePicker({
         <Combobox.List>
           {(tz: string) => (
             <Combobox.Item key={tz} value={tz}>
-              {tz}
+              {zoneLabel(tz)}
             </Combobox.Item>
           )}
         </Combobox.List>
@@ -54,9 +74,7 @@ export function AddSiteDialog({
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [domain, setDomain] = useState("");
-  const [timezone, setTimezone] = useState(
-    () => Intl.DateTimeFormat().resolvedOptions().timeZone || "Etc/UTC",
-  );
+  const [timezone, setTimezone] = useState(displayZone(browserZone));
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [added, setAdded] = useState<{ domain: string } | null>(null);

@@ -1,7 +1,8 @@
+import { ReportingPeriod, reportingPeriod } from "../../components/dashboard/reporting-period";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod/mini";
-import { Banner, Button, Empty, Grid, LinkButton, Select, Surface, Text } from "@cloudflare/kumo";
+import { Banner, Button, Empty, Grid, LinkButton, Surface, Text } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe, WarningCircle } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { useIsDark } from "../../lib/use-is-dark";
@@ -15,13 +16,6 @@ import { NotOwnerNotice } from "../../components/dashboard/not-owner-notice";
 const SiteTrend = lazy(() =>
   import("../../components/dashboard/analytics-charts").then((m) => ({ default: m.SiteTrend })),
 );
-
-const OVERVIEW_INTERVALS = [
-  { value: "24h", label: "Last 24 hours" },
-  { value: "day", label: "Today" },
-  { value: "7d", label: "Last 7 days" },
-  { value: "30d", label: "Last 30 days" },
-];
 
 const searchSchema = z.object({ interval: z.optional(z.string()) });
 
@@ -248,8 +242,7 @@ function SitesOverview() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const { sites, error: sitesError, forbidden } = useSharedSites();
-  const interval =
-    OVERVIEW_INTERVALS.find((option) => option.value === search.interval)?.value ?? "24h";
+  const interval = reportingPeriod(search.interval, "24h");
 
   return (
     <div className="flex flex-col gap-5 p-4 sm:p-6">
@@ -263,20 +256,10 @@ function SitesOverview() {
         actions={
           forbidden || !sites?.length ? null : (
             <>
-              <Select
-                label="Reporting period"
+              <ReportingPeriod
                 value={interval}
-                onValueChange={(v) => {
-                  if (v) void navigate({ search: { interval: v as string } });
-                }}
-                renderValue={(v) => OVERVIEW_INTERVALS.find((i) => i.value === v)?.label ?? v}
-              >
-                {OVERVIEW_INTERVALS.map((o) => (
-                  <Select.Option key={o.value} value={o.value}>
-                    {o.label}
-                  </Select.Option>
-                ))}
-              </Select>
+                onChange={(interval) => void navigate({ search: { interval } })}
+              />
               <AddSiteDialog />
             </>
           )
