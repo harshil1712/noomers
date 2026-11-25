@@ -53,9 +53,9 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 ### Worker (`apps/web/worker`)
 
 - `worker/index.ts` — Hono entry; exports the `SiteEvents` Durable Object class.
-- `worker/analytics/` — collect, Stats API (`/api/v2/query`), Basin SQL (`r2-sql.ts`), bot filtering.
+- `worker/analytics/` — collect, Stats API (`/api/v1/query`), Basin SQL (`r2-sql.ts`), bot filtering.
 - `worker/sites/`, `goals/`, `custom-properties/` — D1 repositories (**raw SQL**, documented exception to the Drizzle rule, same as Basin SQL).
-- `worker/routes/` — Hono handlers: health/readiness, collect, `/api/v1/sites*`, `/api/v2/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
+- `worker/routes/` — Hono handlers: health/readiness, collect, `/api/v1/sites*`, `/api/v1/query`, tracker scripts, favicon/cache, `/api/dashboard/*`, realtime.
 - `worker/realtime.ts` — `/realtime/:siteId` WebSocket; requires a Better Auth session with `role === "admin"`.
 - `worker/site-events.ts` — per-site DO: keeps canonical events for the realtime window, serves realtime aggregates.
 - `apps/web/migrations/` — ordered D1 migrations; `0001_init`/`0002_auth` are the baseline.
@@ -178,6 +178,7 @@ Local dev: `vp run dev` / `alchemy dev` works with `alchemy login` or an API tok
 - **Charts:** Kumo `TimeseriesChart` + consumer-installed `echarts` (no recharts).
 - **Better Auth** for all auth; admin plugin + `OWNER_ADMIN_EMAIL`/first-user fallback gates the dashboard.
 - **No `vi.mock`** — the anti-slop plugin forbids module mocking; tests use real seams.
+- **Single API prefix.** All public APIs live under `/api/v1` (Stats query at `/api/v1/query`), deliberately diverging from Plausible's `/api/v2/query`.
 - **No generic agent API/MCP.** `/api/v1/*` belongs to the Plausible Sites API. An agent surface may come later as a deliberate project, not the template's flow.
 
 <!--VITE PLUS START-->

@@ -81,7 +81,7 @@ fallback credentials. If you set them, use long random values (e.g.
 | Name                     | Kind                                        | Purpose                                                                   |
 | ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------- |
 | `SITES_API_TOKEN`        | `production` environment secret, optional   | Fallback bearer for `/api/v1/*` (Plausible Sites API)                     |
-| `STATS_API_TOKEN`        | `production` environment secret, optional   | Fallback bearer for `/api/v2/query` (and `/api/v1`)                       |
+| `STATS_API_TOKEN`        | `production` environment secret, optional   | Fallback bearer for `/api/v1/*` (query and sites)                         |
 | `SERVER_EVENTS_TOKEN`    | `production` environment secret             | Optional first-party server tracker token                                 |
 | `R2_SQL_IMPORT_TABLE`    | `production` environment variable, optional | Imported-history table UNIONed into queries (`scripts/plausible-import/`) |
 | `CF_TRACKER_SCRIPT_NAME` | `production` environment variable, optional | Custom tracker script path                                                |
