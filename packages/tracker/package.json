@@ -15,8 +15,7 @@
         "test:integration": "playwright test && vitest run --config vitest.integration.config.ts",
         "start": "node ./integration/server.js",
         "typecheck": "tsc",
-        "check": "vp check",
-        "prepare": "vp config"
+        "check": "vp check"
     },
     "devDependencies": {
         "@playwright/test": "^1.49.1",

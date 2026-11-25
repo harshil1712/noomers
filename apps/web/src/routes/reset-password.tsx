@@ -7,7 +7,7 @@ import { authErrorMessage, RESET_LINK_INVALID, type AuthErrorLike } from "../lib
 import AuthCard from "../components/auth-card";
 import { AuthLink } from "../components/auth-link";
 import { FormError } from "../components/form-error";
-import { SensitiveInput } from "@cloudflare/kumo";
+import { PasswordInput } from "../components/password-input";
 
 export const Route = createFileRoute("/reset-password")({
   // Better Auth sends `?token=…` for a good link and `?error=INVALID_TOKEN`
@@ -63,7 +63,8 @@ function ResetPassword() {
       .resetPassword({ newPassword: password, token })
       .catch(() => null);
     if (!result) {
-      setError({ message: "Request failed. Check your connection and try again." } as never);
+      setError({ message: "Request failed. Check your connection and try again." });
+      setAttempt((n) => n + 1);
       setLoading(false);
       return;
     }
@@ -81,7 +82,7 @@ function ResetPassword() {
   return (
     <AuthCard title="Choose a new password" footer={footer}>
       <form onSubmit={(e) => void handleSubmit(e)} className="flex w-full flex-col gap-4">
-        <SensitiveInput
+        <PasswordInput
           label="New password"
           description="At least 8 characters"
           value={password}

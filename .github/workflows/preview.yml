@@ -37,7 +37,11 @@ jobs:
         run: |
           W="https://pr-${{ github.event.pull_request.number }}-noomers-web.${{ secrets.WORKERS_DEV_SUBDOMAIN }}.workers.dev"
           S="https://pr-${{ github.event.pull_request.number }}-noomers-site.${{ secrets.WORKERS_DEV_SUBDOMAIN }}.workers.dev"
-          for u in "$W/api/health" "$S/"; do code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$u"); echo "$u -> $code"; done
+          for u in "$W/api/health" "$W/sign-in" "$S/"; do
+            code=$(curl -sS --retry 3 -o /dev/null -w "%{http_code}" --max-time 30 "$u")
+            echo "$u -> $code"
+            test "$code" = "200"
+          done
   cleanup:
     runs-on: ubuntu-latest
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository

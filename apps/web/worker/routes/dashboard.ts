@@ -80,7 +80,7 @@ async function breakdown(
         direction: "desc" as const,
       },
     ],
-    pagination: { limit: PAGE_SIZE, offset: (Number(page) - 1) * PAGE_SIZE },
+    pagination: { limit: PAGE_SIZE + 1, offset: (Number(page) - 1) * PAGE_SIZE },
   };
 
   const rows = isVisit
@@ -113,14 +113,17 @@ async function breakdown(
         averageVisitDuration: null,
       }));
 
-  const countRows = rows.map((row): CountRow =>
-    metric === "events"
-      ? [row.dimension, row.events]
-      : [row.dimension, row.visitors, metric === "visits" ? row.visits : row.views],
-  );
+  const countRows = rows
+    .slice(0, PAGE_SIZE)
+    .map((row): CountRow =>
+      metric === "events"
+        ? [row.dimension, row.events]
+        : [row.dimension, row.visitors, metric === "visits" ? row.visits : row.views],
+    );
   return Response.json({
     countsByProperty: transform ? transform(countRows) : countRows,
     page: Number(page),
+    hasNextPage: rows.length > PAGE_SIZE,
   });
 }
 

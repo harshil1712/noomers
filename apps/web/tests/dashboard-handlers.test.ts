@@ -43,7 +43,7 @@ describe("dashboard handlers (ported loader tests)", () => {
       undefined,
       expect.objectContaining({
         orderBy: [{ field: "pageviews", direction: "desc" }],
-        pagination: { limit: 10, offset: 0 },
+        pagination: { limit: 11, offset: 0 },
       }),
     );
     expect(await res.json()).toEqual({
@@ -52,8 +52,28 @@ describe("dashboard handlers (ported loader tests)", () => {
         ["/", 2, 7],
       ],
       page: 1,
+      hasNextPage: false,
     });
   });
+
+  test.each([10, 11])(
+    "uses the extra row only to detect a following page (%i results)",
+    async (count) => {
+      const rows = Array.from({ length: count }, (_, i) => ({
+        dimension: `/page-${i}`,
+        visitors: 1,
+        views: 2,
+        events: 2,
+      }));
+      const getBasicMetrics = vi.fn().mockResolvedValue({ rows });
+      const res = await cardBreakdown(ctx({ getBasicMetrics }), url("paths?site=x"), "paths");
+      expect(await res.json()).toEqual({
+        countsByProperty: rows.slice(0, 10).map((row) => [row.dimension, 1, 2]),
+        page: 1,
+        hasNextPage: count > 10,
+      });
+    },
+  );
 
   test("referrer → visit:referrer via session breakdown", async () => {
     const getSessionBreakdown = vi.fn().mockResolvedValue({
@@ -71,9 +91,13 @@ describe("dashboard handlers (ported loader tests)", () => {
       {},
       "visit:referrer",
       undefined,
-      expect.objectContaining({ pagination: { limit: 10, offset: 10 } }),
+      expect.objectContaining({ pagination: { limit: 11, offset: 10 } }),
     );
-    expect(await res.json()).toEqual({ countsByProperty: [["google.com", 3, 3]], page: 2 });
+    expect(await res.json()).toEqual({
+      countsByProperty: [["google.com", 3, 3]],
+      page: 2,
+      hasNextPage: false,
+    });
   });
 
   test("unknown card → 404", async () => {
@@ -90,7 +114,11 @@ describe("dashboard handlers (ported loader tests)", () => {
       ],
     });
     const res = await cardBreakdown(ctx({ getBasicMetrics }), url("events?site=x"), "events");
-    expect(await res.json()).toEqual({ countsByProperty: [["signup", 2]], page: 1 });
+    expect(await res.json()).toEqual({
+      countsByProperty: [["signup", 2]],
+      page: 1,
+      hasNextPage: false,
+    });
   });
 
   test.each([
@@ -126,6 +154,7 @@ describe("dashboard handlers (ported loader tests)", () => {
     expect(await res.json()).toEqual({
       countsByProperty: [[["US", "United States"], 1, 1]],
       page: 1,
+      hasNextPage: false,
     });
   });
 

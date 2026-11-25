@@ -1,12 +1,12 @@
 import { useState, type FormEvent, type ReactElement } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Button, Combobox, Dialog, Input, Text } from "@cloudflare/kumo";
+import { Button, Combobox, Dialog, Input } from "@cloudflare/kumo";
 import { X } from "@phosphor-icons/react";
 import { dashboardApi, DashboardApiError } from "../../lib/dashboard-api";
 import { refreshSites } from "../../lib/use-sites";
 import { TrackerSnippetBlock } from "./tracker-snippet-block";
 
-const TIMEZONES = Intl.supportedValuesOf("timeZone");
+const TIMEZONES = ["UTC", ...Intl.supportedValuesOf("timeZone").filter((zone) => zone !== "UTC")];
 
 export function TimezonePicker({
   value,
@@ -23,7 +23,7 @@ export function TimezonePicker({
     <Combobox
       value={value}
       onValueChange={(v) => onChange((v as string) || value)}
-      items={TIMEZONES}
+      items={value && !TIMEZONES.includes(value) ? [value, ...TIMEZONES] : TIMEZONES}
       label={label}
       description={description}
     >
@@ -44,7 +44,13 @@ export function TimezonePicker({
 }
 
 /** "Add site" dialog — registers a site, then shows its tracker snippet. */
-export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
+export function AddSiteDialog({
+  trigger,
+  onOpenDashboard,
+}: {
+  trigger?: ReactElement;
+  onOpenDashboard?: () => void;
+}) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [domain, setDomain] = useState("");
@@ -56,6 +62,7 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
   const [added, setAdded] = useState<{ domain: string } | null>(null);
 
   const reset = (next: boolean) => {
+    if (pending && !next) return;
     setOpen(next);
     if (!next) {
       // Refresh once the dialog closes — refreshing while it's still open
@@ -91,8 +98,11 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
       <Dialog.Trigger render={trigger ?? <Button variant="primary">Add site</Button>} />
       <Dialog className="p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
-          <Dialog.Title>{added ? `${added.domain} added` : "Add a site"}</Dialog.Title>
+          <Dialog.Title className="min-w-0 break-words">
+            {added ? `${added.domain} added` : "Add a site"}
+          </Dialog.Title>
           <Dialog.Close
+            disabled={pending}
             aria-label="Close"
             render={(props) => (
               <Button
@@ -119,6 +129,7 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
                 variant="primary"
                 onClick={() => {
                   reset(false);
+                  onOpenDashboard?.();
                   void navigate({ to: "/dashboard", search: { site: added.domain } });
                 }}
               >
@@ -128,12 +139,20 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
           </>
         ) : (
           <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
-            <Dialog.Description>Register a site and start tracking it.</Dialog.Description>
+            <Dialog.Description>
+              Enter the domain you want to track, such as example.com.
+            </Dialog.Description>
             <Input
               label="Domain"
               error={error || undefined}
               value={domain}
-              onChange={(e) => setDomain(e.target.value)}
+              onChange={(e) => {
+                setDomain(e.target.value);
+                setError("");
+              }}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="example.com"
               required
               autoFocus
@@ -144,10 +163,7 @@ export function AddSiteDialog({ trigger }: { trigger?: ReactElement }) {
               label="Reporting timezone"
               description="Dates and charts are grouped in this timezone."
             />
-            <div className="flex items-center justify-between gap-2">
-              <Text variant="secondary" size="xs">
-                Sites can also be managed via the Plausible-compatible Sites API.
-              </Text>
+            <div className="flex justify-end">
               <Button variant="primary" type="submit" loading={pending}>
                 Add site
               </Button>

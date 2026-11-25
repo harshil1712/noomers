@@ -31,8 +31,8 @@ function ForgotPassword() {
       <AuthCard title="Check your email" footer={footer}>
         <div role="status" className="text-center">
           <Text variant="secondary">
-            If {email} has an account, a reset link is on its way. Open it on this device to choose
-            a new password.
+            If {email} has an account, a reset link is on its way. Open the link to choose a new
+            password.
           </Text>
         </div>
       </AuthCard>

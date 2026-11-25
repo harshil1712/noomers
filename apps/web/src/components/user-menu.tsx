@@ -1,4 +1,4 @@
-import { Button, DropdownMenu } from "@cloudflare/kumo";
+import { Button, DropdownMenu, useSidebar } from "@cloudflare/kumo";
 import { CaretDown, Gear, SignOut } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 import { signOut } from "../lib/auth-client";
@@ -8,6 +8,7 @@ import { toast } from "../lib/toast";
 /** Header account menu: who's signed in, Settings, Sign out. */
 export function UserMenu({ user }: { user: { email: string; name?: string | null } }) {
   const navigate = useNavigate();
+  const { setOpenMobile } = useSidebar();
   const initial = (user.name?.trim() || user.email || "?")[0].toUpperCase();
 
   const handleSignOut = async () => {
@@ -50,8 +51,14 @@ export function UserMenu({ user }: { user: { email: string; name?: string | null
           </DropdownMenu.Label>
         </DropdownMenu.Group>
         <DropdownMenu.Separator />
-        <DropdownMenu.Item icon={Gear} onClick={() => void navigate({ to: "/settings" })}>
-          Settings
+        <DropdownMenu.Item
+          icon={Gear}
+          onClick={() => {
+            setOpenMobile(false);
+            void navigate({ to: "/settings" });
+          }}
+        >
+          Account settings
         </DropdownMenu.Item>
         <DropdownMenu.Item icon={SignOut} onClick={() => void handleSignOut()}>
           Sign out

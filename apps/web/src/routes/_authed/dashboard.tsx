@@ -1,10 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
-import * as echarts from "echarts/core";
-import { LineChart } from "echarts/charts";
-import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
-import { CanvasRenderer } from "echarts/renderers";
-import { z } from "zod";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { z } from "zod/mini";
 import {
   Badge,
   Banner,
@@ -20,12 +16,11 @@ import {
   Table,
   Tabs,
   Text,
-  TimeseriesChart,
   Tooltip,
 } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
-import { themeColor } from "../../lib/use-is-dark";
+import { themeColor, useIsDark } from "../../lib/use-is-dark";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 import { TrackerSnippetBlock } from "../../components/dashboard/tracker-snippet-block";
@@ -36,11 +31,17 @@ import {
   type BreakdownResponse,
   type DashboardQuery,
   type RealtimeStats,
+  type TimeseriesResponse,
 } from "../../lib/dashboard-api";
 
-echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+const DashboardTrend = lazy(() =>
+  import("../../components/dashboard/analytics-charts").then((m) => ({
+    default: m.DashboardTrend,
+  })),
+);
 
 const INTERVALS = [
+  { value: "24h", label: "Last 24 hours" },
   { value: "day", label: "Today" },
   { value: "7d", label: "Last 7 days" },
   { value: "30d", label: "Last 30 days" },
@@ -49,21 +50,22 @@ const INTERVALS = [
   { value: "12mo", label: "Last 12 months" },
 ];
 
-const FILTER_KEYS = [
-  "path",
-  "name",
-  "referrer",
-  "deviceType",
-  "country",
-  "browserName",
-  "browserVersion",
-  "utmSource",
-  "utmMedium",
-  "utmCampaign",
-  "utmTerm",
-  "utmContent",
-] as const;
-type FilterKey = (typeof FILTER_KEYS)[number];
+const FILTER_LABELS = {
+  path: "Path",
+  name: "Event",
+  referrer: "Referrer",
+  deviceType: "Device",
+  country: "Country",
+  browserName: "Browser",
+  browserVersion: "Browser version",
+  utmSource: "UTM source",
+  utmMedium: "UTM medium",
+  utmCampaign: "UTM campaign",
+  utmTerm: "UTM term",
+  utmContent: "UTM content",
+};
+type FilterKey = keyof typeof FILTER_LABELS;
+const FILTER_KEYS = Object.keys(FILTER_LABELS) as FilterKey[];
 
 const CAMPAIGN_DIMS: { card: BreakdownCard; label: string; filter: FilterKey }[] = [
   { card: "utm-source", label: "UTM source", filter: "utmSource" },
@@ -132,7 +134,7 @@ interface SearchParams {
 
 const searchSchema = z.object(
   Object.fromEntries(
-    ["site", "interval", "tab", ...FILTER_KEYS].map((key) => [key, z.string().optional()]),
+    ["site", "interval", "tab", ...FILTER_KEYS].map((key) => [key, z.optional(z.string())]),
   ),
 );
 
@@ -144,19 +146,6 @@ export const Route = createFileRoute("/_authed/dashboard")({
   component: Dashboard,
 });
 
-function useIsDark(): boolean {
-  const [dark, setDark] = useState(
-    () => typeof document !== "undefined" && document.documentElement.dataset.mode === "dark",
-  );
-  useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() => setDark(el.dataset.mode === "dark"));
-    observer.observe(el, { attributes: true, attributeFilter: ["data-mode"] });
-    return () => observer.disconnect();
-  }, []);
-  return dark;
-}
-
 function useRealtime(siteId: string) {
   const [stats, setStats] = useState<RealtimeStats | null>(null);
   const [status, setStatus] = useState<"connecting" | "live" | "offline">("connecting");
@@ -167,8 +156,12 @@ function useRealtime(siteId: string) {
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/realtime/${siteId}`);
     ws.onopen = () => setStatus("live");
-    ws.onclose = () => setStatus("offline");
-    ws.onerror = () => setStatus("offline");
+    const disconnect = () => {
+      setStats(null);
+      setStatus("offline");
+    };
+    ws.onclose = disconnect;
+    ws.onerror = disconnect;
     ws.onmessage = (event) => {
       try {
         setStats(JSON.parse(event.data as string) as RealtimeStats);
@@ -176,14 +169,19 @@ function useRealtime(siteId: string) {
         // ignore malformed frames
       }
     };
-    return () => ws.close();
+    return () => {
+      ws.onopen = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      ws.onmessage = null;
+      ws.close();
+    };
   }, [siteId]);
   return { stats, status };
 }
 
 /* ---------- dashboard ---------- */
 function Dashboard() {
-  useDocumentTitle("Dashboard");
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const isDark = useIsDark();
@@ -202,6 +200,9 @@ function Dashboard() {
   const interval = search.interval || "7d";
   const timezone = siteList?.find((s) => s.domain === (search.site ?? ""))?.timezone ?? "UTC";
   const tab = search.tab === "realtime" ? "realtime" : "overview";
+  useDocumentTitle(
+    site ? `${site} · ${tab === "realtime" ? "Realtime" : "Overview"}` : "Dashboard",
+  );
   const filters = useMemo(() => {
     const out: Record<string, string> = {};
     for (const key of FILTER_KEYS) {
@@ -222,6 +223,7 @@ function Dashboard() {
 
   const reportError = (key: string, failed: boolean) => {
     setFailures((prev) => {
+      if (prev.has(key) === failed) return prev;
       const next = new Set(prev);
       if (failed) next.add(key);
       else next.delete(key);
@@ -235,10 +237,20 @@ function Dashboard() {
   };
 
   const query: DashboardQuery = { site, interval, filters, nonce };
-  const realtime = useRealtime(site);
+  const registered = sites?.includes(site);
+  const realtime = useRealtime(registered ? site : "");
+  if (site && sites && !sitesError && !registered) {
+    return (
+      <Empty
+        title="Site not found"
+        description="This domain is no longer in your list of tracked sites."
+        contents={<Button onClick={() => void navigate({ to: "/" })}>All sites</Button>}
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-5 p-6">
+    <div className="flex flex-col gap-5 p-4 sm:p-6">
       {/* page header */}
       <div className="flex flex-col gap-3">
         <Breadcrumbs size="sm">
@@ -247,8 +259,8 @@ function Dashboard() {
           <Breadcrumbs.Current>{site || "Dashboard"}</Breadcrumbs.Current>
         </Breadcrumbs>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Text variant="heading1" as="h1">
+          <div className="flex min-w-0 max-w-full items-center gap-2">
+            <Text variant="heading1" as="h1" DANGEROUS_className="min-w-0 break-all">
               {site || "Dashboard"}
             </Text>
             {site && (
@@ -277,6 +289,8 @@ function Dashboard() {
             />
             {tab !== "realtime" && (
               <Select
+                label="Reporting period"
+                hideLabel
                 value={interval}
                 onValueChange={(v) => {
                   if (v !== undefined && v !== null) setSearch({ interval: v as string });
@@ -320,19 +334,19 @@ function Dashboard() {
         </div>
       </div>
 
-      {Object.keys(filters).length > 0 && (
+      {tab === "overview" && Object.keys(filters).length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
-          {Object.entries(filters).map(([key, value]) => (
+          {FILTER_KEYS.filter((key) => filters[key]).map((key) => (
             <Badge key={key} variant="primary">
-              {key}: {value}
+              {FILTER_LABELS[key]}: {filters[key]}
               <Tooltip
-                content={`Remove ${key} filter`}
+                content={`Remove ${FILTER_LABELS[key].toLowerCase()} filter`}
                 render={
                   <Button
                     variant="ghost"
                     size="xs"
                     icon={<X size={12} />}
-                    aria-label={`Remove ${key} filter`}
+                    aria-label={`Remove ${FILTER_LABELS[key].toLowerCase()} filter`}
                     onClick={() => setSearch({ [key]: undefined })}
                   />
                 }
@@ -350,7 +364,7 @@ function Dashboard() {
           variant="error"
           icon={<Globe weight="fill" />}
           title="Historical data is unavailable"
-          description="Basin SQL didn't respond. Realtime still works."
+          description="Try loading the reports again."
           action={
             <Button variant="secondary" onClick={retryHistorical}>
               Retry
@@ -373,7 +387,7 @@ function Dashboard() {
             <Button onClick={() => void refreshSites()}>Retry</Button>
           </div>
         </Surface>
-      ) : sites === null && !site ? (
+      ) : sites === null ? (
         <DashboardSkeleton />
       ) : sites !== null && sites.length === 0 ? (
         <Empty
@@ -460,6 +474,7 @@ function OverviewTab({
 
 /* ---------- KPI strip ---------- */
 const INTERVAL_LABEL = {
+  "24h": "previous 24 hours",
   day: "previous day",
   "7d": "previous 7 days",
   "30d": "previous 30 days",
@@ -515,27 +530,29 @@ function KpiStrip({
 }) {
   const [data, setData] = useState<Awaited<ReturnType<typeof dashboardApi.stats>> | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setError(false);
+    setData(null);
     dashboardApi
-      .stats(query)
+      .stats(query, controller.signal)
       .then((d) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setData(d);
           onError?.("stats", false);
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setError(true);
           onError?.("stats", true);
         }
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [query.site, query.interval, query.filters, query.nonce]);
+  }, [query.site, query.interval, query.filters, query.nonce, attempt]);
 
   const fmt = Intl.NumberFormat("en", { notation: "compact" });
   const duration = (s: number) => {
@@ -547,7 +564,7 @@ function KpiStrip({
     return quiet ? (
       <div className="h-24 rounded-xl bg-kumo-recessed" aria-hidden="true" />
     ) : (
-      <PanelError message="Stats didn't load — Basin SQL didn't respond." />
+      <PanelError message="Couldn’t load the summary." onRetry={() => setAttempt((n) => n + 1)} />
     );
   }
 
@@ -564,7 +581,7 @@ function KpiStrip({
       value:
         realtime.stats?.currentVisitors !== undefined
           ? fmt.format(realtime.stats.currentVisitors)
-          : "0",
+          : "—",
       live: true,
     },
     {
@@ -623,7 +640,9 @@ function KpiStrip({
             <>
               <span className="mono-label">{t.label}</span>
               <div className="mt-1 flex items-center gap-2">
-                {t.live && <span className="live-dot" aria-hidden="true" title={realtime.status} />}
+                {t.live && realtime.status === "live" && (
+                  <span className="live-dot" aria-hidden="true" title={realtime.status} />
+                )}
                 <span className="whitespace-nowrap tabular-nums">
                   <Text variant="heading1" as="h2">
                     {t.value}
@@ -631,9 +650,9 @@ function KpiStrip({
                 </span>
               </div>
               <div className="mt-1 min-h-6">
-                {t.live && realtime.status === "connecting" ? (
+                {t.live && realtime.status !== "live" ? (
                   <Text variant="secondary" size="sm">
-                    Connecting…
+                    {realtime.status === "offline" ? "Offline" : "Connecting…"}
                   </Text>
                 ) : (
                   t.delta
@@ -681,44 +700,45 @@ function TimeseriesPanel({
   quiet?: boolean;
   metric: "visitors" | "views";
 }) {
-  const [data, setData] = useState<
-    { name: string; color: string; data: [number, number][] }[] | null
-  >(null);
+  const [rows, setRows] = useState<TimeseriesResponse["chartData"] | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setError(false);
+    setRows(null);
     dashboardApi
-      .timeseries(query)
+      .timeseries(query, controller.signal)
       .then((res) => {
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         onError?.("timeseries", false);
-        const brand = themeColor("--color-kumo-brand") || "#1f7a55";
-        const second = themeColor("--color-kumo-series-2") || "#a08c6e";
-        const muted = "rgba(128,128,128,0.35)";
-        const toSeries = (key: "views" | "visitors", name: string, color: string) => ({
-          name,
-          color,
-          data: res.chartData.map(
-            (row) => [new Date(row.date).getTime(), row[key]] as [number, number],
-          ),
-        });
-        setData(
-          metric === "visitors"
-            ? [toSeries("visitors", "Visitors", brand), toSeries("views", "Pageviews", muted)]
-            : [toSeries("views", "Pageviews", second), toSeries("visitors", "Visitors", muted)],
-        );
+        setRows(res.chartData);
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setError(true);
           onError?.("timeseries", true);
         }
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [query.site, query.interval, query.filters, query.nonce, isDark, metric]);
+  }, [query.site, query.interval, query.filters, query.nonce, attempt]);
+
+  const brand = themeColor("--color-kumo-brand");
+  const secondary = themeColor("--color-kumo-series-2");
+  const muted = themeColor("--color-kumo-subtle");
+  const data = useMemo(() => {
+    if (!rows) return null;
+    const series = (key: "visitors" | "views", name: string, color: string) => ({
+      name,
+      color,
+      data: rows.map((row) => [Date.parse(row.date), row[key]] as [number, number]),
+    });
+    return metric === "visitors"
+      ? [series("visitors", "Visitors", brand), series("views", "Pageviews", muted)]
+      : [series("views", "Pageviews", secondary), series("visitors", "Visitors", muted)];
+  }, [rows, metric, brand, secondary, muted]);
 
   return (
     <Surface className="min-w-0 overflow-hidden rounded-xl p-4">
@@ -726,7 +746,7 @@ function TimeseriesPanel({
         quiet ? (
           <div className="h-[300px] rounded-lg bg-kumo-recessed" aria-hidden="true" />
         ) : (
-          <PanelError message="Chart didn't load — Basin SQL didn't respond." />
+          <PanelError message="Couldn’t load the chart." onRetry={() => setAttempt((n) => n + 1)} />
         )
       ) : !data ? (
         <div className="skeleton h-[300px] rounded-lg" />
@@ -737,23 +757,19 @@ function TimeseriesPanel({
               <ChartLegend.SmallItem
                 name="Visitors"
                 value=""
-                color={themeColor("--color-kumo-brand")}
+                color={metric === "visitors" ? brand : muted}
               />
               <ChartLegend.SmallItem
                 name="Pageviews"
                 value=""
-                color={themeColor("--color-kumo-series-2")}
+                color={metric === "views" ? secondary : muted}
               />
             </div>
             <span className="mono-label">{timezone}</span>
           </div>
-          <TimeseriesChart
-            echarts={echarts}
-            isDarkMode={isDark}
-            data={data}
-            height={300}
-            yAxisMinInterval={1}
-          />
+          <Suspense fallback={<div className="skeleton h-[300px] rounded-lg" />}>
+            <DashboardTrend data={data} isDark={isDark} />
+          </Suspense>
         </>
       )}
     </Surface>
@@ -831,76 +847,68 @@ function BreakdownTable({
   const [page, setPage] = useState(1);
   const [data, setData] = useState<BreakdownResponse | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const isGoals = card === "goals";
   const [goalRevenue, setGoalRevenue] = useState<Record<string, string>>({});
   const hasRevenue = isGoals && Object.values(goalRevenue).some((v) => v !== "-");
 
   useEffect(() => setPage(1), [realCard, query.site, query.interval, query.filters]);
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setError(false);
-    const finish = (fn: () => void) => {
-      if (!cancelled) fn();
-    };
-    if (isGoals) {
-      dashboardApi
-        .goals(query)
-        .then((r) =>
-          finish(() => {
-            setData({
-              countsByProperty: r.goals.map((g) => [
-                g.name,
-                g.conversions,
-                Math.round(g.conversionRate),
+    setData(null);
+    const load = async () => {
+      try {
+        if (isGoals) {
+          const { goals } = await dashboardApi.goals(query, controller.signal);
+          if (controller.signal.aborted) return;
+          setData({
+            countsByProperty: goals.map((goal) => [
+              goal.name,
+              goal.conversions,
+              Math.round(goal.conversionRate),
+            ]),
+            page: 1,
+            hasNextPage: false,
+          });
+          setGoalRevenue(
+            Object.fromEntries(
+              goals.map((goal) => [
+                goal.name,
+                goal.currency
+                  ? new Intl.NumberFormat("en", {
+                      style: "currency",
+                      currency: goal.currency,
+                    }).format(goal.totalRevenue ?? 0)
+                  : "-",
               ]),
-              page: 1,
-            });
-            setGoalRevenue(
-              Object.fromEntries(
-                r.goals.map((g) => [
-                  g.name,
-                  g.currency
-                    ? new Intl.NumberFormat("en", {
-                        style: "currency",
-                        currency: g.currency,
-                      }).format(g.totalRevenue ?? 0)
-                    : "-",
-                ]),
-              ),
-            );
-            onError?.(errKey, false);
-          }),
-        )
-        .catch(() =>
-          finish(() => {
-            setError(true);
-            onError?.(errKey, true);
-          }),
-        );
-    } else {
-      dashboardApi
-        .breakdown(realCard, { ...query, page })
-        .then((d) =>
-          finish(() => {
-            setData(d);
-            onError?.(errKey, false);
-          }),
-        )
-        .catch(() =>
-          finish(() => {
-            setError(true);
-            onError?.(errKey, true);
-          }),
-        );
-    }
-    return () => {
-      cancelled = true;
+            ),
+          );
+        } else {
+          const report = await dashboardApi.breakdown(
+            realCard,
+            { ...query, page },
+            controller.signal,
+          );
+          if (controller.signal.aborted) return;
+          setData(report);
+        }
+        onError?.(errKey, false);
+      } catch {
+        if (controller.signal.aborted) return;
+        setError(true);
+        onError?.(errKey, true);
+      }
     };
-  }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce]);
+    void load();
+    return () => controller.abort();
+  }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce, attempt]);
 
   const dimSelect = isCampaigns ? (
     <div className="mb-1 mt-3">
       <Select
+        label="Campaign dimension"
+        hideLabel
         value={dim.card}
         onValueChange={(v) => {
           const next = CAMPAIGN_DIMS.find((d) => d.card === v);
@@ -923,7 +931,7 @@ function BreakdownTable({
     ) : (
       <>
         {dimSelect}
-        <PanelError message="Couldn't load — Basin SQL may be unconfigured." />
+        <PanelError message="Couldn’t load this report." onRetry={() => setAttempt((n) => n + 1)} />
       </>
     );
   }
@@ -940,16 +948,34 @@ function BreakdownTable({
     );
   }
   const rows = data.countsByProperty;
+  const pagination = !isGoals && (page > 1 || data.hasNextPage) && (
+    <div className="mt-3 flex justify-end">
+      <Pagination
+        controls="simple"
+        page={page}
+        setPage={setPage}
+        perPage={10}
+        hasNextPage={data.hasNextPage}
+      />
+    </div>
+  );
   if (rows.length === 0) {
     return (
       <>
         {dimSelect}
         <EmptyRows site={site} card={card} />
+        {pagination}
       </>
     );
   }
-  const shown = rows.slice(0, 8);
-  const max = Math.max(...shown.map((r) => r[1]), 1);
+  const secondaryMetric = isGoals
+    ? "Conv. rate"
+    : realCard === "events"
+      ? null
+      : realCard === "paths"
+        ? "Pageviews"
+        : "Visits";
+  const max = Math.max(...rows.map((r) => r[1]), 1);
   const label = (first: string | [string, string]) => (Array.isArray(first) ? first[1] : first);
   const value = (first: string | [string, string]) => (Array.isArray(first) ? first[0] : first);
 
@@ -972,29 +998,23 @@ function BreakdownTable({
                 <span className="mono-label">Revenue</span>
               </Table.Head>
             )}
-            <Table.Head className="w-14 text-right">
-              <span className="mono-label">%</span>
-            </Table.Head>
+            {secondaryMetric && (
+              <Table.Head className="w-20 text-right">
+                <span className="mono-label">{secondaryMetric}</span>
+              </Table.Head>
+            )}
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {shown.map((row, index) => {
-            const pct = isGoals && row[2] !== undefined ? row[2] : Math.round((row[1] / max) * 100);
+          {rows.map((row, index) => {
             const rowLabel = label(row[0]);
             const emptyDirect = realCard === "referrer" && rowLabel === "";
-            const filterable = Boolean(realFilter) && !emptyDirect;
+            const filterKey = emptyDirect ? undefined : realFilter;
             return (
               <Table.Row
                 key={`${String(row[0])}-${index}`}
-                {...(filterable ? { tabIndex: 0, role: "button" } : {})}
-                className={`group/row relative ${filterable ? "cursor-pointer" : ""} [&>*]:bg-transparent hover:[&>*]:bg-kumo-tint/30`}
-                onClick={() => filterable && onFilter({ [realFilter!]: value(row[0]) })}
-                onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && filterable) {
-                    e.preventDefault();
-                    onFilter({ [realFilter!]: value(row[0]) });
-                  }
-                }}
+                className={`relative [&>*]:bg-transparent ${filterKey ? "cursor-pointer hover:[&>*]:bg-kumo-tint/30" : ""}`}
+                onClick={filterKey ? () => onFilter({ [filterKey]: value(row[0]) }) : undefined}
               >
                 <Table.Cell className="relative">
                   <span
@@ -1002,11 +1022,22 @@ function BreakdownTable({
                     className="absolute inset-y-0 left-0 rounded bg-kumo-tint"
                     style={{ width: `${(row[1] / max) * 100}%` }}
                   />
-                  <span className="relative max-w-full truncate">
-                    {realCard === "referrer" && label(row[0]) === ""
-                      ? "Direct / None"
-                      : label(row[0])}
-                  </span>
+                  {filterKey ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="relative h-auto max-w-full justify-start px-1 py-1 text-left"
+                      title={rowLabel}
+                    >
+                      <span className="line-clamp-2 whitespace-normal wrap-anywhere">
+                        {rowLabel}
+                      </span>
+                    </Button>
+                  ) : (
+                    <span className="relative block truncate" title={rowLabel}>
+                      {emptyDirect ? "Direct / None" : rowLabel}
+                    </span>
+                  )}
                 </Table.Cell>
                 <Table.Cell className="relative tabular-nums text-right">
                   {new Intl.NumberFormat("en", {
@@ -1018,23 +1049,21 @@ function BreakdownTable({
                     {goalRevenue[label(row[0])] ?? "-"}
                   </Table.Cell>
                 )}
-                <Table.Cell className="relative tabular-nums text-right">{pct}%</Table.Cell>
+                {secondaryMetric && (
+                  <Table.Cell className="relative tabular-nums text-right">
+                    {row[2] === undefined
+                      ? "—"
+                      : isGoals
+                        ? `${row[2]}%`
+                        : row[2].toLocaleString("en")}
+                  </Table.Cell>
+                )}
               </Table.Row>
             );
           })}
         </Table.Body>
       </Table>
-      {!isGoals && rows.length >= 8 && (
-        <div className="mt-3 flex justify-end">
-          <Pagination
-            controls="simple"
-            page={page}
-            setPage={setPage}
-            perPage={10}
-            hasNextPage={rows.length >= 10}
-          />
-        </div>
-      )}
+      {pagination}
     </div>
   );
 }
@@ -1047,7 +1076,7 @@ function RealtimeTab({ realtime }: { realtime: ReturnType<typeof useRealtime> })
     <div className="flex flex-col gap-5">
       <Surface className="rounded-xl p-6">
         <div className="flex items-center gap-3">
-          <span className="live-dot" aria-hidden="true" />
+          {status === "live" && <span className="live-dot" aria-hidden="true" />}
           <Text variant="secondary" size="sm">
             {status === "live" ? "Live" : status === "connecting" ? "Connecting…" : "Offline"}
           </Text>
@@ -1180,14 +1209,14 @@ function MutedRows() {
   );
 }
 
-function PanelError({ message }: { message: string }) {
+function PanelError({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="py-6 text-center">
       <Text variant="secondary" size="sm">
         {message}
       </Text>
       <div className="mt-2">
-        <Button variant="ghost" size="sm" onClick={() => location.reload()}>
+        <Button variant="ghost" size="sm" onClick={onRetry}>
           Retry
         </Button>
       </div>

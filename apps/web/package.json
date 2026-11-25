@@ -7,7 +7,7 @@
     "build": "vp build && cp ../../packages/tracker/dist/loader/tracker.js public/tracker.js",
     "test": "TZ=EST vp test",
     "db:generate": "drizzle-kit generate",
-    "prepare": "vp config",
+    "test:browser": "playwright test",
     "check": "vp check",
     "format": "vp check --fix",
     "auth:generate": "auth generate --config better-auth.config.ts --output src/auth-schema.ts --adapter drizzle --dialect sqlite -y"
@@ -37,6 +37,7 @@
     "@cloudflare/vite-plugin": "1.65.0",
     "@cloudflare/vitest-plugin": "1.4.7",
     "@cloudflare/workers-types": "5.20261023.1",
+    "@playwright/test": "1.64.1",
     "@tailwindcss/vite": "4.3.3",
     "@tanstack/router-plugin": "1.168.48",
     "@types/better-sqlite3": "9.6.0",

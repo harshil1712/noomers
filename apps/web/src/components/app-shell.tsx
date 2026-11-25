@@ -25,6 +25,7 @@ function SiteCommands({ sites }: { sites: string[] }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
+        setSearch("");
         setOpen((o) => !o);
       }
     };
@@ -73,7 +74,14 @@ function SiteCommands({ sites }: { sites: string[] }) {
         <CommandPalette.Group items={filtered}>
           <CommandPalette.Items>
             {(item) => (
-              <CommandPalette.Item key={item.id} value={item} onClick={item.run}>
+              <CommandPalette.Item
+                key={item.id}
+                value={item}
+                onClick={() => {
+                  item.run();
+                  setOpen(false);
+                }}
+              >
                 <span className="flex items-center gap-3">
                   <span className="text-kumo-subtle">{item.icon}</span>
                   <span>{item.title}</span>
@@ -82,6 +90,7 @@ function SiteCommands({ sites }: { sites: string[] }) {
             )}
           </CommandPalette.Items>
         </CommandPalette.Group>
+        <CommandPalette.Empty>No matching sites or pages.</CommandPalette.Empty>
       </CommandPalette.List>
     </CommandPalette.Root>
   );
@@ -102,6 +111,7 @@ function SidebarNav() {
         <Link
           variant="plain"
           render={<RouterLink to="/" />}
+          onClick={() => setOpenMobile(false)}
           aria-label="noomers dashboard"
           className={`rounded-md px-1 text-kumo-default! ${FOCUS_RING}`}
         >
@@ -142,6 +152,7 @@ function SidebarNav() {
             ))}
             {!forbidden && (
               <AddSiteDialog
+                onOpenDashboard={() => setOpenMobile(false)}
                 trigger={
                   <Sidebar.MenuButton icon={Plus} tooltip="Add site" className={FOCUS_RING}>
                     Add site
@@ -152,7 +163,20 @@ function SidebarNav() {
           </Sidebar.Menu>
         </Sidebar.Group>
         <Sidebar.Group className="mt-auto">
-          <Sidebar.Menu></Sidebar.Menu>
+          <Sidebar.Menu>
+            <Sidebar.MenuButton
+              icon={Gear}
+              tooltip="Settings"
+              active={pathname === "/settings"}
+              className={FOCUS_RING}
+              onClick={() => {
+                if (isMobile) setOpenMobile(false);
+                void navigate({ to: "/settings" });
+              }}
+            >
+              Settings
+            </Sidebar.MenuButton>
+          </Sidebar.Menu>
         </Sidebar.Group>
       </Sidebar.Content>
       <Sidebar.Footer className="justify-between gap-2">
@@ -175,7 +199,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         <SidebarNav />
       </Sidebar>
       <div className="fixed left-3 top-3 z-30 md:hidden">
-        <Sidebar.Trigger />
+        <Sidebar.Trigger aria-label="Open navigation" />
       </div>
       <main className="flex-1 min-w-0 overflow-y-auto bg-kumo-canvas pt-12 md:pt-0">
         {children}
