@@ -205,7 +205,7 @@ describe("collectRequestHandler", () => {
       referrer: "https://google.com",
       country: "US",
       browser: "Chrome",
-      browser_version: "51.x.x.x",
+      browser_version: "51.0",
       device_type: "desktop",
       utm_source: "google",
       utm_medium: "search",

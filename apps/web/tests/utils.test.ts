@@ -1,4 +1,4 @@
-import { getFiltersFromSearchParams, maskBrowserVersion } from "../worker/lib/utils";
+import { getFiltersFromSearchParams } from "../worker/lib/utils";
 import { describe, test, expect, beforeEach, afterEach, vi } from "vite-plus/test";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
@@ -56,21 +56,5 @@ describe("getFiltersFromSearchParams", () => {
       utmMedium: "email",
       browserName: "chrome",
     });
-  });
-});
-
-describe("maskBrowserVersion", () => {
-  const browserVersions = [
-    ["Microsoft Edge", "119.0.0.0", "119.x.x.x"],
-    ["Google Chrome", "119.0.0.0", "119.x.x.x"],
-    ["Mozilla Firefox", "119.0", "119.x"],
-    ["Safari", "605.1.15", "605.x.x"],
-    ["DuckDuckGo", "5", "5"],
-    ["Brave", "129.0.6668.54", "129.x.x.x"],
-    ["Opera", "117.0.0.0", "117.x.x.x"],
-  ];
-
-  test.each(browserVersions)("%s", (_, version, expected) => {
-    expect(maskBrowserVersion(version)).toEqual(expected);
   });
 });
