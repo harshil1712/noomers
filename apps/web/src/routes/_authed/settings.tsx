@@ -38,6 +38,7 @@ import { authErrorMessage, type AuthErrorLike } from "../../lib/auth-errors";
 import { toast } from "../../lib/toast";
 import { useDocumentTitle } from "../../lib/use-document-title";
 import { PageHeader } from "../../components/page-header";
+import { PasswordInput } from "../../components/password-input";
 import { LayerCard, SensitiveInput } from "@cloudflare/kumo";
 import { ConfirmDialog } from "../../components/confirm-dialog";
 import { FormError } from "../../components/form-error";
@@ -111,7 +112,13 @@ function ProfileSection({ name: savedName, email }: { name: string; email: strin
     <SettingsSection
       title="Profile"
       footer={
-        <Button variant="primary" type="submit" form={formId} loading={saving} disabled={unchanged}>
+        <Button
+          variant="primary"
+          type="submit"
+          form={formId}
+          loading={saving}
+          disabled={unchanged || !name.trim()}
+        >
           Save
         </Button>
       }
@@ -145,15 +152,6 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
   const [error, setError] = useState<AuthErrorLike | null>(null);
   const [attempt, setAttempt] = useState(0);
 
-  if (!hasPassword) {
-    return (
-      <SettingsSection
-        title="Password"
-        description="You sign in with Google, so there's no password to change."
-      />
-    );
-  }
-
   const submit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSaving(true);
@@ -178,6 +176,15 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
   }, [wrongCurrent, attempt]);
   const badNew = error?.code === "PASSWORD_TOO_SHORT" || error?.code === "PASSWORD_TOO_LONG";
 
+  if (!hasPassword) {
+    return (
+      <SettingsSection
+        title="Password"
+        description="You sign in with Google, so there's no password to change."
+      />
+    );
+  }
+
   return (
     <SettingsSection
       title="Password"
@@ -190,7 +197,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
     >
       <form id={formId} onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
         <div ref={currentRef}>
-          <SensitiveInput
+          <PasswordInput
             label="Current password"
             value={current}
             onValueChange={setCurrent}
@@ -198,7 +205,7 @@ function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
             error={wrongCurrent ? "That password isn't right." : undefined}
           />
         </div>
-        <SensitiveInput
+        <PasswordInput
           label="New password"
           description="At least 8 characters"
           value={next}
@@ -286,12 +293,12 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
           trigger={<Button variant="secondary-destructive">Delete account</Button>}
         >
           {hasPassword ? (
-            <SensitiveInput
+            <PasswordInput
               label="Enter your password to confirm"
               value={password}
               onValueChange={setPassword}
               autoComplete="current-password"
-              variant={error ? "error" : "default"}
+              invalid={Boolean(error)}
             />
           ) : (
             <Text variant="secondary" size="sm">
@@ -308,15 +315,13 @@ function DeleteAccountSection({ hasPassword }: { hasPassword: boolean }) {
 function SitesSettings() {
   const navigate = useNavigate();
   const { sites, error: loadError, forbidden } = useSharedSites();
-  const [error, setError] = useState<string | null>(null);
   const [timezones, setTimezones] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [confirmText, setConfirmText] = useState("");
 
   useEffect(() => {
-    if (loadError) setError("Couldn't load your sites.");
     if (sites) setTimezones(Object.fromEntries(sites.map((d) => [d.domain, d.timezone])));
-  }, [sites, loadError]);
+  }, [sites]);
 
   const saveTimezone = async (domain: string) => {
     setBusy(domain);
@@ -352,12 +357,21 @@ function SitesSettings() {
       title="Sites"
       description="Manage your tracked sites. Deleting a site is permanent."
     >
-      {error && !forbidden && <FormError message={error} attempt={0} />}
       {forbidden ? (
         <Text variant="secondary" size="sm">
           Only the owner account can manage sites.
         </Text>
-      ) : loadError ? null : sites === null ? (
+      ) : loadError ? (
+        <Banner
+          variant="error"
+          title="Couldn’t load your sites"
+          action={
+            <Button variant="secondary" onClick={() => void refreshSites()}>
+              Retry
+            </Button>
+          }
+        />
+      ) : sites === null ? (
         <Loader size="sm" aria-label="Loading sites" />
       ) : sites.length === 0 ? (
         <Text variant="secondary" size="sm">

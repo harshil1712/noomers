@@ -8,7 +8,7 @@ import AuthCard from "../components/auth-card";
 import { AuthLink } from "../components/auth-link";
 import { FormError } from "../components/form-error";
 import { GoogleSignInButton } from "../components/google-sign-in";
-import { SensitiveInput } from "@cloudflare/kumo";
+import { PasswordInput } from "../components/password-input";
 
 export const Route = createFileRoute("/sign-up")({
   component: SignUp,
@@ -67,9 +67,9 @@ function SignUp() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
-          aria-
+          aria-invalid={exists || undefined}
         />
-        <SensitiveInput
+        <PasswordInput
           label="Password"
           description="At least 8 characters"
           value={password}

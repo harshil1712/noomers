@@ -15,3 +15,5 @@ jobs:
       - run: vp check
       - run: vp run -r test
       - run: vp run -r build
+      - run: vp run test:browser
+        working-directory: apps/web

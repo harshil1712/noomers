@@ -10,7 +10,7 @@ import AuthCard from "../components/auth-card";
 import { AuthLink } from "../components/auth-link";
 import { FormError } from "../components/form-error";
 import { GoogleSignInButton } from "../components/google-sign-in";
-import { SensitiveInput } from "@cloudflare/kumo";
+import { PasswordInput } from "../components/password-input";
 
 type Notice = "password-reset" | "account-deleted";
 
@@ -78,11 +78,12 @@ function SignIn() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="email"
-          aria-
+          aria-invalid={invalid.has("email") || undefined}
         />
         <div className="flex flex-col gap-1.5">
-          <SensitiveInput
+          <PasswordInput
             label="Password"
+            invalid={invalid.has("password")}
             value={password}
             onValueChange={setPassword}
             autoComplete="current-password"

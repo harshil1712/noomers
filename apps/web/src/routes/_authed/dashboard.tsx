@@ -25,7 +25,7 @@ import {
 } from "@cloudflare/kumo";
 import { ArrowSquareOut, Globe, X } from "@phosphor-icons/react";
 import { useDocumentTitle } from "../../lib/use-document-title";
-import { themeColor } from "../../lib/use-is-dark";
+import { themeColor, useIsDark } from "../../lib/use-is-dark";
 import { refreshSites, useSites as useSharedSites } from "../../lib/use-sites";
 import { AddSiteDialog } from "../../components/dashboard/add-site-dialog";
 import { TrackerSnippetBlock } from "../../components/dashboard/tracker-snippet-block";
@@ -36,6 +36,7 @@ import {
   type BreakdownResponse,
   type DashboardQuery,
   type RealtimeStats,
+  type TimeseriesResponse,
 } from "../../lib/dashboard-api";
 
 echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
@@ -143,19 +144,6 @@ export const Route = createFileRoute("/_authed/dashboard")({
   },
   component: Dashboard,
 });
-
-function useIsDark(): boolean {
-  const [dark, setDark] = useState(
-    () => typeof document !== "undefined" && document.documentElement.dataset.mode === "dark",
-  );
-  useEffect(() => {
-    const el = document.documentElement;
-    const observer = new MutationObserver(() => setDark(el.dataset.mode === "dark"));
-    observer.observe(el, { attributes: true, attributeFilter: ["data-mode"] });
-    return () => observer.disconnect();
-  }, []);
-  return dark;
-}
 
 function useRealtime(siteId: string) {
   const [stats, setStats] = useState<RealtimeStats | null>(null);
@@ -277,6 +265,8 @@ function Dashboard() {
             />
             {tab !== "realtime" && (
               <Select
+                label="Reporting period"
+                hideLabel
                 value={interval}
                 onValueChange={(v) => {
                   if (v !== undefined && v !== null) setSearch({ interval: v as string });
@@ -681,33 +671,18 @@ function TimeseriesPanel({
   quiet?: boolean;
   metric: "visitors" | "views";
 }) {
-  const [data, setData] = useState<
-    { name: string; color: string; data: [number, number][] }[] | null
-  >(null);
+  const [rows, setRows] = useState<TimeseriesResponse["chartData"] | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setError(false);
+    setRows(null);
     dashboardApi
       .timeseries(query)
       .then((res) => {
         if (cancelled) return;
         onError?.("timeseries", false);
-        const brand = themeColor("--color-kumo-brand") || "#1f7a55";
-        const second = themeColor("--color-kumo-series-2") || "#a08c6e";
-        const muted = "rgba(128,128,128,0.35)";
-        const toSeries = (key: "views" | "visitors", name: string, color: string) => ({
-          name,
-          color,
-          data: res.chartData.map(
-            (row) => [new Date(row.date).getTime(), row[key]] as [number, number],
-          ),
-        });
-        setData(
-          metric === "visitors"
-            ? [toSeries("visitors", "Visitors", brand), toSeries("views", "Pageviews", muted)]
-            : [toSeries("views", "Pageviews", second), toSeries("visitors", "Visitors", muted)],
-        );
+        setRows(res.chartData);
       })
       .catch(() => {
         if (!cancelled) {
@@ -718,7 +693,22 @@ function TimeseriesPanel({
     return () => {
       cancelled = true;
     };
-  }, [query.site, query.interval, query.filters, query.nonce, isDark, metric]);
+  }, [query.site, query.interval, query.filters, query.nonce]);
+
+  const brand = themeColor("--color-kumo-brand");
+  const secondary = themeColor("--color-kumo-series-2");
+  const muted = themeColor("--color-kumo-subtle");
+  const data = useMemo(() => {
+    if (!rows) return null;
+    const series = (key: "visitors" | "views", name: string, color: string) => ({
+      name,
+      color,
+      data: rows.map((row) => [Date.parse(row.date), row[key]] as [number, number]),
+    });
+    return metric === "visitors"
+      ? [series("visitors", "Visitors", brand), series("views", "Pageviews", muted)]
+      : [series("views", "Pageviews", secondary), series("visitors", "Visitors", muted)];
+  }, [rows, metric, brand, secondary, muted]);
 
   return (
     <Surface className="min-w-0 overflow-hidden rounded-xl p-4">
@@ -737,12 +727,12 @@ function TimeseriesPanel({
               <ChartLegend.SmallItem
                 name="Visitors"
                 value=""
-                color={themeColor("--color-kumo-brand")}
+                color={metric === "visitors" ? brand : muted}
               />
               <ChartLegend.SmallItem
                 name="Pageviews"
                 value=""
-                color={themeColor("--color-kumo-series-2")}
+                color={metric === "views" ? secondary : muted}
               />
             </div>
             <span className="mono-label">{timezone}</span>
