@@ -551,6 +551,149 @@ describe("trackPageview", () => {
             expect(callArgs).not.toHaveProperty("ut");
             expect(callArgs).not.toHaveProperty("uco");
         });
+
+        test("should read UTM params from the page URL when a canonical link is present (pageview)", async () => {
+            const link = document.createElement("link");
+            link.rel = "canonical";
+            link.href = "https://harshil.dev/blog/post";
+            vi.spyOn(document, "querySelector").mockReturnValue(link);
+
+            Object.defineProperty(window, "location", {
+                writable: true,
+                value: {
+                    pathname: "/real-path",
+                    search: "?utm_source=a&utm_medium=b&utm_campaign=c&utm_term=d&utm_content=e",
+                    host: "example.com",
+                },
+            });
+
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            await trackPageview(client);
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(1);
+            const callArgs = makeRequestMock.mock.calls[0][1];
+            expect(callArgs).toHaveProperty("p", "/blog/post");
+            expect(callArgs).toHaveProperty("us", "a");
+            expect(callArgs).toHaveProperty("um", "b");
+            expect(callArgs).toHaveProperty("uc", "c");
+            expect(callArgs).toHaveProperty("ut", "d");
+            expect(callArgs).toHaveProperty("uco", "e");
+        });
+
+        test("should read UTM params from the page URL when a canonical link is present (event)", async () => {
+            const link = document.createElement("link");
+            link.rel = "canonical";
+            link.href = "https://harshil.dev/blog/post";
+            vi.spyOn(document, "querySelector").mockReturnValue(link);
+
+            Object.defineProperty(window, "location", {
+                writable: true,
+                value: {
+                    pathname: "/real-path",
+                    search: "?utm_source=a&utm_medium=b&utm_campaign=c&utm_term=d&utm_content=e",
+                    host: "example.com",
+                },
+            });
+
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            await trackEvent(client, "Signup");
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(1);
+            const callArgs = makeRequestMock.mock.calls[0][1];
+            expect(callArgs).toHaveProperty("en", "Signup");
+            expect(callArgs).toHaveProperty("p", "/blog/post");
+            expect(callArgs).toHaveProperty("us", "a");
+            expect(callArgs).toHaveProperty("um", "b");
+            expect(callArgs).toHaveProperty("uc", "c");
+            expect(callArgs).toHaveProperty("ut", "d");
+            expect(callArgs).toHaveProperty("uco", "e");
+        });
+
+        test("should read UTM params from the page URL when no canonical link is present", async () => {
+            Object.defineProperty(window, "location", {
+                writable: true,
+                value: {
+                    pathname: "/real-path",
+                    search: "?utm_source=a&utm_medium=b&utm_campaign=c&utm_term=d&utm_content=e",
+                    host: "example.com",
+                },
+            });
+
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            await trackPageview(client);
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(1);
+            const callArgs = makeRequestMock.mock.calls[0][1];
+            expect(callArgs).toHaveProperty("p", "/real-path");
+            expect(callArgs).toHaveProperty("us", "a");
+            expect(callArgs).toHaveProperty("um", "b");
+            expect(callArgs).toHaveProperty("uc", "c");
+            expect(callArgs).toHaveProperty("ut", "d");
+            expect(callArgs).toHaveProperty("uco", "e");
+        });
+
+        test("should prefer opts.url UTM params over the page URL when a canonical link is present", async () => {
+            const link = document.createElement("link");
+            link.rel = "canonical";
+            link.href = "https://harshil.dev/blog/post";
+            vi.spyOn(document, "querySelector").mockReturnValue(link);
+
+            Object.defineProperty(window, "location", {
+                writable: true,
+                value: {
+                    pathname: "/real-path",
+                    search: "?utm_source=a",
+                    host: "example.com",
+                },
+            });
+
+            const client = new Client({
+                siteId: "test-site",
+                reporterUrl: "https://example.com/collect",
+                autoTrackPageviews: false,
+            });
+
+            await trackPageview(client, {
+                url: "/custom?utm_source=newsletter&utm_medium=email",
+            });
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(1);
+            let callArgs = makeRequestMock.mock.calls[0][1];
+            expect(callArgs).toHaveProperty("us", "newsletter");
+            expect(callArgs).toHaveProperty("um", "email");
+            expect(callArgs).not.toHaveProperty("uc");
+            expect(callArgs).not.toHaveProperty("ut");
+            expect(callArgs).not.toHaveProperty("uco");
+
+            makeRequestMock.mockReset();
+
+            await trackEvent(client, "Signup", {
+                url: "/custom?utm_source=newsletter&utm_medium=email",
+            });
+
+            expect(makeRequestMock).toHaveBeenCalledTimes(1);
+            callArgs = makeRequestMock.mock.calls[0][1];
+            expect(callArgs).toHaveProperty("us", "newsletter");
+            expect(callArgs).toHaveProperty("um", "email");
+            expect(callArgs).not.toHaveProperty("uc");
+            expect(callArgs).not.toHaveProperty("ut");
+            expect(callArgs).not.toHaveProperty("uco");
+        });
     });
 
     describe("engagement lifecycle integration", () => {
