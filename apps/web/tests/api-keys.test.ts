@@ -106,8 +106,8 @@ describe("/api/dashboard/api-keys", () => {
 });
 
 describe("API key authentication", () => {
-  const v2Query = (token: string) =>
-    SELF.fetch("https://worker.test/api/v2/query", {
+  const statsQuery = (token: string) =>
+    SELF.fetch("https://worker.test/api/v1/query", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
       body: "{}",
@@ -117,39 +117,48 @@ describe("API key authentication", () => {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-  test("stats scope authorizes /api/v2/query but not /api/v1", async () => {
+  test("stats scope authorizes /api/v1/query but not /api/v1/sites", async () => {
     const { key } = await createKey("stats", "stats-only");
-    expect((await v2Query(key)).status).not.toBe(401);
+    expect((await statsQuery(key)).status).not.toBe(401);
     expect((await v1Sites(key)).status).toBe(401);
   });
 
   test("sites scope authorizes both APIs", async () => {
     const { key } = await createKey("sites", "sites-key");
     expect((await v1Sites(key)).status).toBe(200);
-    expect((await v2Query(key)).status).not.toBe(401);
+    expect((await statsQuery(key)).status).not.toBe(401);
   });
 
   test("revoked and unknown nmr_ keys → 401", async () => {
     const { id, key } = await createKey("sites", "revoked-key");
     await req(`${BASE}/${id}`, "DELETE");
     expect((await v1Sites(key)).status).toBe(401);
-    expect((await v2Query(key)).status).toBe(401);
+    expect((await statsQuery(key)).status).toBe(401);
     expect((await v1Sites("nmr_doesnotexist")).status).toBe(401);
   });
 
   test("last_used_at is recorded after a successful call", async () => {
     const { id, key } = await createKey("stats", "last-used");
-    await v2Query(key);
+    await statsQuery(key);
     const row = await env.DB.prepare("SELECT last_used_at FROM api_keys WHERE id = ?")
       .bind(id)
       .first<{ last_used_at: number | null }>();
     expect(row?.last_used_at).toEqual(expect.any(Number));
   });
 
-  test("env tokens: stats-secret works on v1 and v2; sites-secret only on v1", async () => {
+  test("env tokens: stats-secret works on sites and query; sites-secret only on sites", async () => {
     expect((await v1Sites("stats-secret")).status).toBe(200);
-    expect((await v2Query("stats-secret")).status).not.toBe(401);
+    expect((await statsQuery("stats-secret")).status).not.toBe(401);
     expect((await v1Sites("sites-secret")).status).toBe(200);
-    expect((await v2Query("sites-secret")).status).toBe(401);
+    expect((await statsQuery("sites-secret")).status).toBe(401);
+  });
+
+  test("the old /api/v2/query path is gone → 404", async () => {
+    const res = await SELF.fetch("https://worker.test/api/v2/query", {
+      method: "POST",
+      headers: { Authorization: "Bearer stats-secret", "content-type": "application/json" },
+      body: "{}",
+    });
+    expect(res.status).toBe(404);
   });
 });
