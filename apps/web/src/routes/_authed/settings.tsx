@@ -418,6 +418,9 @@ function SitesSettings() {
   );
 }
 
+/** Long unbroken key names would overflow labels, dialog titles and toasts. */
+const shortName = (name: string) => (name.length > 24 ? `${name.slice(0, 23)}…` : name);
+
 function ApiKeysSection() {
   const [keys, setKeys] = useState<ApiKey[] | null>(null);
   const [forbidden, setForbidden] = useState(false);
@@ -452,8 +455,9 @@ function ApiKeysSection() {
       const created = await dashboardApi.createApiKey(name.trim(), scope);
       setReveal({ name: created.name, key: created.key });
       setName("");
+      setScope("stats");
       setNonce((n) => n + 1);
-      toast.success("API key created", created.name);
+      toast.success("API key created", shortName(created.name));
     } catch (err) {
       toast.error("Couldn't create the API key", err instanceof Error ? err.message : undefined);
     } finally {
@@ -465,7 +469,7 @@ function ApiKeysSection() {
     try {
       await dashboardApi.revokeApiKey(key.id);
       setNonce((n) => n + 1);
-      toast.success("API key revoked", key.name);
+      toast.success("API key revoked", shortName(key.name));
     } catch (err) {
       toast.error("Couldn't revoke the API key", err instanceof Error ? err.message : undefined);
       return false;
@@ -494,8 +498,12 @@ function ApiKeysSection() {
             className="mb-4"
           />
           <div className="mb-4 flex items-end gap-2">
-            <div className="grow">
-              <SensitiveInput label={`Key for ${reveal.name}`} value={reveal.key} readOnly />
+            <div className="min-w-0 grow">
+              <SensitiveInput
+                label={`Key for ${shortName(reveal.name)}`}
+                value={reveal.key}
+                readOnly
+              />
             </div>
             <Button
               variant="secondary"
@@ -530,7 +538,7 @@ function ApiKeysSection() {
                   key={key.id}
                   className="flex flex-wrap items-center gap-3 border-b border-kumo-line pb-4 last:border-0 last:pb-0"
                 >
-                  <Text>{key.name}</Text>
+                  <Text truncate>{key.name}</Text>
                   <Badge variant={key.scope === "sites" ? "primary" : "secondary"}>
                     {key.scope === "sites" ? "Sites" : "Stats"}
                   </Badge>
@@ -546,7 +554,7 @@ function ApiKeysSection() {
                     <Badge variant="neutral">Revoked</Badge>
                   ) : (
                     <ConfirmDialog
-                      title={`Revoke ${key.name}?`}
+                      title={`Revoke ${shortName(key.name)}?`}
                       description="Integrations using this key stop working immediately. This can't be undone."
                       confirmLabel="Revoke key"
                       variant="destructive"
