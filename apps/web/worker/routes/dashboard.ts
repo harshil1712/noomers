@@ -13,6 +13,7 @@ import type { R2SQLAPI, SessionDimension, SessionMetricsRow } from "../analytics
 import { SitesRepository } from "../sites/repository";
 import { GoalsRepository, type GoalType } from "../goals/repository";
 import { createDashboardSite, updateDashboardSite, deleteDashboardSite } from "./dashboard-sites";
+import { listApiKeys, createApiKey, revokeApiKey } from "./dashboard-api-keys";
 
 const PAGE_SIZE = 10;
 
@@ -312,11 +313,15 @@ export function cardBreakdown(c: Ctx, r: Request, card: string) {
  * `/api/dashboard/*` sub-router — session + admin gate first, then the
  * per-card handlers with a shared Ctx (env + analytics seam).
  */
-export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>()
+export const dashboardApi = new Hono<{
+  Bindings: Env;
+  Variables: { ctx: Ctx; userId: string };
+}>()
   .use("/api/dashboard/*", async (c, next) => {
     const session = await createAuth(c.env).api.getSession({ headers: c.req.raw.headers });
     if (!session?.user) return c.json({ error: "Unauthorized" }, 401);
     if (session.user.role !== "admin") return c.json({ error: "Forbidden" }, 403);
+    c.set("userId", session.user.id);
     c.set("ctx", {
       env: c.env,
       sessionAnalytics: sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
@@ -336,5 +341,8 @@ export const dashboardApi = new Hono<{ Bindings: Env; Variables: { ctx: Ctx } }>
   .get("/api/dashboard/goals", (c) => goals(c.get("ctx"), c.req.raw))
   .post("/api/dashboard/goals", (c) => mutateGoal(c.get("ctx"), c.req.raw))
   .get("/api/dashboard/props", (c) => props(c.get("ctx"), c.req.raw))
+  .get("/api/dashboard/api-keys", (c) => listApiKeys(c.get("ctx")))
+  .post("/api/dashboard/api-keys", (c) => createApiKey(c.get("ctx"), c.req.raw, c.get("userId")))
+  .delete("/api/dashboard/api-keys/:id", (c) => revokeApiKey(c.get("ctx"), c.req.param("id")))
   // Single dynamic card route — after the explicit routes above.
   .get("/api/dashboard/:card", (c) => cardBreakdown(c.get("ctx"), c.req.raw, c.req.param("card")));

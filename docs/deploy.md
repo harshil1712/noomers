@@ -73,13 +73,15 @@ token (`R2_SQL_TOKEN`) and the Data Catalog sink token, and derives
 `CF_ACCOUNT_ID` and `R2_SQL_BUCKET` from the provisioned account and bucket —
 none of these are secrets you set.
 
-Set `SITES_API_TOKEN` and `STATS_API_TOKEN` to long random values (e.g.
+`SITES_API_TOKEN` and `STATS_API_TOKEN` are optional — API keys are managed in
+the dashboard at Settings → API keys, and these env tokens only remain as
+fallback credentials. If you set them, use long random values (e.g.
 `openssl rand -hex 32`).
 
 | Name                     | Kind                                        | Purpose                                                                   |
 | ------------------------ | ------------------------------------------- | ------------------------------------------------------------------------- |
-| `SITES_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v1/*` (Plausible Sites API)                              |
-| `STATS_API_TOKEN`        | `production` environment secret             | Bearer for `/api/v2/query` (and /api/v1 fallback)                         |
+| `SITES_API_TOKEN`        | `production` environment secret, optional   | Fallback bearer for `/api/v1/*` (Plausible Sites API)                     |
+| `STATS_API_TOKEN`        | `production` environment secret, optional   | Fallback bearer for `/api/v1/*` (query and sites)                         |
 | `SERVER_EVENTS_TOKEN`    | `production` environment secret             | Optional first-party server tracker token                                 |
 | `R2_SQL_IMPORT_TABLE`    | `production` environment variable, optional | Imported-history table UNIONed into queries (`scripts/plausible-import/`) |
 | `CF_TRACKER_SCRIPT_NAME` | `production` environment variable, optional | Custom tracker script path                                                |

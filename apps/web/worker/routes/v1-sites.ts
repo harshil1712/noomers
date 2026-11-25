@@ -40,7 +40,7 @@ async function requireSite(database: D1Database, siteId: string) {
 // ---------------------------------------------------------------------------
 
 export async function listSites(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   try {
     const url = new URL(c.req.url);
@@ -64,7 +64,7 @@ export async function listSites(c: C) {
 }
 
 export async function createSite(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   try {
     const input = (await c.req.raw.json()) as {
@@ -86,14 +86,14 @@ export async function createSite(c: C) {
 }
 
 export async function getSite(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   const site = await new SitesRepository(c.env.DB).get(c.req.param("site_id") || "");
   return site ? Response.json(siteResponse(site)) : notFound();
 }
 
 export async function mutateSite(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   const request = c.req.raw;
   const repository = new SitesRepository(c.env.DB);
@@ -149,7 +149,7 @@ function goalResponse(goal: Goal) {
 }
 
 export async function listGoals(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   const url = new URL(c.req.url);
   const siteId = url.searchParams.get("site_id") || "";
@@ -184,7 +184,7 @@ export async function listGoals(c: C) {
 }
 
 export async function createGoal(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   try {
     const input = (await c.req.raw.json()) as {
@@ -238,7 +238,7 @@ export async function createGoal(c: C) {
 }
 
 export async function deleteGoal(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   try {
     const input = (await c.req.raw.json()) as { site_id?: string };
@@ -269,7 +269,7 @@ async function siteFromInput(database: D1Database, siteId: string | File | null)
 }
 
 export async function listCustomProps(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
 
   const site = await siteFromInput(c.env.DB, new URL(c.req.url).searchParams.get("site_id"));
@@ -282,7 +282,7 @@ export async function listCustomProps(c: C) {
 }
 
 export async function createCustomProp(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
 
   try {
@@ -299,7 +299,7 @@ export async function createCustomProp(c: C) {
 }
 
 export async function deleteCustomProp(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
 
   try {
@@ -321,7 +321,7 @@ export async function deleteCustomProp(c: C) {
 // ---------------------------------------------------------------------------
 
 export async function listTeams(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
 
   return Response.json({
@@ -332,7 +332,7 @@ export async function listTeams(c: C) {
 
 /** guests / shared-links: authenticated 501 (or 405 for other methods). */
 export async function deferredResource(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   const method = c.req.method;
   if (method === "GET" || method === "PUT" || method === "DELETE") {
@@ -343,7 +343,7 @@ export async function deferredResource(c: C) {
 
 /** guests/:email — action-only resource: 501 on DELETE, 405 otherwise. */
 export async function deferredGuest(c: C) {
-  const unauthorized = await requireAPIKey(c.req.raw, c.env);
+  const unauthorized = await requireAPIKey(c.req.raw, c.env, "sites");
   if (unauthorized) return unauthorized;
   if (c.req.method === "DELETE") {
     return notImplemented();
