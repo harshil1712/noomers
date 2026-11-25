@@ -959,6 +959,150 @@ describe("visit dimensions", () => {
     const body = await res.json();
     expect(body.query.order_by).toEqual([["visit:os", "asc"]]);
   });
+
+  test("attributes visitors to sessions for time:day session queries", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          dimension: "2026-11-15",
+          visitors: 4,
+          visits: 4,
+          views: 5,
+          events: 6,
+          bounces: 1,
+          averageVisitDuration: 30,
+        },
+        {
+          dimension: "2026-11-16",
+          visitors: 2,
+          visits: 3,
+          views: 3,
+          events: 3,
+          bounces: 0,
+          averageVisitDuration: 45,
+        },
+      ],
+    });
+    const response = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["visitors", "visits"],
+        date_range: ["2026-11-15", "2026-11-16"],
+        dimensions: ["time:day"],
+      }),
+      context: context(
+        { sessionAnalytics: { getSessionBreakdown } },
+        { domain: "example.com", timezone: "Etc/GMT-1" },
+      ),
+    } as never);
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { results: { metrics: number[] }[] };
+    expect(body.results.map((row) => row.metrics)).toEqual([
+      [4, 4],
+      [2, 3],
+    ]);
+    const buckets = getSessionBreakdown.mock.calls[0][5] as { start: Date }[];
+    expect(buckets[0].start.toISOString()).toBe("2026-11-14T23:00:00.000Z");
+    expect(getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "time:day",
+      expect.any(Array),
+      expect.objectContaining({ sessionVisitors: true }),
+    );
+  });
+
+  test("keeps event-attributed visitors when pageviews is also requested", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
+    const response = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["visitors", "visits", "pageviews"],
+        date_range: ["2026-11-15", "2026-11-16"],
+        dimensions: ["time:day"],
+      }),
+      context: context(
+        { sessionAnalytics: { getSessionBreakdown } },
+        { domain: "example.com", timezone: "Etc/GMT-1" },
+      ),
+    } as never);
+
+    expect(response.status).toBe(200);
+    expect(getSessionBreakdown).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      "time:day",
+      expect.any(Array),
+      expect.objectContaining({ sessionVisitors: false }),
+    );
+  });
+
+  test("attributes visitors to sessions for aggregate session queries", async () => {
+    const getSessionMetrics = vi.fn().mockResolvedValue({
+      visitors: 3,
+      visits: 5,
+      views: 7,
+      events: 9,
+      bounces: 2,
+      averageVisitDuration: 20,
+    });
+    const response = await action({
+      request: request({
+        site_id: "example.com",
+        metrics: ["visitors", "visits"],
+        date_range: ["2026-11-15", "2026-11-16"],
+      }),
+      context: context(
+        { sessionAnalytics: { getSessionMetrics } },
+        { domain: "example.com", timezone: "Etc/GMT-1" },
+      ),
+    } as never);
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { results: { metrics: number[] }[] };
+    expect(body.results[0].metrics).toEqual([3, 5]);
+    expect(getSessionMetrics).toHaveBeenCalledWith(
+      "example.com",
+      expect.any(Date),
+      expect.any(Date),
+      [],
+      { sessionVisitors: true },
+    );
+  });
+
+  test("keeps event-attributed visitors for event and visit dimensions", async () => {
+    const getSessionBreakdown = vi.fn().mockResolvedValue({ rows: [] });
+    for (const dimension of ["event:page", "visit:source"]) {
+      const response = await action({
+        request: request({
+          site_id: "example.com",
+          metrics: ["visitors", "visits"],
+          date_range: ["2026-11-15", "2026-11-16"],
+          dimensions: [dimension],
+        }),
+        context: context(
+          { sessionAnalytics: { getSessionBreakdown } },
+          { domain: "example.com", timezone: "Etc/GMT-1" },
+        ),
+      } as never);
+
+      expect(response.status).toBe(200);
+      expect(getSessionBreakdown).toHaveBeenLastCalledWith(
+        "example.com",
+        expect.any(Date),
+        expect.any(Date),
+        [],
+        dimension,
+        undefined,
+        expect.objectContaining({ sessionVisitors: false }),
+      );
+    }
+  });
 });
 
 describe("event:goal", () => {
