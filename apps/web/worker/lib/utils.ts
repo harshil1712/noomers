@@ -65,14 +65,11 @@ export function getFiltersFromSearchParams(searchParams: URLSearchParams) {
   return filters;
 }
 
+const MAX_BROWSER_VERSION_SEGMENT_LENGTH = 16;
+
 export function maskBrowserVersion(version?: string) {
   if (!version) return version;
-
-  const majorEnd = version.indexOf(".");
-
-  if (majorEnd != -1) {
-    version = version.substring(0, majorEnd) + version.slice(majorEnd).replaceAll(/\.[^.]+/g, ".x");
-  }
-
-  return version;
+  const [major, minor] = version.split(".", 2);
+  const bound = (segment: string) => segment.slice(0, MAX_BROWSER_VERSION_SEGMENT_LENGTH);
+  return `${bound(major)}.${bound(minor || "0")}`;
 }
