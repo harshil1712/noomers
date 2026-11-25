@@ -857,64 +857,51 @@ function BreakdownTable({
     const controller = new AbortController();
     setError(false);
     setData(null);
-    const finish = (fn: () => void) => {
-      if (!controller.signal.aborted) fn();
-    };
-    if (isGoals) {
-      dashboardApi
-        .goals(query, controller.signal)
-        .then((r) =>
-          finish(() => {
-            setData({
-              countsByProperty: r.goals.map((g) => [
-                g.name,
-                g.conversions,
-                Math.round(g.conversionRate),
+    const load = async () => {
+      try {
+        if (isGoals) {
+          const { goals } = await dashboardApi.goals(query, controller.signal);
+          if (controller.signal.aborted) return;
+          setData({
+            countsByProperty: goals.map((goal) => [
+              goal.name,
+              goal.conversions,
+              Math.round(goal.conversionRate),
+            ]),
+            page: 1,
+            hasNextPage: false,
+          });
+          setGoalRevenue(
+            Object.fromEntries(
+              goals.map((goal) => [
+                goal.name,
+                goal.currency
+                  ? new Intl.NumberFormat("en", {
+                      style: "currency",
+                      currency: goal.currency,
+                    }).format(goal.totalRevenue ?? 0)
+                  : "-",
               ]),
-              page: 1,
-              hasNextPage: false,
-            });
-            setGoalRevenue(
-              Object.fromEntries(
-                r.goals.map((g) => [
-                  g.name,
-                  g.currency
-                    ? new Intl.NumberFormat("en", {
-                        style: "currency",
-                        currency: g.currency,
-                      }).format(g.totalRevenue ?? 0)
-                    : "-",
-                ]),
-              ),
-            );
-            onError?.(errKey, false);
-          }),
-        )
-        .catch(() =>
-          finish(() => {
-            setError(true);
-            onError?.(errKey, true);
-          }),
-        );
-    } else {
-      dashboardApi
-        .breakdown(realCard, { ...query, page }, controller.signal)
-        .then((d) =>
-          finish(() => {
-            setData(d);
-            onError?.(errKey, false);
-          }),
-        )
-        .catch(() =>
-          finish(() => {
-            setError(true);
-            onError?.(errKey, true);
-          }),
-        );
-    }
-    return () => {
-      controller.abort();
+            ),
+          );
+        } else {
+          const report = await dashboardApi.breakdown(
+            realCard,
+            { ...query, page },
+            controller.signal,
+          );
+          if (controller.signal.aborted) return;
+          setData(report);
+        }
+        onError?.(errKey, false);
+      } catch {
+        if (controller.signal.aborted) return;
+        setError(true);
+        onError?.(errKey, true);
+      }
     };
+    void load();
+    return () => controller.abort();
   }, [realCard, isGoals, query.site, query.interval, query.filters, page, query.nonce, attempt]);
 
   const dimSelect = isCampaigns ? (
