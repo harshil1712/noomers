@@ -11,7 +11,7 @@ import { handleRealtimeRoute } from "./routes/realtime";
 import { handleTrackerScript } from "./routes/scripts";
 import { handleFavicon } from "./routes/favicon";
 import { sitesApi } from "./routes/v1-sites";
-import { handleStatsQuery, v2MethodNotAllowed } from "./routes/v2-query";
+import { handleStatsQuery, queryMethodNotAllowed } from "./routes/stats-query";
 import { sessionAnalyticsFactory } from "./lib/context";
 import * as dashboard from "./routes/dashboard";
 import { SiteEvents } from "./site-events";
@@ -30,7 +30,7 @@ app.use("*", async (c, next) => {
   if (id) c.header("X-Request-Id", id);
 });
 // Security headers + SPA CSP apply only to the auth/app surface. Analytics
-// endpoints (/collect, /api/v1, /api/v2, tracker scripts, cache, favicon,
+// endpoints (/collect, /api/v1, tracker scripts, cache, favicon,
 // realtime) own their headers — tracker scripts must stay loadable
 // cross-origin and collect carries its own CORS contract.
 const SECURED_PREFIXES = ["/api/auth/", "/api/public-config"];
@@ -72,18 +72,18 @@ app.get("/realtime/:siteId", handleRealtimeRoute);
 // same for non-GET requests.
 app.all("/collect", handleCollect);
 
-// --- Plausible Sites API (v1) ----------------------------------------------
-app.route("/", sitesApi);
-
-// --- Stats API (v2) ----------------------------------------------------------
-app.post("/api/v2/query", (c) =>
+// --- Stats API (single /api/v1 prefix) ---------------------------------------
+app.post("/api/v1/query", (c) =>
   handleStatsQuery(
     c.req.raw,
     c.env,
     sessionAnalyticsFactory(c.env, (p) => c.executionCtx.waitUntil(p)),
   ),
 );
-app.all("/api/v2/query", v2MethodNotAllowed);
+app.all("/api/v1/query", queryMethodNotAllowed);
+
+// --- Plausible Sites API (v1) ----------------------------------------------
+app.route("/", sitesApi);
 
 // --- Tracker scripts --------------------------------------------------------
 app.get("/:script{[^/]+\\.js$}", (c) =>

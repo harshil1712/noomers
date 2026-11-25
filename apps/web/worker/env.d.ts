@@ -37,7 +37,7 @@ interface Env {
   VISITOR_SALT: string;
   /** Bearer token for the Plausible Sites API (/api/v1/*). */
   SITES_API_TOKEN?: string;
-  /** Bearer token for the Stats API (/api/v2/query); fallback for /api/v1. */
+  /** Bearer token for the Stats API (/api/v1/query); fallback for /api/v1/*. */
   STATS_API_TOKEN?: string;
   /** First-party server tracker token (SERVER-EVENTS header auth). */
   SERVER_EVENTS_TOKEN?: string;

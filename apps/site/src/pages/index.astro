@@ -174,7 +174,7 @@ cp .env.example .env  # fill in the values
       </div>
       <div role="tabpanel" id="p-query" aria-labelledby="t-query" hidden>
         <p class="cap">A subset of Plausible's Stats API. <a href={`${REPO}/blob/main/docs/plausible-feature-parity.md`}>Parity doc</a>.</p>
-        <pre><code id="code-query">curl https://analytics.example.com/api/v2/query \
+        <pre><code id="code-query">curl https://analytics.example.com/api/v1/query \
   -H "Authorization: Bearer $STATS_API_TOKEN" \
   -d '&#123;"site_id":"example.com","metrics":["visitors","pageviews"],"date_range":"7d"&#125;'</code></pre>
       </div>
