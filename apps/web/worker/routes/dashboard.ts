@@ -40,7 +40,12 @@ async function siteTimezone(env: Env, site: string): Promise<string> {
 function dateRange(interval: string, tz: string): { startDate: Date; endDate: Date } | null {
   try {
     const { start, end } = parseDateRange(interval, tz);
-    return { startDate: start, endDate: end };
+    // Stable bounds let repeat dashboard queries reuse the Basin result cache.
+    const cutoff = new Date(end);
+    cutoff.setUTCSeconds(0, 0);
+    if (interval === "24h") start.setUTCSeconds(0, 0);
+    // During the first minute of a calendar period, keep the range nonempty.
+    return { startDate: start, endDate: cutoff > start ? cutoff : end };
   } catch (e) {
     if (e instanceof StatsAPIError) return null;
     throw e;
