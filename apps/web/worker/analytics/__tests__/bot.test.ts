@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { shouldDropBot } from "../bot";
+import { isDatacenterAsn, shouldDropBot } from "../bot";
 
 const browserUserAgent =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
@@ -44,4 +44,20 @@ describe("shouldDropBot", () => {
   test("is case-sensitive about the server tracker prefix", () => {
     expect(shouldDropBot(requestWithUserAgent("Noomers-Tracker-Server/1.0"))).toBe(true);
   });
+});
+
+describe("isDatacenterAsn", () => {
+  test.each([[16509], ["16509"], [14061], ["14061"], [396982]])(
+    "flags a datacenter ASN (%s)",
+    (asn) => {
+      expect(isDatacenterAsn(asn)).toBe(true);
+    },
+  );
+
+  test.each([[7922], ["7922"], [undefined], ["not-an-asn"]])(
+    "does not flag a residential or missing ASN (%s)",
+    (asn) => {
+      expect(isDatacenterAsn(asn)).toBe(false);
+    },
+  );
 });

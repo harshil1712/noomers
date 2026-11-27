@@ -5,7 +5,7 @@ import UAParserDefault, { IDevice } from "ua-parser-js";
 // export directly.
 const UAParser =
   (UAParserDefault as unknown as { UAParser?: typeof UAParserDefault }).UAParser ?? UAParserDefault;
-import { shouldDropBot } from "./bot";
+import { isDatacenterAsn, shouldDropBot } from "./bot";
 import { shouldDropForeignHost } from "./hostname";
 import { hasServerEventsToken } from "./server-token";
 import { maskBrowserVersion } from "../lib/utils";
@@ -701,6 +701,10 @@ export async function collectRequestHandler(
   if (statusResponse) return statusResponse;
 
   if (shouldDropBot(request)) {
+    return trackingPixelResponse({ dropped: true });
+  }
+
+  if (!trusted && isDatacenterAsn(extra.asn)) {
     return trackingPixelResponse({ dropped: true });
   }
 

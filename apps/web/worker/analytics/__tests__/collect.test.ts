@@ -800,6 +800,45 @@ describe("collectRequestHandler", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  test("drops browser traffic from a datacenter ASN without recording it", async () => {
+    const env = {
+      SITE_EVENTS: siteEventsNamespace,
+      VISITOR_SALT: "test-salt",
+    };
+    const request = new Request("https://example.com/collect?sid=example.com&h=example.com&p=/", {
+      headers: {
+        "cf-connecting-ip": "203.0.113.10",
+        "user-agent": defaultBrowserUserAgent,
+      },
+    });
+
+    const response = await collectRequestHandler(request, env as Env, { asn: "16509" });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-noomers-dropped")).toBe("1");
+    expect(siteEventsStub.record).not.toHaveBeenCalled();
+  });
+
+  test("records trusted server-tracker traffic from a datacenter ASN", async () => {
+    const env = {
+      SITE_EVENTS: siteEventsNamespace,
+      VISITOR_SALT: "test-salt",
+      SERVER_EVENTS_TOKEN: "s3cr3t",
+    };
+    const request = new Request("https://example.com/collect?sid=example.com&h=example.com&p=/", {
+      headers: {
+        "user-agent": "noomers-tracker-server/3.4.1",
+        authorization: "Bearer s3cr3t",
+      },
+    });
+
+    const response = await collectRequestHandler(request, env as Env, { asn: "16509" });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-noomers-dropped")).toBeNull();
+    expect(siteEventsStub.record).toHaveBeenCalled();
+  });
+
   test("records first-party server tracker traffic even though isbot flags its UA", async () => {
     const env = {
       SITE_EVENTS: siteEventsNamespace,
